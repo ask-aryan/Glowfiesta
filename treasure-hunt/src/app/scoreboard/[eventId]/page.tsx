@@ -7,7 +7,10 @@ interface TeamScore {
   leaderName: string | null
   members: string | null
   score: number
-  rank: number
+  initialOrder?: number
+  rank?: number | null
+  isTied?: boolean
+  isLeader?: boolean
 }
 
 interface EventInfo {
@@ -27,6 +30,7 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
   const eventId = params.eventId
   const [event, setEvent] = useState<EventInfo | null>(null)
   const [teams, setTeams] = useState<TeamScore[]>([])
+  const [allZero, setAllZero] = useState(true)
   const [loading, setLoading] = useState(true)
   const [reactions, setReactions] = useState<Record<number, { type: 'HAPPY' | 'CRYING'; delta: number; key: number }>>({})
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -40,6 +44,9 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
         setEvent(data.event)
 
         const incomingTeams: TeamScore[] = data.teams || []
+        const isAllZero = Boolean(data.allZero ?? (incomingTeams.length === 0 || incomingTeams.every(t => t.score === 0)))
+        setAllZero(isAllZero)
+
         const newReactions: Record<number, { type: 'HAPPY' | 'CRYING'; delta: number; key: number }> = {}
 
         incomingTeams.forEach(t => {
@@ -57,7 +64,6 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
 
         if (Object.keys(newReactions).length > 0) {
           setReactions(prev => ({ ...prev, ...newReactions }))
-          // Clear reaction after 4.5 seconds
           setTimeout(() => {
             setReactions(current => {
               const cleaned = { ...current }
@@ -91,7 +97,6 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
   }
 
   const top3 = teams.slice(0, 3)
-  const rest = teams.slice(3)
 
   return (
     <div
@@ -244,8 +249,29 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
         </div>
       ) : (
         <>
-          {/* ── Top 3 Podium (Shown when teams >= 3) ────────────────── */}
-          {teams.length >= 3 && (
+          {/* Starting Banner when everyone is at zero */}
+          {allZero && (
+            <div
+              style={{
+                maxWidth: 820,
+                margin: '0 auto 36px',
+                textAlign: 'center',
+                padding: '16px 24px',
+                borderRadius: 16,
+                background: 'rgba(255,200,87,0.12)',
+                border: '1.5px solid rgba(255,200,87,0.4)',
+                color: '#fff0b3',
+                fontSize: 16,
+                fontWeight: 600,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+              }}
+            >
+              🏁 <strong>All teams are at the starting line (0 pts).</strong> Leaderboard ranks will begin once the first points are awarded!
+            </div>
+          )}
+
+          {/* ── Top 3 Podium (Only shown when scores exist and teams >= 3) ── */}
+          {!allZero && teams.length >= 3 && (
             <section style={{ marginBottom: 44, position: 'relative', zIndex: 5 }}>
               <div
                 style={{
@@ -258,14 +284,32 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
                   padding: '20px 0 10px',
                 }}
               >
-                {/* Rank 2 (Silver) */}
-                <PodiumCard team={top3[1]} place={2} reaction={reactions[top3[1]?.id]} color="#38bdf8" />
+                {/* Rank 2 (Silver) or Tied 1st */}
+                <PodiumCard
+                  team={top3[1]}
+                  place={top3[1]?.rank ?? 2}
+                  reaction={reactions[top3[1]?.id]}
+                  color={top3[1]?.rank === 1 ? '#FFC857' : '#38bdf8'}
+                  isLeader={top3[1]?.rank === 1}
+                />
 
                 {/* Rank 1 (Gold) */}
-                <PodiumCard team={top3[0]} place={1} reaction={reactions[top3[0]?.id]} color="#FFC857" isLeader />
+                <PodiumCard
+                  team={top3[0]}
+                  place={top3[0]?.rank ?? 1}
+                  reaction={reactions[top3[0]?.id]}
+                  color="#FFC857"
+                  isLeader
+                />
 
                 {/* Rank 3 (Bronze) */}
-                <PodiumCard team={top3[2]} place={3} reaction={reactions[top3[2]?.id]} color="#fb923c" />
+                <PodiumCard
+                  team={top3[2]}
+                  place={top3[2]?.rank ?? 3}
+                  reaction={reactions[top3[2]?.id]}
+                  color={top3[2]?.rank === 1 ? '#FFC857' : top3[2]?.rank === 2 ? '#38bdf8' : '#fb923c'}
+                  isLeader={top3[2]?.rank === 1}
+                />
               </div>
             </section>
           )}
@@ -274,7 +318,7 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
           <section style={{ maxWidth: 1040, margin: '0 auto', position: 'relative', zIndex: 5 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.12em', color: '#ffd9b8', textTransform: 'uppercase' }}>
-                All Teams · Live Standings
+                All Teams · {allZero ? 'Team Lineup' : 'Live Standings'}
               </div>
               <div style={{ fontSize: 13, color: '#a78bfa' }}>
                 Auto-updating every second ⚡
@@ -285,15 +329,13 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
               {teams.map((team, idx) => {
                 const reaction = reactions[team.id]
                 const color = COLORS[idx % COLORS.length]
-                const isLeader = idx === 0 && team.score > 0
 
                 return (
                   <LeaderboardRow
                     key={team.id}
                     team={team}
-                    rank={idx + 1}
+                    allZero={allZero}
                     color={color}
-                    isLeader={isLeader}
                     reaction={reaction}
                   />
                 )
@@ -364,7 +406,7 @@ function PodiumCard({
         </div>
       )}
 
-      {/* Dynamic Animated Avatar (Happy 😄 vs Crying 😭) */}
+      {/* Dynamic Animated Avatar */}
       <div
         style={{
           width: isLeader ? 92 : 76,
@@ -396,7 +438,7 @@ function PodiumCard({
             borderRadius: 999,
           }}
         >
-          #{place}
+          #{place} {team.isTied && '(Tied)'}
         </span>
       </div>
 
@@ -452,28 +494,42 @@ function PodiumCard({
 // ── Leaderboard Row Component ──────────────────────────────────────────────
 function LeaderboardRow({
   team,
-  rank,
+  allZero,
   color,
-  isLeader,
   reaction,
 }: {
   team: TeamScore
-  rank: number
+  allZero: boolean
   color: string
-  isLeader: boolean
   reaction?: { type: 'HAPPY' | 'CRYING'; delta: number; key: number }
 }) {
   const isHappy = reaction?.type === 'HAPPY'
   const isCrying = reaction?.type === 'CRYING'
 
-  // Emotion icon based on state
-  const emotionEmoji = isHappy ? '🥳' : isCrying ? '😭' : rank === 1 ? '🤩' : rank === 2 ? '😊' : rank === 3 ? '😄' : '🙂'
+  // Treat tied leaders equally; when allZero is true, no team is crowned leader
+  const isLeader = !allZero && Boolean(team.isLeader)
+  const isTied = Boolean(team.isTied)
+  const rank = team.rank
+
+  const emotionEmoji = isHappy
+    ? '🥳'
+    : isCrying
+    ? '😭'
+    : allZero
+    ? '🙂'
+    : rank === 1
+    ? '🤩'
+    : rank === 2
+    ? '😊'
+    : rank === 3
+    ? '😄'
+    : '🙂'
 
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '60px 70px minmax(0, 1fr) 200px',
+        gridTemplateColumns: '70px 70px minmax(0, 1fr) 200px',
         alignItems: 'center',
         gap: 16,
         padding: '16px 24px',
@@ -504,17 +560,25 @@ function LeaderboardRow({
         transform: isHappy ? 'scale(1.015)' : 'none',
       }}
     >
-      {/* Rank */}
+      {/* Rank or Team Number */}
       <div style={{ textAlign: 'center' }}>
         <div
           style={{
-            fontSize: rank <= 3 ? 24 : 18,
+            fontSize: !allZero && rank && rank <= 3 ? 24 : 17,
             fontWeight: 900,
             fontFamily: "'JetBrains Mono', monospace",
-            color: rank === 1 ? '#FFC857' : rank === 2 ? '#38bdf8' : rank === 3 ? '#fb923c' : '#94a3b8',
+            color: allZero
+              ? '#94a3b8'
+              : rank === 1
+              ? '#FFC857'
+              : rank === 2
+              ? '#38bdf8'
+              : rank === 3
+              ? '#fb923c'
+              : '#94a3b8',
           }}
         >
-          #{rank}
+          {allZero ? `T-${team.initialOrder || '•'}` : `#${rank}`}
         </div>
       </div>
 
@@ -539,7 +603,7 @@ function LeaderboardRow({
 
       {/* Team Info */}
       <div style={{ minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 800, fontSize: 22, color: '#fff' }}>
             {team.teamName}
           </span>
@@ -556,7 +620,21 @@ function LeaderboardRow({
                 boxShadow: '0 2px 8px rgba(255,107,53,0.5)',
               }}
             >
-              👑 TOP LEADER
+              👑 {isTied ? 'TIED LEADER' : 'TOP LEADER'}
+            </span>
+          )}
+          {!allZero && isTied && !isLeader && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.1)',
+                color: '#ffd9b8',
+              }}
+            >
+              Tied #{rank}
             </span>
           )}
         </div>

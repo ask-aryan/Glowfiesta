@@ -8,7 +8,10 @@ interface TeamScore {
   leaderName: string | null
   members: string | null
   score: number
-  rank?: number
+  initialOrder?: number
+  rank?: number | null
+  isTied?: boolean
+  isLeader?: boolean
 }
 
 interface EventInfo {
@@ -24,11 +27,49 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
   const eventId = params.eventId
   const [event, setEvent] = useState<EventInfo | null>(null)
   const [teams, setTeams] = useState<TeamScore[]>([])
+  const [allZero, setAllZero] = useState(true)
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
   const [lastDelta, setLastDelta] = useState<{ teamId: number; delta: number; key: number } | null>(null)
   const [customScoreInput, setCustomScoreInput] = useState<Record<number, string>>({})
   const [showManual, setShowManual] = useState<Record<number, boolean>>({})
+
+  // Re-compute ranks dynamically in fixed order so tied teams are treated equally
+  function computeRanksForTeams(currentTeams: TeamScore[]) {
+    const isAllZero = currentTeams.length === 0 || currentTeams.every(t => t.score === 0)
+    if (isAllZero) {
+      return {
+        isAllZero: true,
+        ranked: currentTeams.map((t, i) => ({
+          ...t,
+          initialOrder: t.initialOrder || i + 1,
+          rank: null,
+          isTied: false,
+          isLeader: false,
+        })),
+      }
+    }
+
+    const uniqueScores = Array.from(new Set(currentTeams.map(t => t.score))).sort((a, b) => b - a)
+    const counts = new Map<number, number>()
+    currentTeams.forEach(t => counts.set(t.score, (counts.get(t.score) || 0) + 1))
+
+    return {
+      isAllZero: false,
+      ranked: currentTeams.map((t, i) => {
+        const rank = uniqueScores.indexOf(t.score) + 1
+        const isTied = (counts.get(t.score) || 1) > 1
+        const isLeader = rank === 1 && t.score > 0
+        return {
+          ...t,
+          initialOrder: t.initialOrder || i + 1,
+          rank,
+          isTied,
+          isLeader,
+        }
+      }),
+    }
+  }
 
   const fetchScoreboard = useCallback(async () => {
     try {
@@ -36,7 +77,10 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
       if (res.ok) {
         const data = await res.json()
         setEvent(data.event)
-        setTeams(data.teams)
+        const baseTeams: TeamScore[] = data.teamsInOrder || data.teams || []
+        const { isAllZero, ranked } = computeRanksForTeams(baseTeams)
+        setAllZero(isAllZero)
+        setTeams(ranked)
       }
     } finally {
       setLoading(false)
@@ -50,12 +94,13 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
   }, [fetchScoreboard])
 
   async function handleScoreChange(teamId: number, delta: number) {
-    // Optimistic UI update
-    setTeams(prev =>
-      prev
-        .map(t => (t.id === teamId ? { ...t, score: t.score + delta } : t))
-        .sort((a, b) => b.score - a.score)
-    )
+    // Optimistic UI update: DO NOT change order, update in-place!
+    setTeams(prev => {
+      const updated = prev.map(t => (t.id === teamId ? { ...t, score: t.score + delta } : t))
+      const { isAllZero, ranked } = computeRanksForTeams(updated)
+      setAllZero(isAllZero)
+      return ranked
+    })
     setLastDelta({ teamId, delta, key: Date.now() })
     setUpdatingId(teamId)
 
@@ -66,7 +111,6 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
         body: JSON.stringify({ delta }),
       })
       if (!res.ok) {
-        // Rollback
         await fetchScoreboard()
       }
     } catch {
@@ -82,7 +126,15 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
     const scoreVal = parseInt(raw, 10)
     if (isNaN(scoreVal)) return
 
+    // Update in-place without changing order
+    setTeams(prev => {
+      const updated = prev.map(t => (t.id === teamId ? { ...t, score: scoreVal } : t))
+      const { isAllZero, ranked } = computeRanksForTeams(updated)
+      setAllZero(isAllZero)
+      return ranked
+    })
     setUpdatingId(teamId)
+
     try {
       const res = await fetch(`/api/organizer/events/${eventId}/teams/${teamId}/score`, {
         method: 'POST',
@@ -92,8 +144,11 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
       if (res.ok) {
         setShowManual(prev => ({ ...prev, [teamId]: false }))
         setCustomScoreInput(prev => ({ ...prev, [teamId]: '' }))
+      } else {
         await fetchScoreboard()
       }
+    } catch {
+      await fetchScoreboard()
     } finally {
       setUpdatingId(null)
     }
@@ -131,7 +186,7 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
             </span>
           </div>
           <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
-            Click +10, +5, -5, or -10 buttons to score teams in real time. The live projector screen updates automatically!
+            Teams remain in fixed order for easy tracking. Click +10, +5, -5, or -10 to award points.
           </div>
         </div>
 
@@ -184,29 +239,32 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
           </Link>
         </div>
       ) : (
-        /* Team Score Cards Grid */
+        /* Team Score Cards Grid: FIXED ORDER (Never shifts) */
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 18 }}>
           {teams.map((team, idx) => {
             const color = COLORS[idx % COLORS.length]
-            const isTop = idx === 0 && team.score > 0
             const initials = team.teamName.trim().slice(0, 2).toUpperCase()
             const deltaInfo = lastDelta?.teamId === team.id ? lastDelta : null
+
+            // Treat tied leaders equally; if allZero, no one is leader or ranked
+            const isLeader = !allZero && Boolean(team.isLeader)
+            const isTied = Boolean(team.isTied)
 
             return (
               <div
                 key={team.id}
                 style={{
-                  background: isTop ? 'linear-gradient(180deg, #fffdf7 0%, #fffbf0 100%)' : '#ffffff',
-                  border: isTop ? '2px solid #f59e0b' : '1.5px solid #e2e8f0',
+                  background: isLeader ? 'linear-gradient(180deg, #fffdf7 0%, #fffbf0 100%)' : '#ffffff',
+                  border: isLeader ? '2px solid #f59e0b' : '1.5px solid #e2e8f0',
                   borderRadius: 18,
                   padding: '20px 22px',
-                  boxShadow: isTop ? '0 8px 24px rgba(245,158,11,0.18)' : '0 2px 8px rgba(0,0,0,0.04)',
+                  boxShadow: isLeader ? '0 8px 24px rgba(245,158,11,0.18)' : '0 2px 8px rgba(0,0,0,0.04)',
                   position: 'relative',
                   overflow: 'hidden',
-                  transition: 'all .2s ease',
+                  transition: 'border-color .2s ease, box-shadow .2s ease',
                 }}
               >
-                {/* Floating Rank Ribbon */}
+                {/* Team Info Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span
@@ -228,7 +286,7 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
                     <div>
                       <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>{team.teamName}</span>
-                        {isTop && <span style={{ fontSize: 16 }}>👑</span>}
+                        {isLeader && <span style={{ fontSize: 16 }} title={isTied ? 'Tied for 1st Place' : '1st Place'}>👑</span>}
                       </div>
                       {team.leaderName && (
                         <div style={{ fontSize: 12, color: '#64748b', marginTop: 1 }}>
@@ -238,18 +296,25 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
                     </div>
                   </div>
 
+                  {/* Rank / Team Number Badge */}
                   <span
                     style={{
                       padding: '4px 10px',
                       borderRadius: 999,
                       fontSize: 12,
                       fontWeight: 800,
-                      background: isTop ? '#fef3c7' : '#f1f5f9',
-                      color: isTop ? '#b45309' : '#64748b',
-                      border: isTop ? '1px solid #fde68a' : 'none',
+                      background: isLeader ? '#fef3c7' : '#f1f5f9',
+                      color: isLeader ? '#b45309' : '#64748b',
+                      border: isLeader ? '1px solid #fde68a' : 'none',
                     }}
                   >
-                    #{idx + 1} {isTop && 'LEADER'}
+                    {allZero
+                      ? `Team #${team.initialOrder || idx + 1}`
+                      : isLeader
+                      ? (isTied ? '👑 #1 TIED LEADER' : '👑 #1 LEADER')
+                      : isTied
+                      ? `Rank #${team.rank} (Tied)`
+                      : `Rank #${team.rank}`}
                   </span>
                 </div>
 
