@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GlowFiesta 2025 — Quiz 2.0 Night Plan</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --gold:        #c8860a;
+      --gold-light:  #f5c842;
+      --orange:      #e06010;
+      --orange-soft: #f07830;
+      --maroon:      #9b2020;
+      --bg:          #fffaf3;
+      --surface:     #ffffff;
+      --surface2:    #fff4e0;
+      --border:      #f0d9a8;
+      --text:        #2d1a00;
+      --text-muted:  #7a5a30;
+      --text-light:  #b08040;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #f5ede0;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    @page {
+      size: A4;
+      margin: 0.6cm 0.8cm;
+    }
+
+    @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body { background: #fff !important; margin: 0; font-size: 11px !important; }
+      .page {
+        box-shadow: none !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        border: none !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+      }
+      .cover { padding: 12px 22px 10px !important; }
+      .diya-row { font-size: 14px !important; margin-bottom: 4px !important; }
+      .cover h1 { font-size: 22px !important; margin-bottom: 3px !important; }
+      .quiz-name { font-size: 10px !important; margin-bottom: 8px !important; }
+      .pill { font-size: 9px !important; padding: 2px 8px !important; }
+      .content { padding: 14px 22px 12px !important; }
+      .section-title { font-size: 9px !important; margin-bottom: 8px !important; break-after: avoid; }
+      .owners-row { grid-template-columns: 1fr 1fr !important; gap: 8px !important; margin-bottom: 12px !important; }
+      .owner-card { padding: 8px 10px 7px !important; }
+      .owner-star { font-size: 16px !important; margin-bottom: 4px !important; }
+      .owner-name { font-size: 13px !important; }
+      .owner-suffix { font-size: 9px !important; }
+      .owner-note { padding: 10px 14px !important; margin-bottom: 12px !important; font-size: 11px !important; break-inside: avoid; page-break-inside: avoid; }
+      .timeline { margin-bottom: 12px !important; }
+      .timeline-row { margin-bottom: 4px !important; gap: 8px !important; }
+      .tl-time { font-size: 9px !important; min-width: 48px !important; }
+      .tl-label { font-size: 10px !important; }
+      .tl-line { min-height: 8px !important; }
+      .venue-callout { padding: 7px 10px !important; margin-bottom: 12px !important; gap: 8px !important; }
+      .venue-icon { font-size: 18px !important; }
+      .venue-text { font-size: 11px !important; }
+      .venue-sub, .venue-label { font-size: 9px !important; }
+      .rounds-wrapper { margin-bottom: 12px !important; }
+      .round-card { padding: 8px 11px !important; margin-bottom: 6px !important; break-inside: avoid; page-break-inside: avoid; }
+      .round-emoji { font-size: 14px !important; }
+      .round-title { font-size: 11.5px !important; }
+      .round-subtitle { font-size: 9px !important; }
+      .round-steps li { font-size: 10px !important; padding: 2px 0 2px 13px !important; }
+      .highlight-box { font-size: 9px !important; padding: 2px 7px !important; margin-top: 5px !important; }
+      .tiebreaker-box { margin-top: 8px !important; padding: 10px 12px !important; break-inside: avoid; page-break-inside: avoid; }
+      .fact-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+      .fact-card { padding: 8px 10px 7px !important; }
+      .fact-avatar { width: 26px !important; height: 26px !important; font-size: 12px !important; margin-bottom: 5px !important; }
+      .fact-name { font-size: 11px !important; }
+    }
+
+    /* ── PAGE WRAPPER ── */
+    .page {
+      max-width: 920px;
+      margin: 30px auto;
+      background: var(--bg);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 60px rgba(180,100,10,0.18);
+      border: 1px solid var(--border);
+    }
+
+    /* ══ COVER ══ */
+    .cover {
+      position: relative;
+      background: linear-gradient(140deg, #7b1c1c 0%, #c8500a 42%, #e8a020 78%, #f5c842 100%);
+      padding: 16px 30px 14px;
+      text-align: center;
+      overflow: hidden;
+    }
+    .cover::after {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse at 15% 85%, rgba(255,255,255,0.08) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 15%, rgba(255,255,255,0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .diya-row {
+      font-size: 16px;
+      letter-spacing: 6px;
+      margin-bottom: 6px;
+    }
+
+    .event-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 50px;
+      padding: 5px 22px;
+      font-size: 10px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .cover h1 {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(20px, 3.2vw, 28px);
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 2px 12px rgba(80,20,0,0.4);
+      line-height: 1.05;
+      margin-bottom: 4px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .quiz-name {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(9px, 1.2vw, 11px);
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+      position: relative;
+      z-index: 1;
+    }
+    .quiz-name span {
+      border-bottom: 1.5px solid rgba(255,255,255,0.45);
+      padding-bottom: 4px;
+    }
+
+    .meta-pills {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+    }
+    .pill {
+      background: rgba(255,255,255,0.22);
+      border: 1px solid rgba(255,255,255,0.38);
+      border-radius: 30px;
+      padding: 3px 10px;
+      font-size: 9.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ══ CONTENT ══ */
+    .content { padding: 18px 28px 16px; }
+
+    .section-title {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1.5px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    /* ══ QUIZ OWNERS — BIG CARDS ══ */
+    .owners-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .owner-card {
+      background: linear-gradient(135deg, #fff8ee, #fff3d6);
+      border: 1.5px solid var(--border);
+      border-top: 3px solid var(--orange);
+      border-radius: 10px;
+      padding: 10px 14px 9px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(200,130,10,0.08);
+    }
+
+    .owner-star {
+      font-size: 18px;
+      margin-bottom: 5px;
+      display: block;
+    }
+
+    .owner-role-tag {
+      display: inline-block;
+      background: var(--orange);
+      color: #fff;
+      font-size: 7.5px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    .owner-name {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(13px, 1.6vw, 16px);
+      font-weight: 700;
+      color: var(--maroon);
+      line-height: 1.2;
+    }
+
+    .owner-suffix {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      font-weight: 400;
+    }
+
+    /* ══ TIMELINE ══ */
+    .timeline { margin-bottom: 16px; }
+
+    .timeline-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 5px;
+    }
+    .tl-time {
+      min-width: 56px;
+      font-weight: 700;
+      font-size: 10px;
+      color: var(--orange);
+      text-align: right;
+      padding-top: 1px;
+    }
+    .tl-dot-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .tl-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--gold-light);
+      border: 1.5px solid var(--orange);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .tl-line {
+      width: 1.5px;
+      flex: 1;
+      min-height: 10px;
+      background: linear-gradient(to bottom, var(--border), transparent);
+    }
+    .tl-label {
+      font-size: 11px;
+      color: var(--text);
+      padding-top: 0;
+      line-height: 1.4;
+    }
+    .tl-label strong { color: var(--maroon); }
+
+    /* ══ VENUE ══ */
+    .venue-callout {
+      background: linear-gradient(135deg, #fff4e0, #ffecd0);
+      border: 1.5px solid var(--border);
+      border-left: 4px solid var(--gold-light);
+      border-radius: 0 10px 10px 0;
+      padding: 8px 12px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .venue-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+    .venue-label {
+      font-size: 9px; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--orange);
+      margin-bottom: 2px; font-weight: 600;
+    }
+    .venue-text { font-size: 12.5px; color: var(--text); font-weight: 500; margin-bottom: 6px; }
+    .venue-sub  { font-size: 11px; color: var(--text-muted); }
+
+    /* ══ ROUNDS ══ */
+    .rounds-wrapper { margin-bottom: 16px; }
+
+    .round-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-left: 3px solid var(--orange);
+      border-radius: 0 10px 10px 0;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 6px rgba(200,130,10,0.05);
+    }
+    .round-card:nth-child(1) { border-left-color: #c84000; }
+    .round-card:nth-child(2) { border-left-color: #d87010; }
+    .round-card:nth-child(3) { border-left-color: #c8860a; }
+
+    .round-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+    .round-emoji { font-size: 16px; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+    .round-number {
+      font-size: 8px; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--orange);
+      margin-bottom: 1px; font-weight: 600;
+    }
+    .round-title {
+      font-weight: 700; font-size: 12.5px; color: var(--maroon);
+    }
+    .round-subtitle {
+      font-size: 9.5px; color: var(--text-muted); margin-top: 1px;
+    }
+
+    .round-steps { list-style: none; }
+    .round-steps li {
+      padding: 3px 0 3px 14px;
+      font-size: 11px;
+      color: #4a3010;
+      border-bottom: 1px solid #f5e8cc;
+      line-height: 1.45;
+      position: relative;
+    }
+    .round-steps li:last-child { border-bottom: none; }
+    .round-steps li::before {
+      content: '›';
+      position: absolute; left: 2px;
+      color: var(--orange); font-size: 13px; line-height: 1.1;
+    }
+
+    .highlight-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #fff8e8;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 2px 8px;
+      font-size: 10px;
+      color: var(--gold);
+      font-weight: 600;
+      margin-top: 6px;
+    }
+
+    /* ══ FACT CO-ORDINATORS ══ */
+    .fact-section { margin-top: 6px; }
+
+    .fact-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .fact-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-top: 3px solid var(--gold-light);
+      border-radius: 10px;
+      padding: 12px 14px 10px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(200,130,10,0.06);
+    }
+
+    .fact-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #fde8c0, #f5c842);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+      margin: 0 auto 8px;
+      border: 2px solid var(--border);
+    }
+
+    .fact-role-tag {
+      display: inline-block;
+      background: #fff4e0;
+      color: var(--gold);
+      font-size: 8px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    .fact-name {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--maroon);
+    }
+
+    /* ══ FOOTER ══ */
+    .footer {
+      background: linear-gradient(135deg, #fdf0dc, #fff8ec);
+      border-top: 1.5px solid var(--border);
+      padding: 16px 36px;
+      text-align: center;
+    }
+    .footer-diya { font-size: 18px; margin-bottom: 6px; letter-spacing: 6px; }
+    .footer p {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.3px;
+      line-height: 1.6;
+    }
+    .footer p strong { color: var(--maroon); }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ══ COVER ══ -->
+  <div class="cover">
+    <div class="diya-row">🪔 🪔 🪔 🪔 🪔</div>
+    <div class="event-badge">GlowFiesta 2025 &nbsp;·&nbsp; Day 1 &nbsp;·&nbsp; 2nd November</div>
+    <h1>GlowFiesta</h1>
+    <div class="quiz-name"><span>✨ Trivia of a Thousand Lights — Quiz 2.0 ✨</span></div>
+    <div class="meta-pills">
+      <div class="pill">📅 Sunday, 2nd November 2025</div>
+      <div class="pill">🕠 5:30 PM onwards</div>
+      <div class="pill">📋 Quiz — Day 1</div>
+    </div>
+  </div>
+
+  <!-- ══ CONTENT ══ -->
+  <div class="content">
+
+    <!-- Quiz Owners -->
+    <div class="section-title">Quiz Owners</div>
+    <div class="owners-row">
+
+      <div class="owner-card">
+        <span class="owner-star">🌟</span>
+        <div class="owner-role-tag">Quiz Owner</div>
+        <div class="owner-name">Kailesh Kateja</div>
+        <div class="owner-suffix">Sir</div>
+      </div>
+
+      <div class="owner-card">
+        <span class="owner-star">🌟</span>
+        <div class="owner-role-tag">Quiz Owner</div>
+        <div class="owner-name">Pankaj Toshniwal</div>
+        <div class="owner-suffix">Sir</div>
+      </div>
+
+    </div>
+
+    <!-- Owner Note -->
+    <div class="owner-note" style="background: #fff4e0; border: 1.5px solid #f0c878; border-left: 5px solid #c8860a; border-radius: 0 12px 12px 0; padding: 16px 20px; margin-bottom: 48px; display: flex; align-items: flex-start; gap: 12px;">
+      <div style="font-size: 22px; flex-shrink: 0;">📌</div>
+      <div>
+        <div style="font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: #c86010; font-weight: 700; margin-bottom: 6px;">Note for Quiz Owners</div>
+        <div style="font-size: 13.5px; color: #4a3010; line-height: 1.65;">
+          The <strong>FACT Co-ordinators</strong> are assigned solely for <strong>management &amp; coordination</strong> (logistics, form handling, crowd management, scorekeeping). They will <strong>not</strong> be involved in question-setting or quiz conduct.<br/><br/>
+          Quiz owners are requested to arrange <strong>at least one additional team member</strong> of their own to assist with question delivery, judging, and on-stage quiz operations.
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="section-title">Event Timeline</div>
+    <div class="timeline">
+
+      <div class="timeline-row">
+        <div class="tl-time">5:30 PM</div>
+        <div class="tl-dot-col"><div class="tl-dot"></div><div class="tl-line"></div></div>
+        <div class="tl-label"><strong>Round 1 Begins</strong> — Online quiz link goes live for all</div>
+      </div>
+
+      <div class="timeline-row">
+        <div class="tl-time">5:45 PM</div>
+        <div class="tl-dot-col"><div class="tl-dot"></div><div class="tl-line"></div></div>
+        <div class="tl-label"><strong>Round 1 Closes</strong> — Submissions locked, scores calculated</div>
+      </div>
+
+      <div class="timeline-row">
+        <div class="tl-time">5:50 PM</div>
+        <div class="tl-dot-col"><div class="tl-dot"></div><div class="tl-line"></div></div>
+        <div class="tl-label"><strong>Top 20 Announced</strong> — Finalists called to Reception Area</div>
+      </div>
+
+      <div class="timeline-row">
+        <div class="tl-time">5:55 PM</div>
+        <div class="tl-dot-col"><div class="tl-dot"></div><div class="tl-line"></div></div>
+        <div class="tl-label"><strong>Team Draw</strong> — 5 random teams of 4 formed on the spot</div>
+      </div>
+
+      <div class="timeline-row">
+        <div class="tl-time">6:00 PM</div>
+        <div class="tl-dot-col"><div class="tl-dot"></div><div class="tl-line"></div></div>
+        <div class="tl-label"><strong>Round 2 — Buzzer Round</strong> (Fastest Finger First)</div>
+      </div>
+
+      <div class="timeline-row">
+        <div class="tl-time">6:25 PM</div>
+        <div class="tl-dot-col"><div class="tl-dot"></div><div class="tl-line"></div></div>
+        <div class="tl-label"><strong>Round 3 — Rapid Fire Grand Final</strong></div>
+      </div>
+
+      <div class="timeline-row">
+        <div class="tl-time">6:45 PM</div>
+        <div class="tl-dot-col"><div class="tl-dot"></div></div>
+        <div class="tl-label"><strong>Results &amp; Wind Up</strong></div>
+      </div>
+
+    </div>
+
+    <!-- Venue -->
+    <div class="section-title">Venue</div>
+    <div class="venue-callout">
+      <div class="venue-icon">🏢</div>
+      <div>
+        <div class="venue-label">Round 1</div>
+        <div class="venue-text">Online — via Google Form / Quiz App (link shared separately)</div>
+        <div class="venue-label" style="margin-top:10px;">Rounds 2 &amp; 3</div>
+        <div class="venue-text">Reception Area — Ground Floor</div>
+        <div class="venue-sub">Top 20 finalists assemble here after Round 1 results are announced</div>
+      </div>
+    </div>
+
+    <!-- Rounds -->
+    <div class="section-title">Round Structure</div>
+    <div class="rounds-wrapper">
+
+      <div class="round-card">
+        <div class="round-header">
+          <div class="round-emoji">💻</div>
+          <div>
+            <div class="round-number">Round 01</div>
+            <div class="round-title">Online Quiz — Qualifier</div>
+            <div class="round-subtitle">Google Form · Quiz App · Open to All</div>
+          </div>
+        </div>
+        <ul class="round-steps">
+          <li>Quiz link is shared with all participants at <strong>5:30 PM</strong> sharp.</li>
+          <li>Participants answer questions individually on their own devices (phone / laptop).</li>
+          <li>Platform: Google Form or a dedicated quiz app — to be confirmed by quiz owners.</li>
+          <li>Submissions are locked at the cutoff; answers are auto-scored.</li>
+          <li>The <strong>top 20 scorers</strong> are shortlisted and announced publicly.</li>
+        </ul>
+        <div class="highlight-box">🏆 Top 20 advance to the live finals</div>
+      </div>
+
+      <div class="round-card">
+        <div class="round-header">
+          <div class="round-emoji">🔔</div>
+          <div>
+            <div class="round-number">Round 02</div>
+            <div class="round-title">Buzzer Round</div>
+            <div class="round-subtitle">Fastest Finger First · Team-Based · Elimination</div>
+          </div>
+        </div>
+        <ul class="round-steps">
+          <li>Top 20 finalists gather at the <strong>Reception Area</strong> (Ground Floor).</li>
+          <li>Randomly divided into <strong>5 teams of 4</strong> — draw done on the spot.</li>
+          <li>Questions read aloud; first team to buzz in gets to answer.</li>
+          <li>Correct answer earns points; wrong answer may pass to the next team.</li>
+          <li>After all questions: the <strong>3 lowest-scoring teams are eliminated</strong>.</li>
+          <li>The <strong>top 2 teams advance</strong> to the Final — Round 3.</li>
+        </ul>
+        <div class="highlight-box">⚡ Only the top 2 teams survive to the Final</div>
+      </div>
+
+      <div class="round-card">
+        <div class="round-header">
+          <div class="round-emoji">🚀</div>
+          <div>
+            <div class="round-number">Round 03</div>
+            <div class="round-title">Rapid Fire — Grand Final</div>
+            <div class="round-subtitle">Top 2 Teams · High Stakes · Timed</div>
+          </div>
+        </div>
+        <ul class="round-steps">
+          <li>The two surviving teams go head-to-head in a rapid-fire question battle.</li>
+          <li>Covers varied topics — general knowledge, Diwali, pop culture, company trivia.</li>
+          <li>Team with the highest score at the end wins <strong>GlowFiesta Quiz 🏆</strong>.</li>
+        </ul>
+        <div class="highlight-box">🔥 Highest score takes the crown</div>
+
+        <!-- Tiebreaker -->
+        <div class="tiebreaker-box" style="margin-top: 20px; background: #fff8ee; border: 1.5px dashed #f0c070; border-radius: 12px; padding: 18px 20px;">
+          <div style="font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: #c86010; font-weight: 700; margin-bottom: 12px;">⚖️ &nbsp;Tiebreaker Options — If Scores are Equal</div>
+          <div style="font-size: 13px; color: #4a3010; line-height: 1.7;">
+            <div style="padding-left: 6px; border-left: 3px solid #f5c842;">
+              <strong style="color: #9b2020;">Sudden Death Question</strong><br/>
+              One question is asked; the team that answers correctly first wins outright.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FACT Co-ordinators -->
+    <div class="section-title">FACT Co-ordinators</div>
+    <div class="fact-section">
+      <div class="fact-grid">
+
+        <div class="fact-card">
+          <div class="fact-avatar">📢</div>
+          <div class="fact-role-tag">FACT Co-ordinator</div>
+          <div class="fact-name">Aryan Audichya</div>
+        </div>
+
+        <div class="fact-card">
+          <div class="fact-avatar">🎯</div>
+          <div class="fact-role-tag">FACT Co-ordinator</div>
+          <div class="fact-name">Parth Kashyap</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+
+</div><!-- /page -->
+
+</body>
+</html>

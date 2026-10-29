@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Glowfiesta 2026 — Event Owners Playbook</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --gold:        #c8860a;
+      --gold-light:  #f5c842;
+      --orange:      #e06010;
+      --maroon:      #9b2020;
+      --bg:          #fffaf3;
+      --surface:     #ffffff;
+      --border:      #f0d9a8;
+      --text:        #2d1a00;
+      --text-muted:  #7a5a30;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #f5ede0;
+      color: var(--text);
+    }
+
+    @page {
+      size: A4;
+      margin: 0.6cm 0.8cm;
+    }
+
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      body { background: #fff !important; margin: 0; }
+      .page { box-shadow: none !important; margin: 0 !important; border-radius: 0 !important; border: none !important; max-width: 100% !important; overflow: visible !important; }
+      .cover { padding: 12px 22px 10px !important; }
+      .diya-row { font-size: 14px !important; margin-bottom: 4px !important; }
+      .cover h1 { font-size: 20px !important; margin-bottom: 3px !important; }
+      .cover-sub { font-size: 10px !important; margin-bottom: 8px !important; }
+      .pill { font-size: 9px !important; padding: 2px 8px !important; }
+      .content { padding: 14px 22px 12px !important; }
+      .section-title { font-size: 9px !important; margin-bottom: 8px !important; break-after: avoid; }
+      .intro-box { padding: 10px 14px !important; margin-bottom: 12px !important; font-size: 10.5px !important; }
+      .overview-section { margin-bottom: 12px !important; }
+      .overview-row { gap: 6px !important; margin-bottom: 6px !important; }
+      .mainday-strip { padding: 8px 10px !important; }
+      .mainday-cards { gap: 6px !important; }
+      .ov-card { padding: 7px 9px !important; }
+      .ov-date { font-size: 8.5px !important; }
+      .ov-title { font-size: 10.5px !important; }
+      .ov-meta { font-size: 9px !important; }
+      table { font-size: 10px !important; margin-bottom: 12px !important; }
+      th, td { padding: 5px 8px !important; }
+      .checklist-grid { gap: 8px !important; margin-bottom: 12px !important; }
+      .check-card { padding: 8px 10px !important; }
+      .check-icon { font-size: 14px !important; margin-bottom: 4px !important; }
+      .check-title { font-size: 10px !important; }
+      .check-body { font-size: 9.5px !important; }
+      .dos-donts { gap: 10px !important; margin-bottom: 12px !important; }
+      .dos-box, .donts-box { padding: 10px 12px !important; }
+      .dd-item { font-size: 10px !important; padding: 3px 0 3px 16px !important; }
+      .overview-grid, .checklist-grid, .dos-donts, table { break-inside: avoid; }
+    }
+
+    .page {
+      max-width: 920px;
+      margin: 30px auto;
+      background: var(--bg);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 60px rgba(180,100,10,0.18);
+      border: 1px solid var(--border);
+    }
+
+    /* ── COVER ── */
+    .cover {
+      position: relative;
+      background: linear-gradient(140deg, #7b1c1c 0%, #c8500a 42%, #e8a020 78%, #f5c842 100%);
+      padding: 16px 30px 14px;
+      text-align: center;
+      overflow: hidden;
+    }
+    .cover::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 15% 85%, rgba(255,255,255,0.07) 0%, transparent 55%),
+                  radial-gradient(ellipse at 85% 15%, rgba(255,255,255,0.05) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .diya-row { font-size: 16px; letter-spacing: 6px; margin-bottom: 6px; position: relative; z-index: 1; }
+    .event-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.38);
+      border-radius: 50px;
+      padding: 3px 14px;
+      font-size: 9.5px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 8px;
+      position: relative; z-index: 1;
+    }
+    .cover h1 {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(20px, 3.2vw, 30px);
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 2px 12px rgba(80,20,0,0.4);
+      line-height: 1.1;
+      margin-bottom: 4px;
+      position: relative; z-index: 1;
+    }
+    .cover-sub {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(9px, 1.2vw, 11px);
+      color: rgba(255,255,255,0.85);
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      position: relative; z-index: 1;
+    }
+    .meta-pills {
+      display: flex; justify-content: center; flex-wrap: wrap;
+      gap: 8px; position: relative; z-index: 1;
+    }
+    .pill {
+      background: rgba(255,255,255,0.22);
+      border: 1px solid rgba(255,255,255,0.36);
+      border-radius: 30px;
+      padding: 3px 12px;
+      font-size: 10px;
+      color: #fff;
+      display: flex; align-items: center; gap: 5px;
+    }
+
+    /* ── CONTENT ── */
+    .content { padding: 18px 28px 16px; }
+
+    .section-title {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 12px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-title::after {
+      content: ''; flex: 1; height: 1.5px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    /* ── INTRO ── */
+    .intro-box {
+      background: linear-gradient(135deg, #fff8ee, #fff4e0);
+      border: 1.5px solid var(--border);
+      border-left: 4px solid var(--gold-light);
+      border-radius: 0 10px 10px 0;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 12.5px;
+      color: var(--text);
+      line-height: 1.65;
+    }
+
+    /* ── OVERVIEW CARDS ── */
+    .overview-section { margin-bottom: 22px; }
+
+    .overview-row {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .overview-row.days123 { grid-template-columns: repeat(3, 1fr); }
+    .overview-row.mainday { grid-template-columns: repeat(2, 1fr); }
+
+    .ov-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-top: 3px solid var(--orange);
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow: 0 2px 8px rgba(200,130,10,0.06);
+    }
+    .ov-card.day1 { border-top-color: #c84000; }
+    .ov-card.day2 { border-top-color: #d87010; }
+    .ov-card.day3 { border-top-color: #c8860a; }
+
+    /* Main Day strip */
+    .mainday-strip {
+      background: linear-gradient(135deg, #f5ede0, #ede0d0);
+      border: 1.5px solid #dfc090;
+      border-radius: 10px;
+      padding: 10px 12px 10px;
+    }
+    .mainday-label {
+      font-size: 8.5px; letter-spacing: 2px; text-transform: uppercase;
+      color: #8a5a20; font-weight: 700; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .mainday-label::after { content: ''; flex: 1; height: 1px; background: #dfc090; }
+    .mainday-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ov-card.mainday-card {
+      background: #fff8f0;
+      border: 1.5px solid #dfc090;
+      border-top: 3px solid #a06010;
+    }
+    .ov-card.mainday-card.evening { border-top-color: #7b4a0a; }
+
+    .ov-date {
+      font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--orange); font-weight: 600; margin-bottom: 3px;
+    }
+    .ov-title { font-size: 12.5px; font-weight: 700; color: var(--maroon); margin-bottom: 3px; }
+    .ov-meta { font-size: 10px; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── TABLES ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      font-size: 11.5px;
+    }
+    thead tr {
+      background: linear-gradient(135deg, #9b2020, #c8500a);
+    }
+    thead th {
+      padding: 8px 12px;
+      color: #fff;
+      font-weight: 600;
+      text-align: left;
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:nth-child(even) { background: #fffaf0; }
+    tbody tr:hover { background: #fff4e0; }
+    tbody td { padding: 7px 12px; color: var(--text); line-height: 1.45; }
+    tbody td:first-child { font-weight: 600; color: var(--maroon); white-space: nowrap; }
+
+    /* ── CHECKLIST ── */
+    .checklist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+    .check-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 13px;
+      box-shadow: 0 2px 8px rgba(200,130,10,0.05);
+    }
+    .check-icon { font-size: 18px; margin-bottom: 6px; display: block; }
+    .check-title { font-weight: 700; font-size: 11.5px; color: var(--maroon); margin-bottom: 4px; }
+    .check-body { font-size: 10.5px; color: var(--text-muted); line-height: 1.55; }
+
+    /* ── DO'S & DON'TS ── */
+    .dos-donts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .dos-box, .donts-box {
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .dos-box {
+      background: #f0fff4;
+      border: 1.5px solid #b6e8c4;
+      border-top: 3px solid #2e9e58;
+    }
+    .donts-box {
+      background: #fff5f5;
+      border: 1.5px solid #f5c0c0;
+      border-top: 3px solid #c0392b;
+    }
+    .dd-heading {
+      font-family: 'Cinzel', serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .dos-box .dd-heading { color: #1e6e3a; }
+    .donts-box .dd-heading { color: #9b2020; }
+    .dd-list { list-style: none; }
+    .dd-item {
+      font-size: 11px;
+      line-height: 1.5;
+      padding: 3px 0 3px 18px;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      position: relative;
+      color: var(--text);
+    }
+    .dd-item:last-child { border-bottom: none; }
+    .dos-box .dd-item::before  { content: '✓'; position: absolute; left: 2px; color: #2e9e58; font-weight: 700; font-size: 11px; }
+    .donts-box .dd-item::before { content: '✕'; position: absolute; left: 2px; color: #c0392b; font-weight: 700; font-size: 11px; }
+  </style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- COVER -->
+  <div class="cover">
+    <div class="diya-row">🪔 🪔 🪔 🪔 🪔</div>
+    <div class="event-badge">Glowfiesta 2026 &nbsp;·&nbsp; Internal Document</div>
+    <h1>Event Owners Playbook</h1>
+    <div class="cover-sub"><span>✨ Your complete guide to owning an event ✨</span></div>
+    <div class="meta-pills">
+      <div class="pill">📅 2 – 5 November 2026</div>
+      <div class="pill">🎉 5 Events across 4 Days</div>
+      <div class="pill">🕠 Days 1–3 start 5:30 PM</div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- Intro -->
+    <div class="section-title">About Glowfiesta</div>
+    <div class="intro-box">
+      Glowfiesta is our office Diwali celebration, running for <strong>four days from 2 to 5 November</strong> with <strong>five activities</strong>. Every activity is run by a small owner team. This playbook tells each owner team what is expected, when, and how to plan.
+    </div>
+
+    <!-- Overview -->
+    <div class="section-title">Event Overview</div>
+    <div class="overview-section">
+
+      <!-- Days 1–3 -->
+      <div class="overview-row days123">
+        <div class="ov-card day1">
+          <div class="ov-date">2 Nov · Day 1</div>
+          <div class="ov-title">Quiz 2.0</div>
+          <div class="ov-meta">🕠 5:30 PM<br/>Kailash Kateja, Pankaj Toshniwal</div>
+        </div>
+        <div class="ov-card day2">
+          <div class="ov-date">3 Nov · Day 2</div>
+          <div class="ov-title">Funtakshri 3.0</div>
+          <div class="ov-meta">🕠 5:30 PM<br/>Vinod Gour, Ankit Jain</div>
+        </div>
+        <div class="ov-card day3">
+          <div class="ov-date">4 Nov · Day 3</div>
+          <div class="ov-title">Treasure Hunt 2.0</div>
+          <div class="ov-meta">🕠 5:30 PM<br/>Pradeep Kumar Sharma, Shubham Shah, Chirag Paneri</div>
+        </div>
+      </div>
+
+      <!-- Main Day -->
+      <div class="mainday-strip">
+        <div class="mainday-label">🪔 &nbsp;5 Nov — Main Day</div>
+        <div class="mainday-cards">
+          <div class="ov-card mainday-card">
+            <div class="ov-date">5 Nov · Afternoon</div>
+            <div class="ov-title">Decoration Event</div>
+            <div class="ov-meta">🕛 12:00 PM · Judged at 4:00 PM<br/>5 Main Day Teams</div>
+          </div>
+          <div class="ov-card mainday-card evening">
+            <div class="ov-date">5 Nov · Evening</div>
+            <div class="ov-title">Evening Event</div>
+            <div class="ov-meta">🕠 5:30 PM<br/>Kritika Maroo, Amit Sharma, Sakshi Sandhya</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Schedule Table -->
+    <div class="section-title">Schedule at a Glance</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Event</th>
+          <th>Start Time</th>
+          <th>Owner Team</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>2 Nov</td>
+          <td>Quiz 2.0</td>
+          <td>5:30 PM</td>
+          <td>Kailash Kateja, Pankaj Toshniwal</td>
+        </tr>
+        <tr>
+          <td>3 Nov</td>
+          <td>Funtakshri 3.0</td>
+          <td>5:30 PM</td>
+          <td>Vinod Gour, Ankit Jain</td>
+        </tr>
+        <tr>
+          <td>4 Nov</td>
+          <td>Treasure Hunt 2.0</td>
+          <td>5:30 PM</td>
+          <td>Pradeep Kumar Sharma, Shubham Shah, Chirag Paneri</td>
+        </tr>
+        <tr>
+          <td>5 Nov</td>
+          <td>Main Day – Decoration</td>
+          <td>12:00 PM (judged 4:00 PM)</td>
+          <td>5 Main Day Teams</td>
+        </tr>
+        <tr>
+          <td>5 Nov</td>
+          <td>Evening Event</td>
+          <td>5:30 PM</td>
+          <td>Kritika Maroo, Amit Sharma, Sakshi Sandhya</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Owners & Teams -->
+    <div class="section-title">Owners &amp; Teams</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Date</th>
+          <th>Owners</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Quiz 2.0</td><td>2 Nov</td><td>Kailash Kateja, Pankaj Toshniwal</td></tr>
+        <tr><td>Funtakshri 3.0</td><td>3 Nov</td><td>Vinod Gour, Ankit Jain</td></tr>
+        <tr><td>Treasure Hunt 2.0</td><td>4 Nov</td><td>Shubham Shah, Pradeep Kumar Sharma, Chirag Paneri</td></tr>
+        <tr><td>Main Day – Team 1</td><td>5 Nov</td><td>Vinod Kumar Rangwani, Hemant Jain</td></tr>
+        <tr><td>Main Day – Team 2</td><td>5 Nov</td><td>Abhishek Hingar, Kriti Sharma</td></tr>
+        <tr><td>Main Day – Team 3</td><td>5 Nov</td><td>Vikas Kumar Mundra, Amit K Sharma</td></tr>
+        <tr><td>Main Day – Team 4</td><td>5 Nov</td><td>Mayank Kothari, Tanushri Vaya</td></tr>
+        <tr><td>Main Day – Team 5</td><td>5 Nov</td><td>Janmejay Duggar, Nitesh Kumar Garg</td></tr>
+        <tr><td>Evening Event Hosts</td><td>5 Nov</td><td>Kritika Maroo, Amit Sharma, Sakshi Sandhya</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Checklist -->
+    <div class="section-title">What Every Owner Team Prepares</div>
+    <div class="checklist-grid">
+
+      <div class="check-card">
+        <span class="check-icon">📋</span>
+        <div class="check-title">Format &amp; Flow</div>
+        <div class="check-body">Full minute-by-minute run of the event from the 5:30 PM start.</div>
+      </div>
+
+      <div class="check-card">
+        <span class="check-icon">📖</span>
+        <div class="check-title">Rules &amp; How to Play</div>
+        <div class="check-body">A one-page, easy-to-read rule sheet participants can follow without asking.</div>
+      </div>
+
+      <div class="check-card">
+        <span class="check-icon">👥</span>
+        <div class="check-title">Teams &amp; Participation</div>
+        <div class="check-body">How people join, team size, and how teams are formed on the day.</div>
+      </div>
+
+      <div class="check-card">
+        <span class="check-icon">🏆</span>
+        <div class="check-title">Scoring &amp; Winners</div>
+        <div class="check-body">Points system, tie-break rule, who keeps the score, and prizes/recognition.</div>
+      </div>
+
+      <div class="check-card">
+        <span class="check-icon">🖥️</span>
+        <div class="check-title">Tools &amp; Materials</div>
+        <div class="check-body">Projector, mic, laptop, slides, buzzers, props, printouts, stationery, apps.</div>
+      </div>
+
+      <div class="check-card">
+        <span class="check-icon">🏢</span>
+        <div class="check-title">Venue &amp; Setup</div>
+        <div class="check-body">Space needed, seating, and what must be set up before 5:30 PM.</div>
+      </div>
+
+      <div class="check-card">
+        <span class="check-icon">🙋</span>
+        <div class="check-title">Helpers</div>
+        <div class="check-body">Who does what — anchor, scorer, timekeeper, runner — on the day.</div>
+      </div>
+
+      <div class="check-card">
+        <span class="check-icon">🛟</span>
+        <div class="check-title">Backup Plan</div>
+        <div class="check-body">What to do if a tool fails, time runs short, or turnout is higher than expected.</div>
+      </div>
+
+    </div>
+
+    <!-- Dos & Don'ts -->
+    <div class="section-title">Do's &amp; Don'ts</div>
+    <div class="dos-donts">
+
+      <div class="dos-box">
+        <div class="dd-heading">✅ &nbsp;Do</div>
+        <ul class="dd-list">
+          <li class="dd-item"><strong>Start on time</strong> — 5:30 PM (Main Day at 12:00 PM).</li>
+          <li class="dd-item">Keep rules simple and share them clearly before play begins.</li>
+          <li class="dd-item">Test every tool, mic and screen before participants arrive.</li>
+          <li class="dd-item">Keep the activity inclusive so that everyone can take part.</li>
+          <li class="dd-item">Tell the coordinator early if you need help, budget or space.</li>
+        </ul>
+      </div>
+
+      <div class="donts-box">
+        <div class="dd-heading">❌ &nbsp;Don't</div>
+        <ul class="dd-list">
+          <li class="dd-item">Change the format on the day without informing the coordinator.</li>
+          <li class="dd-item">Let one round or game run over its planned time.</li>
+          <li class="dd-item">Use content that could offend anyone.</li>
+          <li class="dd-item">Leave setup or clean-up to the last minute.</li>
+        </ul>
+      </div>
+
+    </div>
+
+  </div><!-- /content -->
+
+</div><!-- /page -->
+
+</body>
+</html>

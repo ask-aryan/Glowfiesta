@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "mammoth": "^1.13.0",
+    "puppeteer": "^25.16.0"
+  }
+}

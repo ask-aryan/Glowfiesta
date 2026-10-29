@@ -1,0 +1,580 @@
+TREASURE HUNT MANAGEMENT PLATFORM — COMPLETE IMPLEMENTATION PLAN
+Version: MVP for an office Diwali event
+Backend: Java 21 + Spring Boot
+Frontend: Next.js + TypeScript
+Database: Office MySQL
+Scope: Treasure Hunt only. Live polling is explicitly out of scope.
+
+This file is a copy-paste-ready implementation specification for a coding AI or developer. Build a working application, not just mockups.
+
+============================================================
+1. PROJECT GOAL
+============================================================
+
+Build a mobile-friendly web application to manage an in-office Treasure Hunt. Organizers configure events, teams, clue stages and QR codes; teams log in and scan QR codes; the receptionist verifies the result number and manually releases the next physical clue; the system tracks progress and determines the winner.
+
+Example:
+- Event: Diwali Treasure Hunt 2026
+- Teams: 5
+- Team-specific QR stages: 5 per team
+- Common final QR: 1
+- Total QR codes: 5 x 5 + 1 = 26
+- Team-specific QR codes: 25
+- Common final QR: 1
+
+Team count and stage count must be configurable, not hardcoded.
+
+The QR scan displays a configured number (for example, 20), not the next riddle. The team returns to reception and reports that number. The receptionist uses the organizer dashboard to verify the team's latest valid scan and provide/release the next physical riddle card.
+
+Do not build live polling, quizzes, or other activities in this version. Keep the design modular enough for future expansion, but do not implement future modules now.
+
+============================================================
+2. REQUIRED TECH STACK
+============================================================
+
+Backend:
+- Java 21
+- Spring Boot version compatible with Java 21
+- Spring Web for REST APIs
+- Spring Security for authentication and authorization
+- Spring Data JPA with Hibernate, or JDBC where more suitable
+- MySQL Connector/J
+- Bean Validation for request validation
+- Flyway for database migrations
+- A maintained Java QR-generation library such as ZXing
+- A suitable PDF library for printable QR cards
+- Maven (preferred) for build and dependency management
+- JUnit 5 and Spring Boot testing tools
+
+Frontend:
+- Next.js with TypeScript
+- Bootstrap 5
+- `html5-qrcode` or a maintained equivalent for browser-based QR scanning
+- Use the frontend only for UI and camera scanning; all security checks and game progression must be enforced by the backend.
+
+Deployment:
+- Office-controlled server
+- Java 21 runtime for Spring Boot
+- Node.js runtime for Next.js if using server-rendered Next.js deployment
+- Office MySQL server
+- HTTPS for browser camera access and secure authentication
+
+Architecture:
+Next.js frontend -> Spring Boot REST API -> Office MySQL
+
+Do not connect the browser directly to MySQL.
+Do not implement the backend in Express or Next.js Route Handlers. The backend must be Java 21 + Spring Boot as specified above.
+Do not use Java 8 compatibility; target Java 21.
+Before implementation, document exact framework/library versions selected and verify compatibility with Java 21 and the office deployment environment.
+
+============================================================
+3. USER ROLES
+============================================================
+
+A. ORGANIZER / RECEPTIONIST
+- Secure login.
+- Create, edit, start, pause, resume and close an event.
+- Configure number of teams, team-specific stages and whether a common final QR is enabled.
+- Create teams and issue team login credentials.
+- Configure clue stages and the displayed result number for each QR.
+- Generate QR codes and download/print a PDF.
+- Assign each team-specific QR to its team and stage.
+- View scan history and progress for every team.
+- Search for a team's reported result number.
+- Verify the result and release the next physical clue.
+- View completion timestamps and leaderboard.
+- Any administrative override must require a reason and create an audit record.
+
+B. TEAM / PLAYER
+- Log in with a team username and password supplied by the organizer.
+- View team name and progress.
+- Open the QR scanner using the phone camera.
+- See clear success, invalid QR, wrong-team QR, wrong-sequence QR, duplicate scan, waiting-for-reception and event-closed messages.
+- See the result number after a valid scan.
+- See final completion status.
+- A team must never access another team's private clues, QR assignments, credentials or progress.
+
+Do not provide public self-registration in the MVP.
+
+============================================================
+4. EVENT CONFIGURATION
+============================================================
+
+Organizer can configure:
+- Event name and optional description
+- Number of teams
+- Number of team-specific stages per team
+- Whether a common final QR is enabled
+- Clue release mode: receptionist-controlled
+- Event status: DRAFT, READY, LIVE, PAUSED, COMPLETED
+- Optional event start/end times
+
+Example: 5 teams and 5 team-specific stages:
+- 5 teams
+- 25 team-specific QR codes
+- 1 common final QR
+- 26 QR codes total
+
+For 8 teams and 6 team-specific stages:
+- 48 team-specific QR codes
+- Plus 1 common final QR if enabled
+
+Validation:
+- Team and stage counts must be positive integers within sensible configured limits.
+- Event cannot start until teams, stages, QR assignments and common final QR (if enabled) are configured.
+- Once live, changes that could invalidate progress must require pausing the event and explicit confirmation.
+
+============================================================
+5. QR CODE GENERATION AND PRINTING
+============================================================
+
+Each QR contains an application URL with a cryptographically random, unguessable token, for example:
+https://OFFICE-HOST/scan/<random-token>
+
+Do not put team IDs, clue numbers, passwords or sensitive data directly into the token or URL.
+Do not rely on frontend checks for authorization.
+
+Use Java QR-generation library (e.g. ZXing) in the Spring Boot backend to generate QR images or a printable PDF. Store a token hash where practical. If raw tokens must be stored, restrict access and never expose the full token list through public APIs.
+
+QR record fields:
+- ID
+- Event ID
+- QR type: TEAM_STAGE or COMMON_FINAL
+- Stage number (null for common final if appropriate)
+- Display/result number
+- Assigned team ID for team-specific QR; null for common final
+- Token hash
+- Active/inactive status
+- Created timestamp
+
+Team-specific QR:
+- A QR assigned to Team A at stage 3 must not be accepted for Team B.
+- A stage 4 QR cannot be accepted before the team has completed and been released through earlier stages.
+
+Common final QR:
+- One physical QR shared by all teams.
+- Valid only when a team has completed all team-specific stages in order and all required receptionist releases have been recorded.
+- Must not allow skipping stages.
+- Record final completion only after the valid final scan and any configured final answer/verification.
+
+Printing:
+- Generate a printable PDF with one QR per card or a well-spaced grid.
+- Organizer-only sheet should map each QR to its team/stage and, where relevant, physical location.
+- Public-facing cards must not expose confidential team assignments or clue answers.
+- Offer PDF download and an organizer-only assignment table/CSV.
+- Test printed QR codes using real phones and reasonable print sizes.
+
+============================================================
+6. CLUE SEQUENCE AND RECEPTIONIST WORKFLOW
+============================================================
+
+Use a server-side state machine. Never trust progress values submitted by the browser.
+
+Possible per-team stage states:
+- NOT_STARTED
+- CLUE_ISSUED
+- QR_SCANNED
+- AWAITING_RECEPTION_VERIFICATION
+- NEXT_CLUE_RELEASED
+- COMPLETED
+
+Workflow:
+1. Organizer configures event, teams, stages, result numbers, QR assignments and common final QR.
+2. Organizer starts the event.
+3. Receptionist gives each team its first physical riddle.
+4. Team solves it and scans the QR at the discovered location.
+5. Backend validates token, login identity, event status, team assignment, expected stage and previous-stage completion.
+6. On success, record the scan and return the configured result number (for example, 20).
+7. Team returns to reception and reports the number.
+8. Receptionist selects the team and enters/selects the reported number.
+9. Backend verifies the number matches the team's most recent valid scan and is awaiting verification.
+10. Receptionist presses “Verify & Release Next Clue.”
+11. Backend records who released the clue and when; receptionist hands over the next physical riddle.
+12. Team proceeds to the next location.
+13. Repeat for each team-specific stage.
+14. After all stages and required releases, team scans the common final QR.
+15. Backend verifies eligibility and records final completion.
+16. Leaderboard uses server timestamps and documented tie-break rules.
+
+Do not require a team to scan the same QR twice to advance. QR scan and receptionist release are separate state transitions.
+
+Wrong QR / wrong sequence:
+- Reject the scan.
+- Do not advance progress.
+- Record failed attempt with timestamp and reason, with sensible rate limiting.
+- Show a clear error without revealing another team's private details.
+
+Duplicate scans:
+- Do not grant extra progress.
+- Return a clear already-recorded message.
+- Protect against concurrent requests with transactions and unique constraints.
+
+Receptionist:
+- Must confirm before releasing the next clue.
+- Release is only allowed after a valid scan and correct reported number, unless a clearly labeled override is used.
+- Any override requires a reason and audit record.
+
+============================================================
+7. COMMON FINAL QR AND WINNER RULES
+============================================================
+
+In the example, the common final QR is QR number 26.
+
+A team is eligible for the common final QR only if:
+- All team-specific stages are completed in order.
+- All required receptionist releases are recorded.
+- Event is LIVE.
+- The final QR has not already been accepted for that team.
+
+Recommended winner rule:
+- Earliest valid final completion timestamp wins.
+- If a final answer is required, only a correct answer can finalize completion.
+- Server timestamps determine winners, never phone clocks.
+- Store timestamps consistently (prefer UTC) and display in Asia/Kolkata by default.
+- Incomplete teams remain IN PROGRESS.
+- Define a deterministic tie-break rule.
+
+============================================================
+8. DATABASE DESIGN
+============================================================
+
+Use MySQL InnoDB, utf8mb4, foreign keys, indexes and Flyway migrations.
+
+Suggested entities/tables:
+
+A. events
+- id
+- name
+- description (nullable)
+- team_count
+- stages_per_team
+- has_common_final_qr
+- status
+- starts_at (nullable)
+- ends_at (nullable)
+- created_by
+- created_at
+- updated_at
+
+B. users
+- id
+- username (unique)
+- password_hash
+- role (ORGANIZER or TEAM)
+- is_active
+- created_at
+- updated_at
+
+C. teams
+- id
+- event_id
+- user_id
+- team_name
+- current_stage
+- status
+- created_at
+- updated_at
+- unique event/team-name constraint
+
+D. clues
+- id
+- event_id
+- stage_number
+- clue_text or organizer-only clue description
+- result_number
+- is_common_final
+- created_at
+- updated_at
+- appropriate uniqueness constraints per event/stage/final clue
+
+E. qr_codes
+- id
+- event_id
+- clue_id
+- qr_type (TEAM_STAGE or COMMON_FINAL)
+- assigned_team_id (nullable for common final)
+- stage_number (nullable for final)
+- display_number
+- token_hash (unique)
+- is_active
+- created_at
+- constraints preventing duplicate team/stage assignments and multiple common final QR records per event
+
+F. team_stage_progress
+- id
+- event_id
+- team_id
+- stage_number
+- status
+- scan_timestamp (nullable)
+- verified_by (nullable user ID)
+- verified_at (nullable)
+- next_clue_released_at (nullable)
+- unique constraint on (team_id, stage_number)
+
+G. scan_history
+- id
+- event_id
+- team_id (nullable if unauthenticated/unknown)
+- qr_code_id (nullable for invalid token)
+- success
+- failure_reason (nullable)
+- scanned_at
+
+H. audit_logs
+- id
+- event_id
+- actor_user_id
+- action
+- entity_type
+- entity_id
+- reason (nullable)
+- created_at
+
+I. final_submissions (only if a final answer is required)
+- id
+- event_id
+- team_id
+- submitted_answer or securely handled equivalent
+- is_correct
+- submitted_at
+- controlled retry policy and constraints
+
+Use JPA entities/repositories or JDBC as appropriate. Avoid overcomplicated ORM mappings. Keep state transitions in service classes, not controllers.
+
+Important:
+- Passwords must be strong hashes, never plaintext.
+- Use transactions for QR acceptance, stage transitions and final completion.
+- Do not treat current_stage alone as proof of completion; verify stage progress/state transitions.
+- Use uniqueness constraints to prevent duplicate progress.
+
+============================================================
+9. BACKEND API REQUIREMENTS
+============================================================
+
+Implement REST APIs in Spring Boot. Example endpoint names; adjust consistently if needed.
+
+Authentication:
+- POST /api/auth/login
+- POST /api/auth/logout
+- GET /api/auth/me
+
+Organizer:
+- GET /api/organizer/events
+- POST /api/organizer/events
+- GET /api/organizer/events/{eventId}
+- PATCH /api/organizer/events/{eventId}
+- POST /api/organizer/events/{eventId}/start
+- POST /api/organizer/events/{eventId}/pause
+- POST /api/organizer/events/{eventId}/resume
+- POST /api/organizer/events/{eventId}/close
+- POST /api/organizer/events/{eventId}/teams
+- POST /api/organizer/events/{eventId}/clues
+- POST /api/organizer/events/{eventId}/generate-qr
+- GET /api/organizer/events/{eventId}/qr-pdf
+- GET /api/organizer/events/{eventId}/progress
+- GET /api/organizer/events/{eventId}/scan-history
+- POST /api/organizer/teams/{teamId}/verify-and-release
+- POST /api/organizer/teams/{teamId}/override (optional; audited)
+
+Player:
+- GET /api/player/me
+- GET /api/player/progress
+- POST /api/player/scan
+- GET /api/player/scan-status
+
+All endpoints must enforce server-side role authorization and event scoping.
+
+Security:
+- Team identity comes from the authenticated server-side session, never a client-supplied team ID.
+- Organizer endpoints require organizer role and access to the requested event.
+- Validate inputs using Bean Validation and server-side business rules.
+- Use parameterized queries/JPA safe query patterns.
+- Implement CSRF protection appropriate to cookie-based authentication.
+- Rate-limit login and scan endpoints.
+- Use secure, HttpOnly, SameSite cookies and Secure cookies over HTTPS.
+- Never return password hashes, token hashes or other teams' private data.
+- Use generic invalid-token errors to avoid leaking whether a QR belongs to another team.
+- Audit event state changes, clue releases, overrides and administrative actions.
+
+============================================================
+10. FRONTEND PAGES
+============================================================
+
+Organizer:
+1. Login
+2. Event list
+3. Create/edit event
+4. Event overview
+5. Team management
+6. Clue/stage configuration
+7. QR assignment and generation
+8. Printable QR PDF preview/download
+9. Live progress dashboard
+10. Team details and scan history
+11. Verify reported number and release next clue
+12. Leaderboard and event completion
+
+Team:
+1. Login
+2. Team home/progress
+3. QR scanner
+4. Scan result
+5. Waiting for reception / next clue release status
+6. Final completion screen
+
+UX:
+- Mobile-first team interface.
+- Clear loading, success, error and waiting states.
+- Explain camera permissions.
+- Stop camera after scan or when leaving scanner.
+- Keep touch targets large and text readable.
+- Never expose internal team assignments on public QR cards.
+
+============================================================
+11. PROGRESS DASHBOARD
+============================================================
+
+For MVP, refresh organizer progress every 3–5 seconds; do not add WebSockets/SSE unless genuinely needed.
+
+Show:
+- Team name
+- Current stage
+- Last valid scan time
+- Awaiting receptionist verification
+- Next clue released status
+- Final completion time
+- Failed scan count if useful
+- Event status
+
+All dashboard endpoints must be authenticated and scoped to the event.
+
+============================================================
+12. TESTS AND ACCEPTANCE CRITERIA
+============================================================
+
+Configuration:
+- Organizer can create an event with five teams and five stages.
+- System generates exactly 25 team-specific QR codes and one common final QR.
+- Changing team/stage counts changes the generated quantity correctly.
+- QR assignment and printable export work.
+
+Authentication:
+- Organizer and team login work.
+- Team A cannot access Team B's data.
+- Team cannot call organizer APIs.
+- Unauthenticated requests cannot advance progress.
+- Passwords are hashed and secrets are not committed.
+
+Sequence:
+- Team A can scan stage 1 QR when eligible.
+- Team A cannot scan stage 3 before stages 1 and 2 are completed/released.
+- Team B cannot use Team A's QR.
+- Valid scan returns configured result number and timestamp.
+- Wrong/duplicate scans do not advance progress.
+- A team cannot skip receptionist release.
+- Common final QR is rejected before eligibility.
+- Concurrent duplicate requests cannot grant progress twice.
+
+Reception:
+- Receptionist can find the team's latest valid result.
+- Wrong reported number cannot release a clue.
+- Correct verification releases the next stage exactly once.
+- Actor and timestamp are logged.
+- Paused/closed event prevents new progress.
+
+Winner:
+- Server completion timestamps determine ranking.
+- Incomplete teams cannot be shown as finished.
+- Tie-break rule is deterministic.
+
+Deployment:
+- Application starts on the office server using documented steps.
+- HTTPS and camera access work on real mobile devices.
+- Office network/firewall allows authorized phones to reach the app and backend to reach MySQL.
+- Credentials come from environment variables.
+- Backup/restore instructions are documented.
+- Test at least two phones and browsers.
+
+============================================================
+13. DEPLOYMENT AND DOCUMENTATION
+============================================================
+
+Provide:
+- `.env.example` for frontend configuration with placeholders only.
+- Spring Boot configuration example using environment variables for DB URL, DB username/password and session/security secrets.
+- Flyway migration scripts.
+- README with prerequisites, local development, frontend/backend commands, tests, build and office deployment steps.
+- Instructions to create the first organizer account securely.
+- Secret rotation instructions.
+- HTTPS and camera troubleshooting.
+- Database backup/restore guidance.
+- Troubleshooting for MySQL connection, login, QR scanning and printing.
+
+Never commit real credentials.
+
+Recommended deployment shape:
+- Next.js frontend served by a Node.js process.
+- Spring Boot backend served by a Java 21 process.
+- MySQL on the office server.
+- Reverse proxy (if available) routes frontend and `/api` requests securely.
+- Configure CORS only for the intended frontend origin if frontend/backend are on different origins.
+- Use HTTPS for phone camera access and secure cookies.
+
+============================================================
+14. IMPLEMENTATION INSTRUCTIONS FOR THE CODING AI
+============================================================
+
+Build a working application, not just a plan or mockup.
+
+1. Inspect the existing repository before editing.
+2. Preserve useful existing code and conventions.
+3. If no repository exists, create a frontend and backend structure, e.g.:
+   - frontend/: Next.js + TypeScript + Bootstrap 5
+   - backend/: Java 21 + Spring Boot + Maven
+4. Implement schema/migrations, authentication, role authorization, UI, REST APIs, QR generation, PDF export, state transitions and tests.
+5. Put business logic in service classes, separate from controllers and UI components.
+6. Use transactions and database constraints for state changes.
+7. Do not leave core functions as TODOs, dummy buttons, hardcoded sample data or frontend-only simulations.
+8. Do not claim features work unless implemented and tested.
+9. Run backend tests, frontend lint/type checks and production builds; fix failures.
+10. Provide a final summary of files created, environment variables, database migration/setup commands, test results and limitations.
+11. If missing infrastructure information blocks a step, name the exact blocker and implement the rest without inventing credentials.
+12. Do not implement live polling, quizzes or unrelated modules.
+13. Confirm the frontend can reach the Spring Boot API in the selected deployment setup.
+14. Keep the project runnable after each milestone.
+
+============================================================
+15. BUILD MILESTONES
+============================================================
+
+1. Scaffold frontend and Java 21 Spring Boot backend.
+2. Add MySQL configuration and Flyway schema.
+3. Implement authentication and role authorization.
+4. Implement event/team/stage configuration.
+5. Implement QR token generation and printable PDF.
+6. Implement scanning, validation and strict sequence state machine.
+7. Implement receptionist verification and clue release.
+8. Implement progress dashboard, scan history and leaderboard.
+9. Add automated tests and mobile/device checks.
+10. Document office-server deployment and backup/restore.
+
+============================================================
+16. DEFAULT ASSUMPTIONS
+============================================================
+
+Unless the product owner changes them:
+- One organizer role and separate team logins.
+- Five team-specific stages in the example.
+- One common final QR shared by all teams.
+- Each team has its own random token for stages 1–5.
+- Receptionist verifies the reported result number and manually releases the next physical clue.
+- QR scan displays a configured number, not the next riddle.
+- Final QR is valid only after all required stages and releases.
+- Earliest valid final completion timestamp wins.
+- Use server timestamps, not phone clocks.
+- App is hosted on an office-controlled server and connects to office MySQL.
+- App is accessed from phones through an approved network path.
+- No live polling or unrelated modules in this version.
+
+END OF SPECIFICATION

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}70%{box-shadow:0 0 0 6px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:.45}}
+body{margin:0;font-family:Inter,system-ui,sans-serif;color:#0f172a}
+a{color:#e8541f}a:hover{color:#c2410c}
+input,textarea,button{font-family:inherit}
+</style>
+</helmet>
+<div style="display:flex;min-height:100vh;background:#fff;font-size:13px;color:#0f172a;font-family:Inter,system-ui,sans-serif">
+
+<aside style="width:232px;flex:none;background:#0b1220;color:#cbd5e1;display:flex;flex-direction:column;padding:16px 12px;position:sticky;top:0;height:100vh;box-sizing:border-box">
+  <div onClick="{{ goOverview }}" style="display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;cursor:pointer;background:#131c30" style-hover="background:#1a2540">
+    <div style="width:32px;height:32px;border-radius:9px;background:#FF6B35;color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px">TH</div>
+    <div style="min-width:0;flex:1">
+      <div style="color:#fff;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ event.name }}</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-top:2px"><span style="width:6px;height:6px;border-radius:50%;background:{{ event.dot }}"></span>{{ event.status }}</div>
+    </div>
+  </div>
+  <div style="font-size:11px;font-weight:600;letter-spacing:.08em;color:#64748b;margin:22px 10px 8px">WORKSPACE</div>
+  <nav style="display:flex;flex-direction:column;gap:2px">
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+      <div onClick="{{ n.go }}" style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:500;background:{{ n.bg }};color:{{ n.fg }};position:relative" style-hover="background:#1a2540;color:#fff">
+        <span style="position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:{{ n.bar }}"></span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.icon }}"></path></svg>
+        <span style="flex:1">{{ n.label }}</span>
+        <span style="font-size:11px;color:#64748b">{{ n.count }}</span>
+      </div>
+    </sc-for>
+  </nav>
+  <div style="flex:1"></div>
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid #1e293b">
+    <div style="width:28px;height:28px;border-radius:50%;background:#1e293b;color:#fff;display:grid;place-items:center;font-weight:600;font-size:12px">A</div>
+    <div style="flex:1;line-height:1.25"><div style="color:#fff;font-weight:600">admin</div><div style="font-size:11px;color:#64748b">Organizer</div></div>
+    <button title="Logout" style="background:none;border:0;color:#94a3b8;cursor:pointer;padding:6px;border-radius:6px;display:flex" style-hover="background:#1e293b;color:#fb923c">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+    </button>
+  </div>
+</aside>
+
+<main style="flex:1;min-width:0;padding:28px 40px 60px;box-sizing:border-box">
+
+<sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:24px">
+    <div><div style="font-size:22px;font-weight:700;letter-spacing:-.02em">Events</div><div style="color:#64748b;margin-top:4px">{{ events.length }} events in your workspace</div></div>
+    <button onClick="{{ openPanel }}" style="background:#FF6B35;color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;font-size:13px;cursor:pointer;display:flex;gap:6px;align-items:center;box-shadow:0 1px 2px rgba(255,107,53,.4)" style-hover="background:#e8541f">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>Create Event</button>
+  </div>
+  <div style="border-top:1px solid #e5e7eb">
+    <sc-for list="{{ events }}" as="e" hint-placeholder-count="2">
+      <div onClick="{{ e.open }}" style="display:grid;grid-template-columns:minmax(0,1fr) 110px 90px 90px 110px 20px;gap:16px;align-items:center;padding:16px 8px;border-bottom:1px solid #e5e7eb;cursor:pointer" style-hover="background:#fff7f2">
+        <div><div style="font-weight:600;font-size:14px">{{ e.name }}</div><div style="color:#64748b;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.desc }}</div></div>
+        <div style="display:flex"><span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;background:{{ e.bg }};color:{{ e.fg }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ e.dot }}"></span>{{ e.status }}</span></div>
+        <div><div style="font-weight:600;font-size:15px">{{ e.teams }}</div><div style="color:#64748b;font-size:11px">Teams</div></div>
+        <div><div style="font-weight:600;font-size:15px">{{ e.stages }}</div><div style="color:#64748b;font-size:11px">Stages</div></div>
+        <div><div style="font-weight:600;font-size:15px">{{ e.clues }} / {{ e.qr }}</div><div style="color:#64748b;font-size:11px">Clues / QR</div></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg>
+      </div>
+    </sc-for>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isEvent }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;align-items:center;gap:8px;color:#64748b;margin-bottom:6px"><a onClick="{{ goDashboard }}" style="cursor:pointer;color:#64748b;text-decoration:none">Events</a><span>/</span><span>{{ event.name }}</span></div>
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+    <div style="font-size:22px;font-weight:700;letter-spacing:-.02em">{{ event.name }}</div>
+    <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;background:{{ event.bg }};color:{{ event.fg }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ event.dot }};animation:{{ event.anim }}"></span>{{ event.status }}</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #e5e7eb;border-radius:12px;margin-bottom:28px">
+    <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+      <div style="padding:16px 20px;border-left:{{ s.bl }}"><div style="font-size:26px;font-weight:700;letter-spacing:-.02em">{{ s.v }}</div><div style="color:#64748b;margin-top:2px">{{ s.l }}</div></div>
+    </sc-for>
+  </div>
+  <div style="font-size:12px;font-weight:600;letter-spacing:.06em;color:#64748b;margin-bottom:12px">EVENT STATUS</div>
+  <div style="display:flex;align-items:center;margin-bottom:16px;max-width:760px">
+    <sc-for list="{{ steps }}" as="p" hint-placeholder-count="5">
+      <div style="display:flex;align-items:center;flex:{{ p.flex }}">
+        <div style="display:flex;align-items:center;gap:8px;white-space:nowrap">
+          <span style="width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;background:{{ p.bg }};color:{{ p.fg }};box-shadow:{{ p.ring }}">{{ p.n }}</span>
+          <span style="font-weight:{{ p.w }};color:{{ p.tc }}">{{ p.label }}</span>
+        </div>
+        <div style="flex:1;height:2px;margin:0 12px;background:{{ p.line }};display:{{ p.lineShow }}"></div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:32px">
+    <sc-for list="{{ actions }}" as="a" hint-placeholder-count="1">
+      <button onClick="{{ a.go }}" style="border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer;background:{{ a.bg }};color:{{ a.fg }};border:1px solid {{ a.bd }}">{{ a.label }}</button>
+    </sc-for>
+  </div>
+  <div style="font-size:12px;font-weight:600;letter-spacing:.06em;color:#64748b;margin-bottom:4px">MANAGE</div>
+  <div style="border-top:1px solid #e5e7eb;max-width:760px;margin-top:8px">
+    <sc-for list="{{ links }}" as="l" hint-placeholder-count="4">
+      <div onClick="{{ l.go }}" style="display:flex;align-items:center;gap:14px;padding:14px 8px;border-bottom:1px solid #e5e7eb;cursor:pointer" style-hover="background:#fff7f2">
+        <div style="width:32px;height:32px;border-radius:8px;background:#fff1ea;color:#e8541f;display:grid;place-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ l.icon }}"></path></svg></div>
+        <div style="flex:1"><div style="font-weight:600">{{ l.label }}</div><div style="color:#64748b">{{ l.sub }}</div></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"><path d="M9 6l6 6-6 6"></path></svg>
+      </div>
+    </sc-for>
+  </div>
+  <div style="margin-top:28px;max-width:760px"><div style="font-size:12px;font-weight:600;letter-spacing:.06em;color:#64748b;margin-bottom:6px">DESCRIPTION</div><div style="color:#334155;line-height:1.5">{{ event.desc }}</div></div>
+</sc-if>
+
+<sc-if value="{{ isTeams }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px">
+    <div><div style="color:#64748b;margin-bottom:6px">{{ event.name }}</div><div style="font-size:22px;font-weight:700;letter-spacing:-.02em">Teams <span style="color:#94a3b8;font-weight:500">{{ teams.length }}</span></div></div>
+    <button onClick="{{ openPanel }}" style="background:#FF6B35;color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;font-size:13px;cursor:pointer" style-hover="background:#e8541f">+ Add Team</button>
+  </div>
+  <div style="display:grid;grid-template-columns:44px minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) 130px;gap:12px;padding:8px;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:600;letter-spacing:.06em;color:#64748b;background:#f8fafc"><div>#</div><div>TEAM NAME</div><div>USERNAME</div><div>PASSWORD</div><div>STATUS</div></div>
+  <sc-for list="{{ teams }}" as="t" hint-placeholder-count="4">
+    <div style="display:grid;grid-template-columns:44px minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) 130px;gap:12px;padding:13px 8px;border-bottom:1px solid #eef0f3;align-items:center" style-hover="background:#fff7f2">
+      <div style="color:#94a3b8;font-variant-numeric:tabular-nums">{{ t.n }}</div>
+      <div style="display:flex;align-items:center;gap:10px;font-weight:600"><span style="width:26px;height:26px;border-radius:50%;background:{{ t.color }};color:#fff;display:grid;place-items:center;font-size:11px">{{ t.init }}</span>{{ t.name }}</div>
+      <div><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#475569">{{ t.user }}</span></div>
+      <div><span onClick="{{ t.toggle }}" title="Click to reveal" style="display:inline-flex;gap:8px;align-items:center;font-family:'JetBrains Mono',monospace;font-size:12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:3px 10px;cursor:pointer;color:#334155;min-width:72px">{{ t.pass }}</span></div>
+      <div><span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;background:#fff1ea;color:#c2410c"><span style="width:6px;height:6px;border-radius:50%;background:#FF6B35"></span>IN PROGRESS</span></div>
+    </div>
+  </sc-for>
+</sc-if>
+
+<sc-if value="{{ isClues }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px">
+    <div><div style="color:#64748b;margin-bottom:6px">{{ event.name }}</div><div style="font-size:22px;font-weight:700;letter-spacing:-.02em">Clues <span style="color:#94a3b8;font-weight:500">{{ clueTotal }}</span></div></div>
+    <button onClick="{{ openPanel }}" style="background:#FF6B35;color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;font-size:13px;cursor:pointer" style-hover="background:#e8541f">+ Add Clue</button>
+  </div>
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+    <div style="margin-bottom:26px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-weight:700;font-size:14px">{{ g.label }}</span><span style="color:#94a3b8">{{ g.rows.length }} clues</span></div>
+      <div style="border-top:1px solid #e5e7eb">
+        <sc-for list="{{ g.rows }}" as="c" hint-placeholder-count="3">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 90px 130px;gap:12px;padding:10px 8px;border-bottom:1px solid #eef0f3;align-items:center" style-hover="background:#fff7f2">
+            <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.text }}</div>
+            <div style="display:flex;align-items:center;gap:6px;color:#64748b">Result <span style="font-family:'JetBrains Mono',monospace;font-weight:500;color:#0f172a;background:#f1f5f9;border-radius:6px;padding:1px 7px">{{ c.result }}</span></div>
+            <div><span style="padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;background:{{ c.bg }};color:{{ c.fg }}">{{ c.type }}</span></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-for>
+</sc-if>
+
+<sc-if value="{{ isQr }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;gap:16px">
+    <div><div style="color:#64748b;margin-bottom:6px">{{ event.name }}</div><div style="font-size:22px;font-weight:700;letter-spacing:-.02em">QR Codes <span style="color:#94a3b8;font-weight:500">{{ event.qr }}</span></div></div>
+    <div style="display:flex;gap:8px">
+      <button style="background:#fff;color:#334155;border:1px solid #cbd5e1;border-radius:8px;padding:9px 14px;font-weight:600;font-size:13px;opacity:.55;cursor:not-allowed">Generated</button>
+      <button style="background:#FF6B35;color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600;font-size:13px;cursor:pointer;display:flex;gap:8px;align-items:center" style-hover="background:#e8541f"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>Download all as PDF</button>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;background:#fff7f2;border:1px solid #fed7c3;color:#9a3412;border-radius:8px;padding:9px 12px;margin-bottom:20px">Common final QR is enabled for this event. QR codes are generated; download the PDF to print them.</div>
+  <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap">
+    <sc-for list="{{ qrTabs }}" as="q" hint-placeholder-count="5">
+      <button onClick="{{ q.go }}" style="border-radius:999px;padding:5px 13px;font-weight:600;font-size:12px;cursor:pointer;background:{{ q.bg }};color:{{ q.fg }};border:1px solid {{ q.bd }}">{{ q.label }}</button>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:20px">
+    <sc-for list="{{ qrs }}" as="c" hint-placeholder-count="6">
+      <div style="border:1px solid #e5e7eb;border-radius:12px;padding:12px">
+        <div style="aspect-ratio:1;border-radius:8px;background-color:#fff;background-image:{{ c.bg }};background-size:100% 100%;border:1px solid #eef0f3;image-rendering:pixelated"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><div><div style="font-weight:600">{{ c.team }}</div><div style="color:#64748b;font-size:12px">{{ c.stage }}</div></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg></div>
+      </div>
+    </sc-for>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isProgress }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;gap:16px">
+    <div><div style="color:#64748b;margin-bottom:6px">{{ event.name }}</div><div style="font-size:22px;font-weight:700;letter-spacing:-.02em">Live Progress</div></div>
+    <div style="display:flex;align-items:center;gap:14px;color:#64748b">
+      <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;background:{{ event.bg }};color:{{ event.fg }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ event.dot }};animation:{{ event.anim }}"></span>{{ event.status }}</span>
+      <span style="font-variant-numeric:tabular-nums">Refreshing in {{ countdown }}s</span>
+      <div style="width:60px;height:4px;border-radius:2px;background:#e5e7eb;overflow:hidden"><div style="height:100%;background:#FF6B35;width:{{ countPct }}"></div></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:40px;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding:14px 8px;margin-bottom:8px">
+    <div><div style="color:#64748b;font-size:11px">LEADING</div><div style="font-weight:700;font-size:16px;margin-top:2px;color:#e8541f">{{ leader }}</div></div>
+    <div><div style="color:#64748b;font-size:11px">TEAMS</div><div style="font-weight:700;font-size:16px;margin-top:2px">{{ prog.length }}</div></div>
+    <div><div style="color:#64748b;font-size:11px">STAGES COMPLETED</div><div style="font-weight:700;font-size:16px;margin-top:2px">{{ totalDone }}</div></div>
+    <div style="margin-left:auto;display:flex;gap:16px;align-items:center;color:#64748b;font-size:12px">
+      <span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:#22c55e"></span>Completed</span>
+      <span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:#FF6B35"></span>Current</span>
+      <span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;border-radius:3px;background:#e2e8f0"></span>Locked</span>
+    </div>
+  </div>
+  <sc-for list="{{ prog }}" as="r" hint-placeholder-count="4">
+    <div style="display:grid;grid-template-columns:32px 190px minmax(0,1fr) 110px;gap:18px;align-items:center;padding:16px 8px;border-bottom:1px solid #eef0f3;background:{{ r.rowBg }}">
+      <div style="font-weight:700;color:{{ r.rankColor }};font-variant-numeric:tabular-nums">{{ r.rank }}</div>
+      <div style="display:flex;align-items:center;gap:8px;font-weight:600">{{ r.name }}<span style="display:{{ r.crown }};font-size:10px;font-weight:700;letter-spacing:.04em;background:#FF6B35;color:#fff;border-radius:999px;padding:2px 7px">LEADING</span></div>
+      <div style="display:flex;gap:6px">
+        <sc-for list="{{ r.segs }}" as="s" hint-placeholder-count="5">
+          <div style="flex:1;min-width:0">
+            <div style="height:10px;border-radius:5px;background:{{ s.bg }};animation:{{ s.anim }}"></div>
+            <div style="font-size:10px;margin-top:5px;color:{{ s.tc }};font-weight:600;white-space:nowrap">{{ s.label }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="text-align:right;font-variant-numeric:tabular-nums"><span style="font-weight:700;font-size:15px">{{ r.pct }}</span><div style="color:#64748b;font-size:11px">{{ r.state }}</div></div>
+    </div>
+  </sc-for>
+</sc-if>
+</main>
+
+<sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closePanel }}" style="position:fixed;inset:0;background:rgba(11,18,32,.45);z-index:20"></div>
+  <div style="position:fixed;top:0;right:0;bottom:0;width:400px;max-width:100vw;background:#fff;z-index:21;box-shadow:-12px 0 40px rgba(11,18,32,.18);display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid #e5e7eb"><div style="font-weight:700;font-size:16px">{{ panelTitle }}</div><button onClick="{{ closePanel }}" style="border:0;background:none;font-size:22px;line-height:1;color:#64748b;cursor:pointer;border-radius:6px;padding:2px 8px" style-hover="background:#f1f5f9">×</button></div>
+    <div style="flex:1;overflow:auto;padding:20px 24px;display:flex;flex-direction:column;gap:16px">
+      <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ false }}">
+        <div><div style="font-weight:600;margin-bottom:6px">Event Name <span style="color:#FF6B35">*</span></div><input name="name" value="{{ form.name }}" onInput="{{ onField }}" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;outline:none" style-focus="border-color:#FF6B35;box-shadow:0 0 0 3px rgba(255,107,53,.18)"></div>
+        <div><div style="font-weight:600;margin-bottom:6px">Description</div><textarea name="desc" value="{{ form.desc }}" onInput="{{ onField }}" rows="3" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;resize:vertical;outline:none" style-focus="border-color:#FF6B35;box-shadow:0 0 0 3px rgba(255,107,53,.18)"></textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><div style="font-weight:600;margin-bottom:6px">Teams</div><input name="teams" type="number" value="{{ form.teams }}" onInput="{{ onField }}" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;outline:none" style-focus="border-color:#FF6B35"></div>
+          <div><div style="font-weight:600;margin-bottom:6px">Stages / Team</div><input name="stages" type="number" value="{{ form.stages }}" onInput="{{ onField }}" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;outline:none" style-focus="border-color:#FF6B35"></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" checked="{{ form.final }}" onChange="{{ onFinal }}" style="accent-color:#FF6B35;width:16px;height:16px;margin:0">Has common final QR</label>
+      </sc-if>
+      <sc-if value="{{ isTeams }}" hint-placeholder-val="{{ false }}">
+        <div><div style="font-weight:600;margin-bottom:6px">Team Name <span style="color:#FF6B35">*</span></div><input name="tname" value="{{ form.tname }}" onInput="{{ onField }}" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;outline:none" style-focus="border-color:#FF6B35;box-shadow:0 0 0 3px rgba(255,107,53,.18)"></div>
+        <div><div style="font-weight:600;margin-bottom:6px">Login Username <span style="color:#FF6B35">*</span></div><input name="tuser" value="{{ form.tuser }}" onInput="{{ onField }}" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;font-family:'JetBrains Mono',monospace;outline:none" style-focus="border-color:#FF6B35;box-shadow:0 0 0 3px rgba(255,107,53,.18)"></div>
+        <div><div style="font-weight:600;margin-bottom:6px">Password <span style="color:#FF6B35">*</span></div><input name="tpass" value="{{ form.tpass }}" onInput="{{ onField }}" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;font-family:'JetBrains Mono',monospace;outline:none" style-focus="border-color:#FF6B35;box-shadow:0 0 0 3px rgba(255,107,53,.18)"></div>
+      </sc-if>
+      <sc-if value="{{ isClues }}" hint-placeholder-val="{{ false }}">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" checked="{{ form.cfinal }}" onChange="{{ onCFinal }}" style="accent-color:#FF6B35;width:16px;height:16px;margin:0">Common Final Clue</label>
+        <div><div style="font-weight:600;margin-bottom:6px">Stage Number <span style="color:#FF6B35">*</span></div><input name="cstage" type="number" value="{{ form.cstage }}" onInput="{{ onField }}" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;outline:none" style-focus="border-color:#FF6B35"></div>
+        <div><div style="font-weight:600;margin-bottom:6px">Clue Text</div><textarea name="ctext" value="{{ form.ctext }}" onInput="{{ onField }}" rows="4" placeholder="Enter riddle or hint…" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;resize:vertical;outline:none" style-focus="border-color:#FF6B35;box-shadow:0 0 0 3px rgba(255,107,53,.18)"></textarea></div>
+        <div><div style="font-weight:600;margin-bottom:6px">Result Number (1–9999) <span style="color:#FF6B35">*</span></div><input name="cres" type="number" value="{{ form.cres }}" onInput="{{ onField }}" style="width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px 11px;font-size:13px;outline:none" style-focus="border-color:#FF6B35"></div>
+      </sc-if>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid #e5e7eb">
+      <button onClick="{{ closePanel }}" style="background:#fff;border:1px solid #cbd5e1;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;color:#334155" style-hover="background:#f8fafc">Cancel</button>
+      <button onClick="{{ submit }}" style="background:#FF6B35;color:#fff;border:0;border-radius:8px;padding:9px 16px;font-weight:600;cursor:pointer" style-hover="background:#e8541f">{{ panelCta }}</button>
+    </div>
+  </div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const ST = {
+  DRAFT: { bg: '#f1f5f9', fg: '#475569', dot: '#94a3b8' },
+  READY: { bg: '#dbeafe', fg: '#1d4ed8', dot: '#3b82f6' },
+  LIVE: { bg: '#dcfce7', fg: '#15803d', dot: '#22c55e' },
+  PAUSED: { bg: '#fef9c3', fg: '#a16207', dot: '#eab308' },
+  COMPLETED: { bg: '#ede9fe', fg: '#6d28d9', dot: '#8b5cf6' }
+};
+const ORDER = ['DRAFT', 'READY', 'LIVE', 'PAUSED', 'COMPLETED'];
+const IC = {
+  dash: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',
+  teams: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
+  clues: 'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5',
+  qr: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v3M14 20h3M20 20h1',
+  prog: 'M3 3v18h18M7 14l4-4 4 4 5-6'
+};
+const COLORS = ['#FF6B35', '#3b82f6', '#8b5cf6', '#10b981', '#ec4899', '#f59e0b'];
+function qrSvg(seed) {
+  let h = 7; for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const r = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
+  const n = 25; let s = '';
+  const fz = (x, y) => (x < 8 && y < 8) || (x > n - 9 && y < 8) || (x < 8 && y > n - 9);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!fz(x, y) && r() > 0.52) s += `<rect x='${x}' y='${y}' width='1' height='1'/>`;
+  for (const [ox, oy] of [[0, 0], [n - 7, 0], [0, n - 7]])
+    s += `<path d='M${ox} ${oy}h7v7h-7zM${ox + 1} ${oy + 1}v5h5v-5z' fill-rule='evenodd'/><rect x='${ox + 2}' y='${oy + 2}' width='3' height='3'/>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 ${n + 2} ${n + 2}' shape-rendering='crispEdges'><rect x='-1' y='-1' width='${n + 2}' height='${n + 2}' fill='white'/><g fill='#0b1220'>${s}</g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+class Component extends DCLogic {
+  state = {
+    page: 'dashboard', status: 'LIVE', panelOpen: false, qrTeam: 0, reveal: {}, count: 5,
+    form: { name: '', desc: '', teams: 4, stages: 5, final: true, tname: '', tuser: '', tpass: '', cfinal: false, cstage: 1, ctext: '', cres: 1 },
+    events: [],
+    teams: [
+      { name: 'TEAM 1', user: 'TEAM123', pass: '' },
+      { name: 'TEAM2', user: 'TEAM2', pass: '' },
+      { name: 'TEAM3', user: 'TEAM3', pass: '' },
+      { name: 'TEAM 4', user: 'TEAM4', pass: 'TEAM1244' }
+    ],
+    clues: [
+      [1, 'YHA HAI', 1], [1, 'SDFDFDFDFDFDFD', 2], [1, 'SGFSDFDFDFDFDFDF', 3], [1, 'SDFDFDFDFDF', 4], [1, 'SDFDFDF', 5],
+      [2, 'SDFDFDFDFDF', 1], [2, 'ERRTRTRTRTRT', 3], [2, 'SDFDDFDFSEEEEEEEEEEEEE', 2], [2, 'SDFDFDFYYYYYYYYYY', 4], [2, 'NNNNNNNNNNN', 5],
+      [3, 'MMMMMMMMMMM', 1], [0, 'LAST', 1]
+    ].map(a => ({ stage: a[0], text: a[1], result: a[2] })),
+    prog: [{ name: 'TEAM 1', done: 3 }, { name: 'TEAM2', done: 2 }, { name: 'TEAM3', done: 4 }, { name: 'TEAM 4', done: 1 }]
+  };
+  componentDidMount() {
+    this.t = setInterval(() => {
+      if (this.state.status !== 'LIVE') return;
+      const c = this.state.count - 1;
+      if (c > 0) return this.setState({ count: c });
+      this.setState(s => {
+        const i = Math.floor(Math.random() * s.prog.length);
+        const prog = s.prog.map((p, k) => k === i && p.done < 6 ? { ...p, done: p.done + 1 } : p);
+        return { prog, count: 5 };
+      });
+    }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  evMeta(status) { const m = ST[status]; return { status, bg: m.bg, fg: m.fg, dot: m.dot, anim: status === 'LIVE' ? 'pulse 1.6s infinite' : 'none' }; }
+  renderVals() {
+    const s = this.state, p = s.page, set = (o) => this.setState(o), go = (k) => () => set({ page: k, panelOpen: false });
+    const clueN = s.clues.length, stages = 5;
+    const main = { id: 'main', name: 'Treasure Hunt', desc: 'kHELO KHELO', teams: s.teams.length, stages, clues: clueN, qr: 34, ...this.evMeta(s.status) };
+    const event = { ...main };
+    const evs = [main, ...s.events].map(e => ({ ...e, ...this.evMeta(e.id === 'main' ? s.status : 'DRAFT'), open: go('event') }));
+    const nav = [
+      ['dashboard', 'Dashboard', IC.dash, ''], ['teams', 'Teams', IC.teams, s.teams.length], ['clues', 'Clues', IC.clues, clueN],
+      ['qr', 'QR Codes', IC.qr, 34], ['progress', 'Progress', IC.prog, '']
+    ].map(a => { const on = p === a[0]; return { label: a[1], icon: a[2], count: a[3], go: go(a[0]), bg: on ? 'rgba(255,107,53,.14)' : 'transparent', fg: on ? '#fff' : '#cbd5e1', bar: on ? '#FF6B35' : 'transparent' }; });
+    const statsArr = [['Teams', s.teams.length], ['Clues', clueN], ['QR Codes', 34], ['Stages / Team', stages]].map((a, i) => ({ l: a[0], v: a[1], bl: i ? '1px solid #e5e7eb' : 'none' }));
+    const ci = ORDER.indexOf(s.status);
+    const steps = ORDER.map((o, i) => {
+      const done = i < ci, cur = i === ci, m = ST[o];
+      return { n: done ? '✓' : i + 1, label: o, flex: i < 4 ? 1 : 0, bg: cur ? m.dot : done ? '#0f172a' : '#e2e8f0', fg: cur || done ? '#fff' : '#64748b', ring: cur ? `0 0 0 4px ${m.bg}` : 'none', w: cur ? 700 : 500, tc: cur ? '#0f172a' : '#64748b', line: done ? '#0f172a' : '#e2e8f0', lineShow: i < 4 ? 'block' : 'none' };
+    });
+    const act = (label, to, primary) => ({ label, go: () => set({ status: to, count: 5 }), bg: primary ? '#FF6B35' : '#fff', fg: primary ? '#fff' : '#334155', bd: primary ? '#FF6B35' : '#cbd5e1' });
+    const actions = { DRAFT: [act('Mark Ready', 'READY', 1)], READY: [act('Go Live', 'LIVE', 1), act('Back to Draft', 'DRAFT')], LIVE: [act('Pause', 'PAUSED', 1), act('Complete', 'COMPLETED')], PAUSED: [act('Resume', 'LIVE', 1), act('Complete', 'COMPLETED')], COMPLETED: [act('Reopen as Paused', 'PAUSED')] }[s.status];
+    const links = [['Manage Teams', s.teams.length + ' teams', IC.teams, 'teams'], ['Manage Clues', clueN + ' clues', IC.clues, 'clues'], ['QR Codes', '34 codes', IC.qr, 'qr'], ['Live Progress', 'Real-time dashboard', IC.prog, 'progress']].map(a => ({ label: a[0], sub: a[1], icon: a[2], go: go(a[3]) }));
+    const teams = s.teams.map((t, i) => ({ n: i + 1, name: t.name, user: t.user, init: t.name.replace(/\s/g, '').slice(-1).toUpperCase() === t.name.replace(/\s/g, '').slice(-1) ? t.name.replace(/\s/g, '').slice(0, 1) + t.name.replace(/\s/g, '').slice(-1) : t.name.slice(0, 2), color: COLORS[i % 6], toggle: () => set(x => ({ reveal: { ...x.reveal, [i]: !x.reveal[i] } })), pass: !t.pass ? '—' : s.reveal[i] ? t.pass : '••••••••' }));
+    const labels = ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5', 'Final'];
+    const gmap = {}; s.clues.forEach(c => { (gmap[c.stage] = gmap[c.stage] || []).push(c); });
+    const groups = Object.keys(gmap).sort((a, b) => (a == 0) - (b == 0) || a - b).map(k => ({
+      label: k == 0 ? 'Common Final' : 'Stage ' + k,
+      rows: gmap[k].map(c => ({ text: c.text, result: c.result, type: c.stage ? 'Stage Clue' : 'Common Final', bg: c.stage ? '#e0f2fe' : '#fef3c7', fg: c.stage ? '#0369a1' : '#92400e' }))
+    }));
+    const qrTabs = s.teams.map((t, i) => ({ label: t.name, i })).map(t => ({ label: t.label, go: () => set({ qrTeam: t.i }), bg: s.qrTeam === t.i ? '#0f172a' : '#fff', fg: s.qrTeam === t.i ? '#fff' : '#334155', bd: s.qrTeam === t.i ? '#0f172a' : '#cbd5e1' }));
+    const qt = (s.teams[s.qrTeam] || s.teams[0]).name;
+    const qrs = labels.map((l, i) => ({ team: qt, stage: l === 'Final' ? 'Common Final' : l, bg: qrSvg(qt + l + i) }));
+    const live = s.status === 'LIVE';
+    const sorted = [...s.prog].sort((a, b) => b.done - a.done);
+    const prog = sorted.map((r, i) => {
+      const lead = i === 0 && r.done > sorted[1].done;
+      return {
+        rank: i + 1, name: r.name, crown: lead ? 'inline-block' : 'none', rankColor: i === 0 ? '#e8541f' : '#94a3b8', rowBg: lead ? '#fff7f2' : 'transparent',
+        pct: Math.round(r.done / 6 * 100) + '%', state: r.done >= 6 ? 'Finished' : r.done + ' of 6 done',
+        segs: labels.map((l, k) => {
+          const d = k < r.done, c = k === r.done;
+          return { label: l, bg: d ? '#22c55e' : c ? '#FF6B35' : '#e2e8f0', tc: d ? '#15803d' : c ? '#c2410c' : '#94a3b8', anim: c && live ? 'glow 1.2s infinite' : 'none' };
+        })
+      };
+    });
+    const f = s.form;
+    const onField = (e) => { const { name, value } = e.target; set(x => ({ form: { ...x.form, [name]: value } })); };
+    const submit = () => {
+      if (p === 'dashboard' && f.name.trim()) set(x => ({ events: [{ id: 'e' + x.events.length, name: f.name, desc: f.desc || 'No description', teams: +f.teams, stages: +f.stages, clues: 0, qr: 0 }, ...x.events], panelOpen: false, form: { ...x.form, name: '', desc: '' } }));
+      else if (p === 'teams' && f.tname.trim() && f.tuser.trim()) set(x => ({ teams: [...x.teams, { name: f.tname, user: f.tuser, pass: f.tpass }], prog: [...x.prog, { name: f.tname, done: 0 }], panelOpen: false, form: { ...x.form, tname: '', tuser: '', tpass: '' } }));
+      else if (p === 'clues' && (f.cfinal || f.ctext.trim())) set(x => ({ clues: [...x.clues, { stage: f.cfinal ? 0 : +f.cstage, text: f.ctext || '—', result: +f.cres }], panelOpen: false, form: { ...x.form, ctext: '' } }));
+    };
+    return {
+      nav, event, events: evs, stats: statsArr, steps, actions, links, teams, groups, qrTabs, qrs, prog, form: f, onField, submit,
+      isDashboard: p === 'dashboard', isEvent: p === 'event', isTeams: p === 'teams', isClues: p === 'clues', isQr: p === 'qr', isProgress: p === 'progress',
+      panelOpen: s.panelOpen, openPanel: () => set({ panelOpen: true }), closePanel: () => set({ panelOpen: false }),
+      panelTitle: { dashboard: 'Create New Event', teams: 'Add Team', clues: 'Add Clue' }[p] || '',
+      panelCta: { dashboard: 'Create Event', teams: 'Add Team', clues: 'Add Clue' }[p] || '',
+      onFinal: () => set(x => ({ form: { ...x.form, final: !x.form.final } })), onCFinal: () => set(x => ({ form: { ...x.form, cfinal: !x.form.cfinal } })),
+      goOverview: go('event'), goDashboard: go('dashboard'), clueTotal: clueN,
+      countdown: live ? s.count : '–', countPct: live ? (s.count / 5 * 100) + '%' : '0%',
+      leader: sorted[0].done > (sorted[1] ? sorted[1].done : -1) ? sorted[0].name : 'Tied',
+      totalDone: s.prog.reduce((a, b) => a + b.done, 0)
+    };
+  }
+}
+</script>
+</body>
+</html>

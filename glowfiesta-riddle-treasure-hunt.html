@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GlowFiesta — Riddle-Based Treasure Hunt</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --gold:       #c8860a;
+  --gold-light: #f5c842;
+  --orange:     #e06010;
+  --maroon:     #9b2020;
+  --bg:         #fffaf3;
+  --surface:    #ffffff;
+  --border:     #f0d9a8;
+  --text:       #2d1a00;
+  --muted:      #7a5a30;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { font-family: 'Poppins', sans-serif; background: #f5ede0; color: var(--text); }
+
+@page { size: A4; margin: 0.6cm 0.8cm; }
+
+@media print {
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { background: #fff !important; margin: 0; }
+  .page { box-shadow: none !important; margin: 0 !important; border-radius: 0 !important; border: none !important; max-width: 100% !important; overflow: visible !important; }
+  .cover  { padding: 12px 22px 10px !important; }
+  .diyas  { font-size: 14px !important; margin-bottom: 4px !important; }
+  h1      { font-size: 20px !important; margin-bottom: 3px !important; }
+  .subtitle { font-size: 10px !important; margin-bottom: 8px !important; }
+  .pill   { font-size: 9px !important; padding: 2px 8px !important; }
+  .content { padding: 14px 22px 12px !important; }
+  .section-title { font-size: 9px !important; margin-bottom: 8px !important; break-after: avoid; }
+  .intro  { font-size: 10.5px !important; margin-bottom: 12px !important; }
+  .cards  { gap: 8px !important; margin-bottom: 12px !important; }
+  .card   { padding: 9px 11px !important; }
+  .card-icon { font-size: 16px !important; margin-bottom: 4px !important; }
+  .card h3   { font-size: 10.5px !important; margin-bottom: 3px !important; }
+  .card p, .card li { font-size: 9.5px !important; }
+  .callout { padding: 8px 12px !important; margin-bottom: 12px !important; }
+  .callout-label { font-size: 8px !important; }
+  .callout p { font-size: 10px !important; }
+  .timeline  { margin-bottom: 12px !important; }
+  .timeline-row { margin-bottom: 4px !important; gap: 8px !important; grid-template-columns: 72px 14px 1fr !important; }
+  .time  { font-size: 9px !important; }
+  .label { font-size: 10px !important; }
+  .venue { padding: 8px 12px !important; gap: 8px !important; margin-bottom: 12px !important; }
+  .venue-icon { font-size: 18px !important; }
+  .venue strong { font-size: 11px !important; }
+  .venue p { font-size: 9.5px !important; }
+  .round  { padding: 8px 11px !important; margin-bottom: 6px !important; break-inside: avoid; page-break-inside: avoid; }
+  .round-icon { font-size: 14px !important; }
+  .round h3   { font-size: 11px !important; }
+  .round-no   { font-size: 8px !important; }
+  .round-sub  { font-size: 9px !important; }
+  .round li   { font-size: 9.5px !important; padding: 2px 0 2px 14px !important; }
+  .tag        { font-size: 9px !important; padding: 2px 8px !important; margin-top: 5px !important; }
+  .rules li   { font-size: 10px !important; }
+  .materials  { gap: 6px !important; margin-bottom: 12px !important; }
+  .material   { font-size: 10px !important; padding: 5px 9px !important; }
+}
+
+/* ── PAGE ── */
+.page {
+  max-width: 920px;
+  margin: 30px auto;
+  background: var(--bg);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 60px rgba(180,100,10,.18);
+  border: 1px solid var(--border);
+}
+
+/* ── COVER ── */
+.cover {
+  position: relative;
+  background: linear-gradient(140deg, #7b1c1c 0%, #c8500a 42%, #e8a020 78%, #f5c842 100%);
+  padding: 16px 30px 14px;
+  text-align: center;
+  color: #fff;
+  overflow: hidden;
+}
+.cover::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 15% 85%, rgba(255,255,255,.07), transparent 55%),
+              radial-gradient(ellipse at 85% 15%, rgba(255,255,255,.05), transparent 50%);
+  pointer-events: none;
+}
+.diyas { font-size: 16px; letter-spacing: 6px; margin-bottom: 6px; position: relative; z-index: 1; }
+.badge {
+  display: inline-block; background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.38); border-radius: 50px;
+  padding: 3px 14px; font-size: 9.5px; letter-spacing: 2.5px;
+  text-transform: uppercase; margin-bottom: 8px; position: relative; z-index: 1;
+}
+h1 {
+  font: 700 clamp(20px,3.2vw,30px)/1.08 'Cinzel', serif;
+  text-shadow: 0 2px 12px rgba(80,20,0,.4);
+  margin-bottom: 4px; position: relative; z-index: 1;
+}
+.subtitle {
+  font: 400 clamp(9px,1.2vw,11px) 'Cinzel', serif;
+  letter-spacing: 1px; color: rgba(255,255,255,.88);
+  margin-bottom: 12px; position: relative; z-index: 1;
+}
+.pills { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; position: relative; z-index: 1; }
+.pill {
+  background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.36);
+  border-radius: 30px; padding: 3px 12px; font-size: 10px;
+  display: flex; align-items: center; gap: 5px;
+}
+
+/* ── CONTENT ── */
+.content { padding: 18px 28px 16px; }
+
+.section-title {
+  font: 600 10px/1 'Cinzel', serif;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-title::after { content: ''; height: 1.5px; flex: 1; background: linear-gradient(90deg, var(--border), transparent); }
+
+.intro {
+  font-size: 12px; line-height: 1.7; color: #4a3010;
+  background: linear-gradient(135deg, #fff8ee, #fff4e0);
+  border: 1.5px solid var(--border); border-left: 4px solid var(--gold-light);
+  border-radius: 0 10px 10px 0; padding: 12px 16px; margin-bottom: 20px;
+}
+
+/* ── CARDS ── */
+.cards {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; margin-bottom: 20px;
+}
+.owners-inline { grid-template-columns: repeat(3, 1fr); }
+
+.card {
+  background: linear-gradient(135deg, #fff8ee, #fff3d6);
+  border: 1.5px solid var(--border); border-top: 3px solid var(--orange);
+  border-radius: 10px; padding: 12px 14px;
+  box-shadow: 0 2px 10px rgba(200,130,10,.07);
+}
+.owners-inline .card { text-align: center; }
+.card-icon { font-size: 20px; margin-bottom: 6px; display: block; }
+.card h3 { font-size: 12.5px; color: var(--maroon); margin-bottom: 4px; font-weight: 700; }
+.card p, .card li { font-size: 11px; line-height: 1.6; color: #4a3010; }
+.card ul { padding-left: 14px; }
+
+/* ── CALLOUT ── */
+.callout {
+  background: linear-gradient(135deg, #fff4e0, #ffecd0);
+  border: 1.5px solid var(--border); border-left: 4px solid var(--gold-light);
+  border-radius: 0 10px 10px 0; padding: 10px 14px; margin-bottom: 20px;
+}
+.callout-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--orange); font-weight: 700; margin-bottom: 4px; }
+.callout p { font-size: 11.5px; line-height: 1.65; color: #4a3010; }
+
+/* ── TIMELINE ── */
+.timeline { margin-bottom: 20px; }
+.timeline-row {
+  display: grid; grid-template-columns: 88px 16px 1fr;
+  gap: 10px; margin-bottom: 6px; align-items: start;
+}
+.time { font-weight: 700; font-size: 10px; color: var(--orange); text-align: right; padding-top: 1px; }
+.dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--gold-light); border: 2px solid var(--orange);
+  margin-top: 3px; position: relative;
+}
+.timeline-row:not(:last-child) .dot::after {
+  content: ''; position: absolute; top: 8px; left: 1.5px;
+  width: 2px; height: 26px; background: linear-gradient(var(--border), transparent);
+}
+.label { font-size: 11px; line-height: 1.5; }
+.label strong { color: var(--maroon); }
+
+/* ── VENUE ── */
+.venue {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: linear-gradient(135deg, #fff4e0, #ffecd0);
+  border: 1.5px solid var(--border); border-left: 4px solid var(--gold-light);
+  border-radius: 0 10px 10px 0; padding: 10px 14px; margin-bottom: 20px;
+}
+.venue-icon { font-size: 22px; flex-shrink: 0; }
+.venue strong { display: block; font-size: 12.5px; margin-bottom: 3px; color: var(--maroon); }
+.venue p { font-size: 11px; color: var(--muted); line-height: 1.6; }
+
+/* ── ROUNDS ── */
+.round {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-left: 3px solid var(--orange); border-radius: 0 10px 10px 0;
+  padding: 10px 14px; margin-bottom: 8px;
+  box-shadow: 0 1px 6px rgba(200,130,10,.05); break-inside: avoid;
+}
+.round:nth-child(1) { border-left-color: #c84000; }
+.round:nth-child(2) { border-left-color: #d87010; }
+.round:nth-child(3) { border-left-color: #c8860a; }
+.round:nth-child(4) { border-left-color: #a06010; }
+
+.round-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
+.round-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.round-no { font-size: 8.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--orange); font-weight: 700; margin-bottom: 2px; }
+.round h3 { font-size: 13px; color: var(--maroon); font-weight: 700; }
+.round-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.round ul { list-style: none; }
+.round li {
+  font-size: 11px; line-height: 1.5; color: #4a3010;
+  padding: 3px 0 3px 14px; border-bottom: 1px solid #f5e8cc; position: relative;
+}
+.round li:last-child { border-bottom: none; }
+.round li::before { content: '›'; position: absolute; left: 2px; color: var(--orange); font-size: 14px; line-height: 1.1; }
+.tag {
+  display: inline-block; background: #fff8e8;
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 2px 10px; font-size: 10px; color: var(--gold); font-weight: 600; margin-top: 7px;
+}
+
+/* ── RULES ── */
+.rules { margin: 0 0 20px; padding-left: 18px; }
+.rules li { font-size: 11px; line-height: 1.65; color: #4a3010; padding: 2px 0 2px 4px; }
+
+/* ── MATERIALS ── */
+.materials { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+.material {
+  background: #fff; border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px;
+  font-size: 11px; color: #4a3010;
+}
+.material::before { content: '✓'; color: var(--orange); font-weight: 700; margin-right: 7px; }
+
+/* ── FACT CARDS ── */
+.fact-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 10px; margin-bottom: 20px;
+}
+.fact-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-top: 3px solid var(--gold-light); border-radius: 10px;
+  padding: 10px 10px 9px; text-align: center;
+  box-shadow: 0 2px 8px rgba(200,130,10,.06);
+}
+.fact-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, #fde8c0, #f5c842);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; margin: 0 auto 7px; border: 1.5px solid var(--border);
+}
+.fact-role {
+  font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--gold); background: #fff4e0; border: 1px solid var(--border);
+  border-radius: 20px; padding: 2px 8px; margin-bottom: 5px;
+  display: inline-block; font-weight: 600;
+}
+.fact-name { font-weight: 600; font-size: 12px; color: var(--maroon); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- COVER -->
+  <header class="cover">
+    <div class="diyas">🪔 ✨ 🪔 ✨ 🪔</div>
+    <div class="badge">GlowFiesta · Day 3 · 4th November</div>
+    <h1>GlowFiesta</h1>
+    <div class="subtitle">🗝️ Mission Unlock — Riddle-Based Treasure Hunt 🗝️</div>
+    <div class="pills">
+      <div class="pill">📅 Tuesday, 4th November</div>
+      <div class="pill">⏱️ Duration: 45–60 Minutes</div>
+      <div class="pill">👥 4–6 Teams</div>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- Overview -->
+    <div class="section-title">Event Overview</div>
+    <p class="intro">The Riddle-Based Team Treasure Hunt is an interactive team-building activity in which employees work together to solve a series of riddles and clues to discover a hidden treasure. Each solved riddle directs a team to a designated office location or object, where the next clue awaits. The activity focuses exclusively on riddles, logical reasoning, observation, communication, and teamwork — without physical challenges, memory games, or construction activities.</p>
+
+    <!-- Event Owners -->
+    <div class="section-title">Event Owners</div>
+    <div class="cards owners-inline">
+      <div class="card"><div class="card-icon">🌟</div><h3>Shubham Shah</h3><p>Event Owner</p></div>
+      <div class="card"><div class="card-icon">🌟</div><h3>Pradeep Sharma</h3><p>Event Owner</p></div>
+      <div class="card"><div class="card-icon">🌟</div><h3>Chirag Paneri</h3><p>Event Owner</p></div>
+    </div>
+
+    <!-- Team Format -->
+    <div class="section-title">Team Format</div>
+    <div class="callout">
+      <div class="callout-label">Activity Format</div>
+      <p>Employees are divided into <strong>4–6 teams</strong>. Each team follows its own sequence of riddles placed only in approved office areas. Teams receive a starting riddle, solve each clue to find the next location, and continue until they reach the final treasure.</p>
+    </div>
+
+    <!-- Timeline -->
+    <div class="section-title">Event Timeline</div>
+    <div class="timeline">
+      <div class="timeline-row"><div class="time">0 – 5 min</div><div class="dot"></div><div class="label"><strong>Welcome &amp; Rules</strong> — Explain the objective, boundaries, safety rules, and scoring.</div></div>
+      <div class="timeline-row"><div class="time">5 – 10 min</div><div class="dot"></div><div class="label"><strong>Team Formation</strong> — Form 4–6 teams and distribute the starting riddles.</div></div>
+      <div class="timeline-row"><div class="time">10 – 35 min</div><div class="dot"></div><div class="label"><strong>Riddle Trail</strong> — Teams solve clues and discover the next designated locations.</div></div>
+      <div class="timeline-row"><div class="time">35 – 45 min</div><div class="dot"></div><div class="label"><strong>Final Clue &amp; Treasure</strong> — Teams solve the final riddle and identify the treasure location.</div></div>
+      <div class="timeline-row"><div class="time">45 – 55 min</div><div class="dot"></div><div class="label"><strong>Results &amp; Wind Up</strong> — Confirm the winning team and present prizes.</div></div>
+      <div class="timeline-row"><div class="time">55 – 60 min</div><div class="dot"></div><div class="label"><strong>Closing</strong> — Wrap up the activity and take a group photograph.</div></div>
+    </div>
+
+    <!-- Venue -->
+    <div class="section-title">Venue</div>
+    <div class="venue">
+      <div class="venue-icon">🏢</div>
+      <div>
+        <strong>Office Premises — Approved Areas Only</strong>
+        <p>Exact clue locations will be finalized by the organizers before the event. Restricted rooms, operational work areas, and locations that may disrupt employees will be excluded.</p>
+      </div>
+    </div>
+
+    <!-- Game Structure -->
+    <div class="section-title">Game Structure</div>
+    <div class="round">
+      <div class="round-head"><div class="round-icon">🧩</div><div><div class="round-no">Stage 01</div><h3>The Starting Riddle</h3><div class="round-sub">Kick-off · First clue</div></div></div>
+      <ul>
+        <li>Each team receives its own starting riddle.</li>
+        <li>The answer points to the first approved location or object.</li>
+        <li>Teams should discuss the clue and agree on an answer before proceeding.</li>
+      </ul>
+      <div class="tag">🔎 Begin the hunt</div>
+    </div>
+    <div class="round">
+      <div class="round-head"><div class="round-icon">🗺️</div><div><div class="round-no">Stage 02</div><h3>Follow the Clues</h3><div class="round-sub">Sequential riddles · Team collaboration</div></div></div>
+      <ul>
+        <li>At each approved location, teams find the next riddle card.</li>
+        <li>Each answer leads to the next location in the trail.</li>
+        <li>Clues will be arranged to avoid crowding and interference between teams.</li>
+      </ul>
+      <div class="tag">🤝 Think together, move forward</div>
+    </div>
+    <div class="round">
+      <div class="round-head"><div class="round-icon">🧠</div><div><div class="round-no">Stage 03</div><h3>The Tricky Riddle</h3><div class="round-sub">Higher difficulty · Careful reasoning</div></div></div>
+      <ul>
+        <li>Teams encounter a more challenging riddle requiring careful interpretation and logical reasoning.</li>
+        <li>Hints may be requested from the organizer, subject to a time penalty.</li>
+        <li>The organizer verifies progress if a clue or answer is disputed.</li>
+      </ul>
+      <div class="tag">💡 Every detail matters</div>
+    </div>
+    <div class="round">
+      <div class="round-head"><div class="round-icon">🏆</div><div><div class="round-no">Stage 04</div><h3>The Final Clue &amp; Treasure Reveal</h3><div class="round-sub">Finish line · Winner confirmation</div></div></div>
+      <ul>
+        <li>The final riddle points to the hidden treasure or its designated location.</li>
+        <li>Teams must provide the correct answer and notify the organizer to validate.</li>
+        <li>The first team to complete the full clue sequence correctly, after any penalties, wins.</li>
+      </ul>
+      <div class="tag">🎉 First valid finish wins</div>
+    </div>
+
+    <!-- Rules -->
+    <div class="section-title">Rules &amp; Guidelines</div>
+    <ol class="rules">
+      <li>Teams must solve riddles collaboratively and follow the clue sequence.</li>
+      <li>All clues will be located within the designated office premises.</li>
+      <li>Participants must not enter restricted areas or disrupt normal office operations.</li>
+      <li>Clues intended for other teams must not be removed, hidden, or altered.</li>
+      <li>Running and unsafe behaviour are not permitted.</li>
+      <li>Hints may be provided by the organizer; a time penalty may apply.</li>
+      <li>The treasure must not be moved or opened before the activity officially begins.</li>
+      <li>The organizer's decision will be final in case of any dispute.</li>
+    </ol>
+
+    <!-- Materials -->
+    <div class="section-title">Materials Required</div>
+    <div class="materials">
+      <div class="material">Printed riddle and clue cards</div>
+      <div class="material">Envelopes for clue placement</div>
+      <div class="material">Team identification cards</div>
+      <div class="material">Pens and answer sheets</div>
+      <div class="material">Timer or stopwatch</div>
+      <div class="material">Treasure box or gift bag</div>
+      <div class="material">Small prizes for the winning team</div>
+      <div class="material">Organizer's answer key and location checklist</div>
+    </div>
+
+    <!-- Winner Selection -->
+    <div class="section-title">Winner Selection</div>
+    <div class="callout">
+      <div class="callout-label">Winning Criteria</div>
+      <p>The winner is the team that correctly solves all required riddles and reaches the final treasure location first. Any hint-related time penalty will be applied before confirming the result. If teams finish with the same adjusted time, a tie-breaker riddle determines the winner.</p>
+    </div>
+
+    <!-- FACT Team -->
+    <div class="section-title">FACT Co-ordinators</div>
+    <div class="fact-grid">
+      <div class="fact-card"><div class="fact-avatar">📋</div><div class="fact-role">FACT Co-ordinator</div><div class="fact-name">Shweta Bansal</div></div>
+      <div class="fact-card"><div class="fact-avatar">📋</div><div class="fact-role">FACT Co-ordinator</div><div class="fact-name">Monika Das</div></div>
+      <div class="fact-card"><div class="fact-avatar">📋</div><div class="fact-role">FACT Co-ordinator</div><div class="fact-name">Divya Tanwar</div></div>
+      <div class="fact-card"><div class="fact-avatar">📋</div><div class="fact-role">FACT Co-ordinator</div><div class="fact-name">Mansi Babel</div></div>
+    </div>
+
+    <!-- Approval -->
+    <div class="section-title">Approval Requested</div>
+    <div class="callout" style="margin-bottom:0">
+      <p>The Riddle-Based Team Treasure Hunt is a simple, cost-effective, and engaging team-building activity that can be conducted using basic office materials. <strong>Approval is requested to proceed with planning and organizing the activity.</strong> The detailed riddles, answers, clue locations, and final treasure clue will be prepared separately after approval.</p>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

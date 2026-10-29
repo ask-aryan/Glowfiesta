@@ -1,0 +1,46 @@
+{
+  "name": "treasure-hunt",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "db:use-supabase": "node scripts/switch-db.mjs supabase",
+    "db:use-mysql": "node scripts/switch-db.mjs mysql",
+    "db:push": "prisma db push"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^3.0.3",
+    "bootstrap": "^5.3.8",
+    "html5-qrcode": "^2.3.8",
+    "iron-session": "^9.0.1",
+    "next": "14.2.35",
+    "pdfkit": "^0.20.2",
+    "prisma": "^5.22.0",
+    "qrcode": "^1.5.4",
+    "react": "^18",
+    "react-dom": "^18",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20",
+    "@types/pdfkit": "^0.17.7",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "jest": "^30.5.2",
+    "jest-environment-node": "^30.5.2",
+    "ts-jest": "^29.4.15",
+    "ts-node": "^10.9.2",
+    "typescript": "^5"
+  }
+}

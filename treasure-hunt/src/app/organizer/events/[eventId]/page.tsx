@@ -1,0 +1,140 @@
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { getSession } from '@/lib/auth'
+import EventStatusActions from './EventStatusActions'
+
+const STATUS_STYLE: Record<string, { bg: string; fg: string; dot: string; anim?: string }> = {
+  DRAFT:     { bg: '#f1f5f9', fg: '#475569', dot: '#94a3b8' },
+  READY:     { bg: '#dbeafe', fg: '#1d4ed8', dot: '#3b82f6' },
+  LIVE:      { bg: '#dcfce7', fg: '#15803d', dot: '#22c55e', anim: 'pulse-dot 1.6s infinite' },
+  PAUSED:    { bg: '#fef9c3', fg: '#a16207', dot: '#eab308' },
+  COMPLETED: { bg: '#ede9fe', fg: '#6d28d9', dot: '#8b5cf6' },
+}
+
+const IC = {
+  teams: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
+  clues: 'M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h5',
+  qr: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v3M14 20h3M20 20h1',
+  prog: 'M3 3v18h18M7 14l4-4 4 4 5-6',
+  selfie: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+}
+
+async function getEvent(eventId: number) {
+  const { prisma } = await import('@/lib/db')
+  return prisma.event.findUnique({
+    where: { id: eventId },
+    include: { _count: { select: { teams: true, clues: true, qrCodes: true } } },
+  })
+}
+
+const ORDER = ['DRAFT', 'READY', 'LIVE', 'PAUSED', 'COMPLETED']
+
+export default async function EventDetailPage({ params }: { params: { eventId: string } }) {
+  const session = await getSession()
+  if (!session.userId || session.role !== 'ORGANIZER') redirect('/login')
+
+  const eventId = parseInt(params.eventId)
+  const event = await getEvent(eventId)
+  if (!event) return <div style={{ padding: 32, color: '#b91c1c' }}>Event not found.</div>
+
+  const st = STATUS_STYLE[event.status] ?? STATUS_STYLE.DRAFT
+  const ci = ORDER.indexOf(event.status)
+
+  const stats = [
+    { label: 'Teams', value: event._count.teams },
+    { label: 'Clues', value: event._count.clues },
+    { label: 'QR Codes', value: event._count.qrCodes },
+    { label: 'Stages / Team', value: event.stagesPerTeam },
+  ]
+
+  const links = [
+    { href: `/organizer/events/${eventId}/teams`, label: 'Manage Teams', sub: `${event._count.teams} teams`, icon: IC.teams },
+    { href: `/organizer/events/${eventId}/clues`, label: 'Manage Clues', sub: `${event._count.clues} clues`, icon: IC.clues },
+    { href: `/organizer/events/${eventId}/qr`, label: 'QR Codes', sub: `${event._count.qrCodes} codes`, icon: IC.qr },
+    { href: `/organizer/events/${eventId}/progress`, label: 'Live Progress', sub: 'Real-time dashboard', icon: IC.prog },
+    { href: `/organizer/events/${eventId}/selfies`, label: 'Team Selfies', sub: 'Photos from the hunt', icon: IC.selfie },
+  ]
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#64748b', marginBottom: 6, fontSize: 13 }}>
+        <Link href="/organizer" style={{ color: '#64748b', textDecoration: 'none' }}>Events</Link>
+        <span>/</span>
+        <span>{event.name}</span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em' }}>{event.name}</div>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: st.bg, color: st.fg }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: st.dot, animation: st.anim, flexShrink: 0 }} />
+          {event.status}
+        </span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', border: '1px solid #e5e7eb', borderRadius: 12, marginBottom: 28 }}>
+        {stats.map((s, i) => (
+          <div key={s.label} style={{ padding: '16px 20px', borderLeft: i ? '1px solid #e5e7eb' : 'none' }}>
+            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em' }}>{s.value}</div>
+            <div style={{ color: '#64748b', marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 12 }}>EVENT STATUS</div>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16, maxWidth: 760 }}>
+        {ORDER.map((status, i) => {
+          const done = i < ci, cur = i === ci
+          const sm = STATUS_STYLE[status]
+          return (
+            <div key={status} style={{ display: 'flex', alignItems: 'center', flex: i < 4 ? 1 : 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+                <span style={{
+                  width: 22, height: 22, borderRadius: '50%', display: 'grid', placeItems: 'center',
+                  fontSize: 11, fontWeight: 700,
+                  background: cur ? sm.dot : done ? '#0f172a' : '#e2e8f0',
+                  color: cur || done ? '#fff' : '#64748b',
+                  boxShadow: cur ? `0 0 0 4px ${sm.bg}` : 'none',
+                }}>
+                  {done ? '✓' : i + 1}
+                </span>
+                <span style={{ fontWeight: cur ? 700 : 500, color: cur ? '#0f172a' : '#64748b' }}>{status}</span>
+              </div>
+              {i < 4 && <div style={{ flex: 1, height: 2, margin: '0 12px', background: done ? '#0f172a' : '#e2e8f0' }} />}
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{ marginBottom: 32 }}>
+        <EventStatusActions eventId={event.id} currentStatus={event.status} />
+      </div>
+
+      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 4 }}>MANAGE</div>
+      <div style={{ borderTop: '1px solid #e5e7eb', maxWidth: 760, marginTop: 8 }}>
+        {links.map(l => (
+          <Link key={l.href} href={l.href} className="manage-link">
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fff1ea', color: '#e8541f', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d={l.icon} />
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600 }}>{l.label}</div>
+              <div style={{ color: '#64748b' }}>{l.sub}</div>
+            </div>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth={2.5} strokeLinecap="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </Link>
+        ))}
+      </div>
+
+      {event.description && (
+        <div style={{ marginTop: 28, maxWidth: 760 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 6 }}>DESCRIPTION</div>
+          <div style={{ color: '#334155', lineHeight: 1.5 }}>{event.description}</div>
+        </div>
+      )}
+    </div>
+  )
+}
