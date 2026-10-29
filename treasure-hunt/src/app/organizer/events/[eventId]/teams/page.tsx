@@ -188,7 +188,14 @@ export default async function TeamsPage({ params }: { params: { eventId: string 
                     {team.score > 0 ? `+${team.score}` : team.score} pts
                   </span>
                 </div>
-                <TeamRowActions teamId={team.id} eventId={eventId} teamName={team.teamName} />
+                <TeamRowActions
+                  teamId={team.id}
+                  eventId={eventId}
+                  teamName={team.teamName}
+                  leaderName={team.leaderName}
+                  members={team.members}
+                  isScoreGame={true}
+                />
               </div>
             )
           })}
@@ -266,7 +273,14 @@ export default async function TeamsPage({ params }: { params: { eventId: string 
                     {team.status === 'COMPLETED' ? 'COMPLETED' : 'IN PROGRESS'}
                   </span>
                 </div>
-                <TeamRowActions teamId={team.id} eventId={eventId} teamName={team.teamName} />
+                <TeamRowActions
+                  teamId={team.id}
+                  eventId={eventId}
+                  teamName={team.teamName}
+                  leaderName={team.leaderName}
+                  members={team.members}
+                  isScoreGame={false}
+                />
               </div>
             )
           })}

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 const IcEdit = () => (
@@ -17,94 +17,342 @@ interface Props {
   teamId: number
   eventId: number
   teamName: string
+  leaderName?: string | null
+  members?: string | null
+  isScoreGame?: boolean
 }
 
-export default function TeamRowActions({ teamId, eventId, teamName }: Props) {
+export default function TeamRowActions({
+  teamId,
+  eventId,
+  teamName,
+  leaderName = '',
+  members = '',
+  isScoreGame = false,
+}: Props) {
   const router = useRouter()
   const [editOpen, setEditOpen] = useState(false)
-  const [form, setForm] = useState({ teamName, password: '' })
+  const [form, setForm] = useState({
+    teamName,
+    leaderName: leaderName || '',
+    members: members || '',
+    password: '',
+  })
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [err, setErr] = useState('')
-  const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setEditOpen(false)
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setEditOpen(false)
     }
-    if (editOpen) document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    if (editOpen) {
+      window.addEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = ''
+    }
   }, [editOpen])
 
-  async function handleSave() {
-    setSaving(true); setErr('')
-    const body: Record<string, string> = {}
-    if (form.teamName !== teamName) body.teamName = form.teamName
-    if (form.password) body.password = form.password
-    const res = await fetch(`/api/organizer/events/${eventId}/teams/${teamId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+  function openEditModal() {
+    setForm({
+      teamName,
+      leaderName: leaderName || '',
+      members: members || '',
+      password: '',
     })
-    setSaving(false)
-    if (!res.ok) { const d = await res.json(); setErr(d.error ?? 'Failed'); return }
-    setEditOpen(false)
-    router.refresh()
+    setErr('')
+    setEditOpen(true)
+  }
+
+  async function handleSave(e?: React.FormEvent) {
+    if (e) e.preventDefault()
+    if (!form.teamName.trim()) {
+      setErr('Team name cannot be empty')
+      return
+    }
+
+    setSaving(true)
+    setErr('')
+
+    const body: Record<string, string> = {}
+    if (form.teamName.trim() !== teamName) body.teamName = form.teamName.trim()
+    if ((form.leaderName || '') !== (leaderName || '')) body.leaderName = form.leaderName.trim()
+    if ((form.members || '') !== (members || '')) body.members = form.members.trim()
+    if (form.password) body.password = form.password
+
+    try {
+      const res = await fetch(`/api/organizer/events/${eventId}/teams/${teamId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      setSaving(false)
+      if (!res.ok) {
+        const d = await res.json()
+        setErr(d.error ?? 'Failed to update team')
+        return
+      }
+      setEditOpen(false)
+      router.refresh()
+    } catch {
+      setSaving(false)
+      setErr('Network error. Please try again.')
+    }
   }
 
   async function handleDelete() {
     if (!confirm(`Delete team "${teamName}"? This will remove their login, progress, and QR codes.`)) return
     setDeleting(true)
     const res = await fetch(`/api/organizer/events/${eventId}/teams/${teamId}`, { method: 'DELETE' })
-    if (!res.ok) { const d = await res.json(); alert(d.error ?? 'Failed to delete'); setDeleting(false); return }
+    if (!res.ok) {
+      const d = await res.json()
+      alert(d.error ?? 'Failed to delete')
+      setDeleting(false)
+      return
+    }
     router.refresh()
   }
 
   return (
-    <div style={{ position: 'relative', display: 'flex', gap: 4, alignItems: 'center' }} ref={ref}>
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
       <button
-        onClick={() => { setForm({ teamName, password: '' }); setEditOpen(v => !v) }}
+        onClick={openEditModal}
+        type="button"
         title="Edit team"
-        style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#475569', display: 'grid', placeItems: 'center' }}
-      ><IcEdit /></button>
+        style={{
+          background: '#fff',
+          border: '1px solid #e2e8f0',
+          borderRadius: 8,
+          padding: '6px 8px',
+          cursor: 'pointer',
+          color: '#475569',
+          display: 'grid',
+          placeItems: 'center',
+          transition: 'all 0.15s ease',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+        }}
+      >
+        <IcEdit />
+      </button>
+
       <button
         onClick={handleDelete}
+        type="button"
         disabled={deleting}
         title="Delete team"
-        style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#dc2626', display: 'grid', placeItems: 'center' }}
-      >{deleting ? '…' : <IcTrash />}</button>
+        style={{
+          background: '#fff',
+          border: '1px solid #fecaca',
+          borderRadius: 8,
+          padding: '6px 8px',
+          cursor: deleting ? 'not-allowed' : 'pointer',
+          color: '#dc2626',
+          display: 'grid',
+          placeItems: 'center',
+          transition: 'all 0.15s ease',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+        }}
+      >
+        {deleting ? '…' : <IcTrash />}
+      </button>
 
+      {/* Centered Fixed Modal: immune to table overflow:hidden or card clipping */}
       {editOpen && (
-        <div style={{
-          position: 'absolute', top: 32, right: 0, zIndex: 50,
-          background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12,
-          boxShadow: '0 8px 32px rgba(0,0,0,.12)', padding: 16, width: 260,
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: 12 }}>Edit Team</div>
-          {err && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{err}</div>}
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>TEAM NAME</label>
-            <input
-              value={form.teamName}
-              onChange={e => setForm(f => ({ ...f, teamName: e.target.value }))}
-              style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
-            />
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>NEW PASSWORD <span style={{ fontWeight: 400 }}>(leave blank to keep)</span></label>
-            <input
-              type="text"
-              value={form.password}
-              onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-              placeholder="Enter new password"
-              style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setEditOpen(false)} style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: 6, padding: '7px 0', cursor: 'pointer', background: '#fff', color: '#475569', fontWeight: 600, fontSize: 13 }}>Cancel</button>
-            <button onClick={handleSave} disabled={saving} style={{ flex: 1, background: '#FF6B35', color: '#fff', border: 0, borderRadius: 6, padding: '7px 0', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-              {saving ? 'Saving…' : 'Save'}
-            </button>
+        <div
+          onClick={() => setEditOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(15, 23, 42, 0.55)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            overflowY: 'auto',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              border: '1px solid #e2e8f0',
+              borderRadius: 18,
+              boxShadow: '0 24px 60px rgba(0,0,0,0.22)',
+              padding: '24px 26px',
+              width: '100%',
+              maxWidth: 420,
+              boxSizing: 'border-box',
+              animation: 'pop 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+              position: 'relative',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>Edit Team</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Update team details and credentials</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditOpen(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  border: '1px solid #e2e8f0',
+                  background: '#f8fafc',
+                  color: '#64748b',
+                  cursor: 'pointer',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 16,
+                  fontWeight: 600,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {err && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: 8, padding: '8px 12px', fontSize: 13, marginBottom: 14 }}>
+                {err}
+              </div>
+            )}
+
+            <form onSubmit={handleSave}>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: '#475569', display: 'block', marginBottom: 5 }}>
+                  TEAM NAME *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={form.teamName}
+                  onChange={e => setForm(f => ({ ...f, teamName: e.target.value }))}
+                  placeholder="e.g. Red Warriors"
+                  style={{
+                    width: '100%',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: 8,
+                    padding: '9px 12px',
+                    fontSize: 14,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {!isScoreGame && (
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: '#475569', display: 'block', marginBottom: 5 }}>
+                    NEW PASSWORD <span style={{ fontWeight: 400, color: '#94a3b8' }}>(leave blank to keep)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.password}
+                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    placeholder="Enter new plain password"
+                    style={{
+                      width: '100%',
+                      border: '1.5px solid #cbd5e1',
+                      borderRadius: 8,
+                      padding: '9px 12px',
+                      fontSize: 14,
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: '#475569', display: 'block', marginBottom: 5 }}>
+                  TEAM LEADER <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.leaderName}
+                  onChange={e => setForm(f => ({ ...f, leaderName: e.target.value }))}
+                  placeholder="Leader name"
+                  style={{
+                    width: '100%',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: 8,
+                    padding: '9px 12px',
+                    fontSize: 14,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: '#475569', display: 'block', marginBottom: 5 }}>
+                  MEMBERS <span style={{ fontWeight: 400, color: '#94a3b8' }}>(comma-separated, optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.members}
+                  onChange={e => setForm(f => ({ ...f, members: e.target.value }))}
+                  placeholder="e.g. John, Sarah, Alex"
+                  style={{
+                    width: '100%',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: 8,
+                    padding: '9px 12px',
+                    fontSize: 14,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(false)}
+                  style={{
+                    flex: 1,
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: 10,
+                    padding: '10px 0',
+                    cursor: 'pointer',
+                    background: '#fff',
+                    color: '#475569',
+                    fontWeight: 600,
+                    fontSize: 14,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={{
+                    flex: 1.3,
+                    background: 'linear-gradient(135deg, #FFA23A 0%, #FF6B35 100%)',
+                    color: '#fff',
+                    border: 0,
+                    borderRadius: 10,
+                    padding: '10px 0',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    boxShadow: '0 4px 14px rgba(255,107,53,0.35)',
+                    opacity: saving ? 0.75 : 1,
+                  }}
+                >
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

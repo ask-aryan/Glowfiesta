@@ -17,18 +17,35 @@ export async function PATCH(
   if (!team) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
 
   const body = await req.json()
-  const { teamName, password } = body as { teamName?: string; password?: string }
+  const { teamName, password, leaderName, members } = body as {
+    teamName?: string
+    password?: string
+    leaderName?: string
+    members?: string
+  }
 
   await prisma.$transaction(async (tx) => {
-    if (teamName && teamName !== team.teamName) {
-      await tx.team.update({ where: { id: teamId }, data: { teamName } })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: Record<string, any> = {}
+    if (teamName !== undefined && teamName.trim() && teamName !== team.teamName) {
+      updateData.teamName = teamName.trim()
+    }
+    if (leaderName !== undefined) {
+      updateData.leaderName = leaderName.trim() || null
+    }
+    if (members !== undefined) {
+      updateData.members = members.trim() || null
     }
     if (password) {
       const passwordHash = await bcrypt.hash(password, 10)
-      await tx.team.update({ where: { id: teamId }, data: { plainPassword: password } })
+      updateData.plainPassword = password
       if (team.userId) {
         await tx.user.update({ where: { id: team.userId }, data: { passwordHash } })
       }
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await tx.team.update({ where: { id: teamId }, data: updateData })
     }
   })
 
