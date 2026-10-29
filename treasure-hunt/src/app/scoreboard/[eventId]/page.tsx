@@ -887,17 +887,8 @@ function TVThreeTeamsGraphView({
 }) {
   if (teams.length < 3) return null
 
-  // Order for podium bar chart: Rank 2 on Left, Rank 1 in Center, Rank 3 on Right
-  const team1 = teams[0] // Rank 1 (highest score)
-  const team2 = teams[1] // Rank 2
-  const team3 = teams[2] // Rank 3
-
-  // Ordered array: [Left (2nd), Center (1st), Right (3rd)]
-  const displayItems = [
-    { team: team2, place: team2?.rank ?? 2, defaultColor: '#38bdf8', medal: '🥈' },
-    { team: team1, place: team1?.rank ?? 1, defaultColor: '#FFC857', medal: '👑' },
-    { team: team3, place: team3?.rank ?? 3, defaultColor: '#fb923c', medal: '🥉' },
-  ]
+  // Stable fixed column positions: keep each team at their fixed position so bars don't teleport!
+  const stableTeams = [...teams].sort((a, b) => (a.initialOrder ?? a.id) - (b.initialOrder ?? b.id))
 
   const scores = teams.map(t => t.score)
   const maxScore = Math.max(...scores)
@@ -908,6 +899,8 @@ function TVThreeTeamsGraphView({
   const effectiveCeiling = allZero ? 10 : Math.max(15, maxScore, scoreSpread * 1.25)
   const effectiveFloor = allZero ? 0 : Math.min(0, minScore)
   const range = Math.max(10, effectiveCeiling - effectiveFloor)
+
+  const isTied = !allZero && teams.filter(t => t.score === maxScore).length > 1
 
   return (
     <div
@@ -989,16 +982,41 @@ function TVThreeTeamsGraphView({
           <div style={{ borderBottom: '1.5px solid rgba(255,255,255,0.6)', width: '100%' }} />
         </div>
 
-        {/* 3 Dynamic Graph Columns */}
-        {displayItems.map(({ team, place, defaultColor, medal }) => {
+        {/* 3 Dynamic Graph Columns: Fixed in their lane, bars grow/shrink & colors/titles swap to leader */}
+        {stableTeams.map((team, idx) => {
           if (!team) return null
 
           const reaction = reactions[team.id]
           const isHappy = reaction?.type === 'HAPPY'
           const isCrying = reaction?.type === 'CRYING'
 
+          const rank = team.rank ?? idx + 1
           const isLeader = !allZero && team.score === maxScore && maxScore > 0
-          const color = isLeader ? '#FFC857' : defaultColor
+
+          // Color & title badge dynamically swap to the leading team in place!
+          const color = allZero
+            ? (idx === 0 ? '#38bdf8' : idx === 1 ? '#FFC857' : '#fb923c')
+            : isLeader
+            ? '#FFC857'
+            : rank === 2
+            ? '#38bdf8'
+            : '#fb923c'
+
+          const medal = allZero
+            ? '🏁'
+            : isLeader
+            ? '👑'
+            : rank === 2
+            ? '🥈'
+            : '🥉'
+
+          const titleBadge = allZero
+            ? `TEAM #${team.initialOrder || idx + 1}`
+            : isLeader
+            ? (isTied ? '👑 #1 TIED LEADER' : '👑 #1 LEADER')
+            : rank === 2
+            ? (isTied ? '🥈 #2 TIED' : '🥈 #2 PLACE')
+            : '🥉 #3 PLACE'
 
           // Calculate strictly proportional bar pixel height (between 80px and 280px)
           const minBarHeight = 80
@@ -1016,7 +1034,7 @@ function TVThreeTeamsGraphView({
             ? '😭'
             : isLeader
             ? '🤩'
-            : place === 2
+            : rank === 2
             ? '😊'
             : '😄'
 
@@ -1084,10 +1102,11 @@ function TVThreeTeamsGraphView({
                     fontSize: 11,
                     letterSpacing: '.06em',
                     marginBottom: 6,
+                    transition: 'all 0.4s ease',
                   }}
                 >
                   <span>{medal}</span>
-                  <span>{allZero ? `TEAM #${place}` : place === 1 ? '#1 LEADER' : `#${place} PLACE`}</span>
+                  <span>{titleBadge}</span>
                 </div>
 
                 {/* Mascot Avatar */}
@@ -1195,12 +1214,13 @@ function TVThreeTeamsGraphView({
                     letterSpacing: '.05em',
                     textTransform: 'uppercase',
                     whiteSpace: 'nowrap',
+                    transition: 'all 0.4s ease',
                   }}
                 >
                   {allZero
                     ? 'START'
                     : isLeader
-                    ? `👑 +${maxScore - (teams[1]?.score ?? 0)} LEAD`
+                    ? (isTied ? '🤝 TIED' : `👑 +${team.score - (teams.filter(t => t.id !== team.id).sort((a,b) => b.score - a.score)[0]?.score ?? 0)} LEAD`)
                     : `-${maxScore - team.score} PTS`}
                 </div>
 
@@ -1227,9 +1247,10 @@ function TVThreeTeamsGraphView({
                     fontSize: 18,
                     color,
                     letterSpacing: '.05em',
+                    transition: 'color 0.4s ease',
                   }}
                 >
-                  {medal} #{place}
+                  {medal} #{rank}
                 </div>
               </div>
             </div>
@@ -1250,8 +1271,10 @@ function TVDuelBattleView({
   allZero: boolean
   reactions: Record<number, { type: 'HAPPY' | 'CRYING'; delta: number; key: number }>
 }) {
-  const team1 = teams[0]
-  const team2 = teams[1]
+  // Stable fixed column positions so Left stays Left, Right stays Right, and leader styling swaps dynamically!
+  const sortedStable = [...teams].sort((a, b) => (a.initialOrder ?? a.id) - (b.initialOrder ?? b.id))
+  const team1 = sortedStable[0]
+  const team2 = sortedStable[1]
   if (!team1 || !team2) return null
 
   const isTied = team1.score === team2.score
@@ -1332,7 +1355,7 @@ function TVDuelBattleView({
           behindMargin={isTeam2Leading ? diff : undefined}
           allZero={allZero}
           reaction={rx1}
-          themeColor="#FFC857"
+          themeColor={allZero ? '#FFC857' : isTied || isTeam1Leading ? '#FFC857' : '#38bdf8'}
         />
 
         {/* Center VS Emblem with Points Difference */}
@@ -1394,7 +1417,7 @@ function TVDuelBattleView({
           behindMargin={isTeam1Leading ? diff : undefined}
           allZero={allZero}
           reaction={rx2}
-          themeColor={isTied ? '#FFC857' : '#38bdf8'}
+          themeColor={isTeam2Leading ? '#FFC857' : isTied ? '#FFC857' : '#38bdf8'}
         />
       </div>
     </div>
@@ -1456,6 +1479,7 @@ function TVDuelistCard({
         position: 'relative',
         boxSizing: 'border-box',
         overflow: 'hidden',
+        transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
       {/* Reaction Float Pill */}
@@ -1493,6 +1517,7 @@ function TVDuelistCard({
             color: themeColor,
             border: `1.5px solid ${themeColor}`,
             letterSpacing: '.06em',
+            transition: 'all 0.4s ease',
           }}
         >
           {allZero ? `TEAM #${rank}` : isLeader ? '👑 #1 CURRENT LEADER' : isTied ? '🤝 #1 TIED FOR FIRST' : '⚡ #2 CONTENDER'}
@@ -1514,6 +1539,7 @@ function TVDuelistCard({
           margin: '10px 0',
           position: 'relative',
           animation: isHappy ? 'pulse-ring 1s infinite' : isCrying ? 'shake .3s infinite' : 'none',
+          transition: 'border-color 0.4s ease, box-shadow 0.4s ease',
         }}
       >
         {emoji}
