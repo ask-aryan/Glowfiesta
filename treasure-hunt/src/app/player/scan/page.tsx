@@ -130,17 +130,41 @@ function ScanPageInner() {
   const [result, setResult] = useState<ScanResult | null>(null)
   const [scanning, setScanning] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const isHandlingRef = useRef(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scannerInstanceRef = useRef<any>(null)
+
+  async function stopScanner(instance: any) {
+    if (!instance) return
+    try {
+      if (instance.isScanning) {
+        await instance.stop()
+      }
+    } catch {
+      // html5-qrcode can throw synchronous string if already stopped
+    }
+    try {
+      instance.clear()
+    } catch {
+      // ignore clear error
+    }
+  }
 
   async function submitToken(token: string) {
     setSubmitting(true)
     try {
-      const res = await fetch('/api/player/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) })
+      const res = await fetch('/api/player/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
       const data = await res.json()
       setResult(data)
-    } catch { setResult({ success: false, message: 'Network error. Please try again.' }) }
-    finally { setSubmitting(false) }
+    } catch {
+      setResult({ success: false, message: 'Network error. Please try again.' })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   // If token in URL, skip selfie and submit directly
@@ -152,11 +176,13 @@ function ScanPageInner() {
   // Start QR scanner after selfie done
   useEffect(() => {
     if (!selfieDone || result || tokenFromUrl) return
+    isHandlingRef.current = false
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let html5QrCode: any
     import('html5-qrcode').then(({ Html5Qrcode }) => {
       if (!scannerRef.current) return
       html5QrCode = new Html5Qrcode('qr-reader')
+      scannerInstanceRef.current = html5QrCode
 
       const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
         const minEdge = Math.min(viewfinderWidth, viewfinderHeight)
@@ -164,9 +190,17 @@ function ScanPageInner() {
         return { width: qrboxSize, height: qrboxSize }
       }
 
-      function handleDecoded(decodedText: string) {
-        try { html5QrCode.stop() } catch { /* ignore */ }
+      async function handleDecoded(decodedText: string) {
+        if (isHandlingRef.current) return
+        isHandlingRef.current = true
         setScanning(false)
+
+        const inst = scannerInstanceRef.current
+        scannerInstanceRef.current = null
+        if (inst) {
+          await stopScanner(inst)
+        }
+
         let token = decodedText.trim()
         const match = token.match(/scan\/([a-zA-Z0-9_-]+)/)
         if (match) {
@@ -174,7 +208,7 @@ function ScanPageInner() {
         } else {
           token = token.split(/[?#/]/)[0]
         }
-        submitToken(token)
+        await submitToken(token)
       }
 
       setScanning(true)
@@ -192,10 +226,15 @@ function ScanPageInner() {
           () => {}
         ).catch(() => setScanning(false))
       })
-
-      scannerInstanceRef.current = html5QrCode
     })
-    return () => { if (scannerInstanceRef.current) scannerInstanceRef.current.stop().catch(() => { /* ignore */ }) }
+
+    return () => {
+      if (scannerInstanceRef.current) {
+        const inst = scannerInstanceRef.current
+        scannerInstanceRef.current = null
+        stopScanner(inst)
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selfieDone, result, tokenFromUrl])
 

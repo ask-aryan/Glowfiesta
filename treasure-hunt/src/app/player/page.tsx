@@ -18,7 +18,7 @@ async function getClueForTeamStage(teamId: number, eventId: number, stageNumber:
   const { prisma } = await import('@/lib/db')
   return prisma.clue.findFirst({
     where: { eventId, teamId, stageNumber, isCommonFinal: false },
-    select: { id: true, clueText: true },
+    select: { id: true, clueText: true, resultCode: true },
   })
 }
 
@@ -65,14 +65,14 @@ export default async function PlayerPage() {
       || team.stageProgress.some(p => p.stageNumber === currentStageProgress.stageNumber - 1 && (p.status === 'NEXT_CLUE_RELEASED' || p.status === 'COMPLETED'))
     : false
 
-  const clueVisible = (isLive || isPaused) && prevStageReleased
-    && currentStageProgress?.status !== 'AWAITING_RECEPTION_VERIFICATION'
+  const awaitingVerification = currentStageProgress?.status === 'AWAITING_RECEPTION_VERIFICATION'
 
-  const currentClue = clueVisible && currentStageProgress?.stageNumber
+  const clueVisible = (isLive || isPaused) && prevStageReleased
+    && !awaitingVerification
+
+  const currentClue = (clueVisible || awaitingVerification) && currentStageProgress?.stageNumber
     ? await getClueForTeamStage(team.id, team.eventId, currentStageProgress.stageNumber)
     : null
-
-  const awaitingVerification = currentStageProgress?.status === 'AWAITING_RECEPTION_VERIFICATION'
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'linear-gradient(135deg,#1a0533,#3d1a00,#FF6B35 200%)', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 15 }}>
@@ -117,9 +117,26 @@ export default async function PlayerPage() {
               ) : awaitingVerification ? (
                 <>
                   <div style={{ fontSize: 12, color: '#ffd9b8', marginTop: 14 }}>Status:</div>
-                  <div style={{ background: 'rgba(255,200,87,.12)', border: '1.5px solid #FFC857', borderRadius: 14, padding: '14px 16px', marginTop: 10 }}>
-                    <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 19, fontWeight: 600, color: '#FFC857' }}>Go to the reception desk!</div>
-                    <div style={{ fontSize: 13, color: '#ffd9b8', marginTop: 6 }}>Show the 4-letter code you received to the organizer.</div>
+                  <div style={{ background: 'rgba(255,200,87,.12)', border: '1.5px solid #FFC857', borderRadius: 16, padding: '16px 18px', marginTop: 10 }}>
+                    <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 20, fontWeight: 600, color: '#FFC857' }}>Go to the reception desk!</div>
+                    <div style={{ fontSize: 13, color: '#ffd9b8', marginTop: 6 }}>Show this 4-letter code to the organizer:</div>
+                    <div style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontWeight: 700,
+                      fontSize: 48,
+                      lineHeight: 1.1,
+                      letterSpacing: '.18em',
+                      color: '#FFC857',
+                      background: 'rgba(0,0,0,.4)',
+                      borderRadius: 14,
+                      padding: '10px 18px',
+                      display: 'inline-block',
+                      marginTop: 10,
+                      border: '1.5px solid rgba(255,200,87,.4)',
+                      filter: 'drop-shadow(0 4px 16px rgba(255,200,87,.35))',
+                    }}>
+                      {currentClue?.resultCode ?? '????'}
+                    </div>
                   </div>
                 </>
               ) : currentClue ? (
@@ -183,24 +200,37 @@ export default async function PlayerPage() {
 
       {!isCompleted && (
         <div style={{ padding: '12px 24px 32px' }}>
-          <Link
-            href="/player/scan"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-              width: '100%', height: 64, border: 'none', borderRadius: 20,
-              fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 21, letterSpacing: '.08em',
-              color: '#fff', textDecoration: 'none',
-              background: isLive ? 'linear-gradient(135deg,#FFA23A,#FF6B35 60%,#e8431a)' : 'rgba(255,255,255,.15)',
-              boxShadow: isLive ? '0 8px 28px rgba(255,107,53,.5)' : 'none',
-              opacity: isPaused ? 0.45 : 1,
-              pointerEvents: (isPaused || !isLive) ? 'none' : 'auto',
-            }}
-          >
-            <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.75} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10" />
-            </svg>
-            {isPaused ? 'PAUSED' : isLive ? 'SCAN QR' : 'HUNT NOT STARTED'}
-          </Link>
+          {awaitingVerification ? (
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                width: '100%', height: 64, borderRadius: 20,
+                fontFamily: 'Fredoka, sans-serif', fontWeight: 600, fontSize: 18, letterSpacing: '.04em',
+                color: '#FFC857', background: 'rgba(255,200,87,.14)', border: '1.5px solid rgba(255,200,87,.4)',
+              }}
+            >
+              ⏳ AT RECEPTION DESK
+            </div>
+          ) : (
+            <Link
+              href="/player/scan"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                width: '100%', height: 64, border: 'none', borderRadius: 20,
+                fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 21, letterSpacing: '.08em',
+                color: '#fff', textDecoration: 'none',
+                background: isLive ? 'linear-gradient(135deg,#FFA23A,#FF6B35 60%,#e8431a)' : 'rgba(255,255,255,.15)',
+                boxShadow: isLive ? '0 8px 28px rgba(255,107,53,.5)' : 'none',
+                opacity: isPaused ? 0.45 : 1,
+                pointerEvents: (isPaused || !isLive) ? 'none' : 'auto',
+              }}
+            >
+              <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.75} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10" />
+              </svg>
+              {isPaused ? 'PAUSED' : isLive ? 'SCAN QR' : 'HUNT NOT STARTED'}
+            </Link>
+          )}
         </div>
       )}
     </div>
