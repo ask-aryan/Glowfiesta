@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSession } from '@/lib/auth'
-import PlayerLogout from './PlayerLogout'
+import PlayerMenu from './PlayerMenu'
 import ScanQrButton from './ScanQrButton'
 import PlayerAutoRefresh from './PlayerAutoRefresh'
 import PlayerRefreshButton from './PlayerRefreshButton'
@@ -89,12 +89,15 @@ export default async function PlayerPage() {
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 20px 8px', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <div style={{ minWidth: 0, paddingRight: 10 }}>
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {team.teamName}
-            </div>
-            <div style={{ color: '#FF8A57', fontWeight: 600, marginTop: 2, fontSize: 13 }}>
-              {team.event.name} · GlowFiesta
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, paddingRight: 10 }}>
+            <PlayerMenu teamName={team.teamName} eventName={team.event.name} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 24, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {team.teamName}
+              </div>
+              <div style={{ color: '#FF8A57', fontWeight: 600, marginTop: 2, fontSize: 12 }}>
+                {team.event.name} · GlowFiesta
+              </div>
             </div>
           </div>
           <PlayerRefreshButton />
@@ -205,7 +208,7 @@ export default async function PlayerPage() {
       </div>
 
       {!isCompleted && (
-        <div style={{ padding: '6px 20px 4px', flexShrink: 0 }}>
+        <div style={{ padding: '8px 20px calc(14px + env(safe-area-inset-bottom, 0px))', flexShrink: 0 }}>
           {awaitingVerification ? (
             <div
               style={{
@@ -222,12 +225,6 @@ export default async function PlayerPage() {
           )}
         </div>
       )}
-
-      {/* Discreet, Safe Footer Sign Out */}
-      <div style={{ textAlign: 'center', padding: '4px 20px calc(8px + env(safe-area-inset-bottom, 0px))', flexShrink: 0, opacity: 0.8 }}>
-        <span style={{ fontSize: 11, color: '#ffd9b8' }}>Logged in as {team.teamName} · </span>
-        <PlayerLogout teamName={team.teamName} variant="link" />
-      </div>
     </div>
   )
 }
