@@ -102,7 +102,17 @@ export default async function OrganizerPage() {
                     </div>
                   </div>
                 </Link>
-                <EventRowActions eventId={ev.id} name={ev.name} description={ev.description} />
+                <EventRowActions
+                  eventId={ev.id}
+                  name={ev.name}
+                  description={ev.description}
+                  status={ev.status}
+                  gameType={ev.gameType}
+                  teamCount={ev.teamCount}
+                  stagesPerTeam={ev.stagesPerTeam}
+                  membersPerTeam={ev.membersPerTeam}
+                  hasCommonFinalQr={ev.hasCommonFinalQr}
+                />
               </div>
             )
           })}

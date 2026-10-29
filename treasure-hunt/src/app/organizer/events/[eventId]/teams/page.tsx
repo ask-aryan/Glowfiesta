@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth'
 import AddTeamPanel from './AddTeamForm'
 import TeamRowActions from './TeamRowActions'
 import PasswordCell from './PasswordCell'
+import SetupFlowBanner from '@/components/SetupFlowBanner'
 
 async function getTeams(eventId: number) {
   const { prisma } = await import('@/lib/db')
@@ -18,7 +19,7 @@ async function getEvent(eventId: number) {
   const { prisma } = await import('@/lib/db')
   return prisma.event.findUnique({
     where: { id: eventId },
-    select: { name: true, id: true, gameType: true, membersPerTeam: true },
+    select: { name: true, id: true, gameType: true, membersPerTeam: true, teamCount: true, status: true },
   })
 }
 
@@ -286,6 +287,16 @@ export default async function TeamsPage({ params }: { params: { eventId: string 
           })}
         </div>
       )}
+
+      {/* Guided Setup Flow Continuity */}
+      <SetupFlowBanner
+        currentStep="teams"
+        eventId={eventId}
+        gameType={event.gameType}
+        teamsCount={teams.length}
+        targetTeams={event.teamCount}
+        eventStatus={event.status}
+      />
     </div>
   )
 }

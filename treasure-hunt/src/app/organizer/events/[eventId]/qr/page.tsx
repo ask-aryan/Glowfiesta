@@ -2,18 +2,23 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import QrActions from './QrActions'
 import QrGrid from './QrGrid'
+import SetupFlowBanner from '@/components/SetupFlowBanner'
 
 async function getQrInfo(eventId: number) {
   const { prisma } = await import('@/lib/db')
-  const [event, qrCodes] = await Promise.all([
-    prisma.event.findUnique({ where: { id: eventId }, select: { name: true, id: true, hasCommonFinalQr: true } }),
+  const [event, qrCodes, teamsCount] = await Promise.all([
+    prisma.event.findUnique({
+      where: { id: eventId },
+      select: { name: true, id: true, hasCommonFinalQr: true, status: true, teamCount: true, gameType: true },
+    }),
     prisma.qrCode.findMany({
       where: { eventId },
       include: { assignedTeam: { select: { teamName: true } } },
       orderBy: [{ qrType: 'asc' }, { assignedTeamId: 'asc' }, { stageNumber: 'asc' }],
     }),
+    prisma.team.count({ where: { eventId } }),
   ])
-  return { event, qrCodes }
+  return { event, qrCodes, teamsCount }
 }
 
 export default async function QrPage({ params }: { params: { eventId: string } }) {
@@ -21,7 +26,7 @@ export default async function QrPage({ params }: { params: { eventId: string } }
   if (!session.userId || session.role !== 'ORGANIZER') redirect('/login')
 
   const eventId = parseInt(params.eventId)
-  const { event, qrCodes } = await getQrInfo(eventId)
+  const { event, qrCodes, teamsCount } = await getQrInfo(eventId)
 
   if (!event) return <div style={{ padding: 32, color: '#b91c1c' }}>Event not found.</div>
 
@@ -63,6 +68,17 @@ export default async function QrPage({ params }: { params: { eventId: string } }
       ) : (
         <QrGrid qrCodes={gridItems} eventId={eventId} />
       )}
+
+      {/* Guided Setup Flow Continuity */}
+      <SetupFlowBanner
+        currentStep="qr"
+        eventId={eventId}
+        gameType={event.gameType}
+        teamsCount={teamsCount}
+        targetTeams={event.teamCount}
+        qrCount={qrCount}
+        eventStatus={event.status}
+      />
     </div>
   )
 }

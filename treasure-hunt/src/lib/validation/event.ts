@@ -12,6 +12,17 @@ export const createEventSchema = z.object({
   endsAt: z.string().datetime().optional(),
 })
 
+export const updateEventSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().optional().nullable(),
+  teamCount: z.number().int().min(1).max(50).optional(),
+  stagesPerTeam: z.number().int().min(0).max(20).optional(),
+  membersPerTeam: z.number().int().min(1).max(50).optional(),
+  hasCommonFinalQr: z.boolean().optional(),
+  startsAt: z.string().datetime().optional().nullable(),
+  endsAt: z.string().datetime().optional().nullable(),
+})
+
 export const createTeamSchema = z.object({
   teamName: z.string().min(1).max(100),
   leaderName: z.string().max(100).optional(),

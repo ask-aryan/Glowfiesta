@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSession } from '@/lib/auth'
 import EventStatusActions from './EventStatusActions'
+import EditEventModal from './EditEventModal'
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; dot: string; anim?: string }> = {
   DRAFT:     { bg: '#f1f5f9', fg: '#475569', dot: '#94a3b8' },
@@ -29,7 +30,13 @@ async function getEvent(eventId: number) {
 
 const ORDER = ['DRAFT', 'READY', 'LIVE', 'PAUSED', 'COMPLETED']
 
-export default async function EventDetailPage({ params }: { params: { eventId: string } }) {
+export default async function EventDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { eventId: string }
+  searchParams?: { step?: string }
+}) {
   const session = await getSession()
   if (!session.userId || session.role !== 'ORGANIZER') redirect('/login')
 
@@ -70,6 +77,12 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
         { href: `/organizer/events/${eventId}/selfies`, label: 'Team Selfies', sub: 'View photos & ZIP export', icon: IC.selfie },
       ]
 
+  const totalExpectedClues = event.stagesPerTeam * event._count.teams + (event.hasCommonFinalQr ? 1 : 0)
+  const isTeamsReady = event._count.teams >= event.teamCount
+  const isCluesReady = event._count.clues >= (totalExpectedClues > 0 ? totalExpectedClues : 1)
+  const isQrReady = event._count.qrCodes > 0
+  const isAllReadyForLaunch = isTeamsReady && isCluesReady && isQrReady
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#64748b', marginBottom: 6, fontSize: 13 }}>
@@ -78,43 +91,302 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
         <span>{event.name}</span>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em' }}>{event.name}</div>
-        {isScoreGame ? (
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 10px',
-            borderRadius: 999,
-            fontSize: 12,
-            fontWeight: 700,
-            background: event.gameType === 'QUIZ' ? '#e0f2fe' : '#fdf2f8',
-            color: event.gameType === 'QUIZ' ? '#0369a1' : '#be185d',
-            border: `1px solid ${event.gameType === 'QUIZ' ? '#bae6fd' : '#fbcfe8'}`,
-          }}>
-            {event.gameType === 'QUIZ' ? '🧠 Quiz Event' : '🎵 Funtakshari Event'}
-          </span>
-        ) : (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: st.bg, color: st.fg }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: st.dot, animation: st.anim, flexShrink: 0 }} />
-            {event.status}
-          </span>
-        )}
+      {/* Header with Title, Status, and Edit Event Button */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-.02em', color: '#0f172a' }}>{event.name}</div>
+          {isScoreGame ? (
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '4px 10px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 700,
+              background: event.gameType === 'QUIZ' ? '#e0f2fe' : '#fdf2f8',
+              color: event.gameType === 'QUIZ' ? '#0369a1' : '#be185d',
+              border: `1px solid ${event.gameType === 'QUIZ' ? '#bae6fd' : '#fbcfe8'}`,
+            }}>
+              {event.gameType === 'QUIZ' ? '🧠 Quiz Event' : '🎵 Funtakshari Event'}
+            </span>
+          ) : (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: st.bg, color: st.fg }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: st.dot, animation: st.anim, flexShrink: 0 }} />
+              {event.status}
+            </span>
+          )}
+        </div>
+
+        {/* Edit Event Button (supports full editing in DRAFT status) */}
+        <EditEventModal
+          eventId={event.id}
+          initialData={{
+            name: event.name,
+            description: event.description,
+            status: event.status,
+            gameType: event.gameType,
+            teamCount: event.teamCount,
+            stagesPerTeam: event.stagesPerTeam,
+            membersPerTeam: event.membersPerTeam,
+            hasCommonFinalQr: event.hasCommonFinalQr,
+          }}
+          triggerLabel="Edit Event Settings"
+        />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', border: '1px solid #e5e7eb', borderRadius: 12, marginBottom: 28 }}>
+      {/* Top Stats Overview */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', border: '1px solid #e5e7eb', borderRadius: 12, marginBottom: 24, background: '#fff' }}>
         {stats.map((s, i) => (
           <div key={s.label} style={{ padding: '16px 20px', borderLeft: i ? '1px solid #e5e7eb' : 'none' }}>
-            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em' }}>{s.value}</div>
-            <div style={{ color: '#64748b', marginTop: 2 }}>{s.label}</div>
+            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', color: '#0f172a' }}>{s.value}</div>
+            <div style={{ color: '#64748b', marginTop: 2, fontSize: 12 }}>{s.label}</div>
           </div>
         ))}
       </div>
 
+      {/* GUIDED SETUP FLOW WIZARD (Treasure Hunt & Score Games) */}
+      {!isScoreGame ? (
+        <div style={{
+          background: '#fff',
+          border: '1.5px solid #fed7aa',
+          borderRadius: 16,
+          padding: '20px 24px',
+          marginBottom: 28,
+          boxShadow: '0 4px 20px rgba(255, 107, 53, 0.06)',
+          maxWidth: 820,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', color: '#FF6B35', textTransform: 'uppercase' }}>
+                Setup & Preparation Wizard
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
+                Event Setup Flow
+              </div>
+            </div>
+            <div style={{
+              fontSize: 12,
+              fontWeight: 700,
+              padding: '3px 10px',
+              borderRadius: 999,
+              background: event.status === 'LIVE' ? '#dcfce7' : event.status === 'READY' ? '#dbeafe' : '#fff7ed',
+              color: event.status === 'LIVE' ? '#15803d' : event.status === 'READY' ? '#1d4ed8' : '#c2410c',
+            }}>
+              {event.status === 'LIVE' ? '🚀 Event is Live' : event.status === 'READY' ? '✨ Ready to Launch' : '📝 Draft Setup in Progress'}
+            </div>
+          </div>
+
+          {/* Stepper items */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: 16 }}>
+            {/* Step 1: Details */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>STEP 1</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a' }}>✓ Configured</span>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>Event Rules</div>
+              <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>{event.teamCount} teams · {event.stagesPerTeam} stages</div>
+            </div>
+
+            {/* Step 2: Teams */}
+            <Link
+              href={`/organizer/events/${eventId}/teams`}
+              style={{
+                textDecoration: 'none',
+                background: isTeamsReady ? '#f0fdf4' : '#fff',
+                border: isTeamsReady ? '1px solid #bbf7d0' : '1px solid #fed7aa',
+                borderRadius: 12,
+                padding: '12px 14px',
+                display: 'block',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: isTeamsReady ? '#16a34a' : '#c2410c' }}>STEP 2</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: isTeamsReady ? '#16a34a' : '#FF6B35' }}>
+                  {isTeamsReady ? '✓ Complete' : 'In Progress'}
+                </span>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>Add Teams &rarr;</div>
+              <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>{event._count.teams} / {event.teamCount} registered</div>
+            </Link>
+
+            {/* Step 3: Clues */}
+            <Link
+              href={`/organizer/events/${eventId}/clues`}
+              style={{
+                textDecoration: 'none',
+                background: isCluesReady ? '#f0fdf4' : '#fff',
+                border: isCluesReady ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                borderRadius: 12,
+                padding: '12px 14px',
+                display: 'block',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: isCluesReady ? '#16a34a' : '#64748b' }}>STEP 3</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: isCluesReady ? '#16a34a' : '#64748b' }}>
+                  {isCluesReady ? '✓ Complete' : `${event._count.clues}/${totalExpectedClues || '—'}`}
+                </span>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>Write Clues &rarr;</div>
+              <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>Riddles & 4-digit codes</div>
+            </Link>
+
+            {/* Step 4: QR Codes */}
+            <Link
+              href={`/organizer/events/${eventId}/qr`}
+              style={{
+                textDecoration: 'none',
+                background: isQrReady ? '#f0fdf4' : '#fff',
+                border: isQrReady ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                borderRadius: 12,
+                padding: '12px 14px',
+                display: 'block',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: isQrReady ? '#16a34a' : '#64748b' }}>STEP 4</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: isQrReady ? '#16a34a' : '#64748b' }}>
+                  {isQrReady ? '✓ Ready' : 'Pending'}
+                </span>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>Generate QR &rarr;</div>
+              <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>{event._count.qrCodes} codes generated</div>
+            </Link>
+          </div>
+
+          {/* Action prompt if in DRAFT */}
+          {event.status === 'DRAFT' && (
+            <div style={{
+              background: isAllReadyForLaunch ? '#f0fdf4' : '#fffaf5',
+              border: `1px solid ${isAllReadyForLaunch ? '#bbf7d0' : '#fed7aa'}`,
+              borderRadius: 12,
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: isAllReadyForLaunch ? '#166534' : '#9a3412' }}>
+                  {isAllReadyForLaunch ? '🎉 All steps complete! Ready to launch!' : 'Next setup task:'}
+                </div>
+                <div style={{ fontSize: 12, color: isAllReadyForLaunch ? '#15803d' : '#64748b', marginTop: 2 }}>
+                  {isAllReadyForLaunch
+                    ? 'Your teams, clues, and QR codes are ready. Mark the event as READY below so teams can log in!'
+                    : !isTeamsReady
+                    ? `Add remaining teams (${event.teamCount - event._count.teams} left to configure).`
+                    : !isCluesReady
+                    ? 'Enter riddles and clues for each stage.'
+                    : 'Generate QR codes to enable physical token scanning.'}
+                </div>
+              </div>
+
+              {!isTeamsReady ? (
+                <Link
+                  href={`/organizer/events/${eventId}/teams`}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    background: '#FF6B35',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 12.5,
+                    textDecoration: 'none',
+                  }}
+                >
+                  Go to Teams &rarr;
+                </Link>
+              ) : !isCluesReady ? (
+                <Link
+                  href={`/organizer/events/${eventId}/clues`}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    background: '#FF6B35',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 12.5,
+                    textDecoration: 'none',
+                  }}
+                >
+                  Write Clues &rarr;
+                </Link>
+              ) : !isQrReady ? (
+                <Link
+                  href={`/organizer/events/${eventId}/qr`}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    background: '#FF6B35',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 12.5,
+                    textDecoration: 'none',
+                  }}
+                >
+                  Generate QR Codes &rarr;
+                </Link>
+              ) : null}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Quiz / Funtakshari Setup Flow */
+        <div style={{
+          background: '#fff',
+          border: '1.5px solid #bae6fd',
+          borderRadius: 16,
+          padding: '20px 24px',
+          marginBottom: 28,
+          boxShadow: '0 4px 20px rgba(56, 189, 248, 0.08)',
+          maxWidth: 820,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', color: '#0284c7', textTransform: 'uppercase' }}>
+                Score Game Setup
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginTop: 2 }}>
+                Teams & Live Scorekeeper
+              </div>
+            </div>
+            <Link
+              href={`/organizer/events/${eventId}/scores`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 16px',
+                borderRadius: 8,
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 13,
+                textDecoration: 'none',
+              }}
+            >
+              <span>⭐ Launch Scorekeeper</span>
+              <span>&rarr;</span>
+            </Link>
+          </div>
+          <div style={{ fontSize: 12.5, color: '#475569' }}>
+            1. Configure your teams in <strong>Manage Teams</strong> &rarr; 2. Open <strong>Give Score</strong> to tap +5/+10/-5/-10 live &rarr; 3. Project <strong>Live Scoreboard</strong> for the audience.
+          </div>
+        </div>
+      )}
+
+      {/* EVENT LIFECYCLE CONTROLS */}
       {!isScoreGame && (
         <>
-          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 12 }}>EVENT STATUS</div>
+          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 12 }}>
+            EVENT LIFECYCLE & STATUS
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16, maxWidth: 760 }}>
             {ORDER.map((status, i) => {
               const done = i < ci, cur = i === ci
@@ -145,7 +417,10 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
         </>
       )}
 
-      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 4 }}>MANAGE</div>
+      {/* WORKSPACE DIRECTORY LINKS */}
+      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 4 }}>
+        EVENT WORKSPACE
+      </div>
       <div style={{ borderTop: '1px solid #e5e7eb', maxWidth: 760, marginTop: 8 }}>
         {links.map(l => (
           <Link

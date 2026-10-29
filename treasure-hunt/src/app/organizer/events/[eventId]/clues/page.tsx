@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import ClueCell from './ClueCell'
+import SetupFlowBanner from '@/components/SetupFlowBanner'
 
 async function getData(eventId: number) {
   const { prisma } = await import('@/lib/db')
   const [event, teams, clues] = await Promise.all([
-    prisma.event.findUnique({ where: { id: eventId }, select: { name: true, id: true, stagesPerTeam: true, hasCommonFinalQr: true } }),
+    prisma.event.findUnique({ where: { id: eventId }, select: { name: true, id: true, stagesPerTeam: true, hasCommonFinalQr: true, status: true, teamCount: true } }),
     prisma.team.findMany({ where: { eventId }, orderBy: { createdAt: 'asc' }, select: { id: true, teamName: true } }),
     prisma.clue.findMany({
       where: { eventId },
@@ -124,6 +125,17 @@ export default async function CluesPage({ params }: { params: { eventId: string 
           </table>
         </div>
       )}
+
+      {/* Guided Setup Flow Continuity */}
+      <SetupFlowBanner
+        currentStep="clues"
+        eventId={eventId}
+        teamsCount={teams.length}
+        targetTeams={event.teamCount}
+        cluesCount={totalClues}
+        targetClues={totalExpected}
+        eventStatus={event.status}
+      />
     </div>
   )
 }

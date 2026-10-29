@@ -742,6 +742,24 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                 <span>🎪</span>
                 <span>All Events Dashboard</span>
               </Link>
+
+              <div
+                style={{
+                  marginTop: 6,
+                  textAlign: 'center',
+                  fontSize: 11,
+                  color: '#64748b',
+                  letterSpacing: '.02em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 5,
+                }}
+              >
+                <span>Made with</span>
+                <span style={{ color: '#ef4444' }}>❤️</span>
+                <span style={{ color: '#cbd5e1', fontWeight: 600 }}>by Aryan</span>
+              </div>
             </div>
           </aside>
         </>
