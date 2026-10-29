@@ -560,14 +560,14 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
                     </div>
                   )}
 
-                  {/* Bottom Line: 4 Action Buttons (+10, +5, -5, -10) */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                  {/* Bottom Line: 2x2 Action Buttons (Top: +10 / +5, Bottom: -10 / -5) */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
                     <button
                       onClick={() => handleScoreChange(team.id, 10)}
                       disabled={updatingId === team.id}
                       title="Add 10 points"
                       style={{
-                        height: 38,
+                        height: 36,
                         borderRadius: 8,
                         border: 0,
                         background: 'linear-gradient(135deg, #16a34a, #15803d)',
@@ -575,11 +575,14 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
                         fontSize: 15,
                         fontWeight: 900,
                         fontFamily: "'JetBrains Mono', monospace",
-                        cursor: 'pointer',
+                        cursor: updatingId === team.id ? 'not-allowed' : 'pointer',
                         boxShadow: '0 2px 6px rgba(22,163,74,0.25)',
                         transition: 'transform .1s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
-                      onMouseDown={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(0.94)')}
+                      onMouseDown={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(0.95)')}
                       onMouseUp={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(1)')}
                     >
                       +10
@@ -590,7 +593,7 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
                       disabled={updatingId === team.id}
                       title="Add 5 points"
                       style={{
-                        height: 38,
+                        height: 36,
                         borderRadius: 8,
                         border: 0,
                         background: 'linear-gradient(135deg, #059669, #047857)',
@@ -598,37 +601,17 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
                         fontSize: 15,
                         fontWeight: 900,
                         fontFamily: "'JetBrains Mono', monospace",
-                        cursor: 'pointer',
+                        cursor: updatingId === team.id ? 'not-allowed' : 'pointer',
                         boxShadow: '0 2px 6px rgba(5,150,105,0.25)',
                         transition: 'transform .1s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
-                      onMouseDown={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(0.94)')}
+                      onMouseDown={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(0.95)')}
                       onMouseUp={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(1)')}
                     >
                       +5
-                    </button>
-
-                    <button
-                      onClick={() => handleScoreChange(team.id, -5)}
-                      disabled={updatingId === team.id}
-                      title="Subtract 5 points"
-                      style={{
-                        height: 38,
-                        borderRadius: 8,
-                        border: 0,
-                        background: 'linear-gradient(135deg, #d97706, #b45309)',
-                        color: '#fff',
-                        fontSize: 15,
-                        fontWeight: 900,
-                        fontFamily: "'JetBrains Mono', monospace",
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(217,119,6,0.25)',
-                        transition: 'transform .1s ease',
-                      }}
-                      onMouseDown={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(0.94)')}
-                      onMouseUp={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(1)')}
-                    >
-                      -5
                     </button>
 
                     <button
@@ -636,7 +619,7 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
                       disabled={updatingId === team.id}
                       title="Subtract 10 points"
                       style={{
-                        height: 38,
+                        height: 36,
                         borderRadius: 8,
                         border: 0,
                         background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
@@ -644,14 +627,43 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
                         fontSize: 15,
                         fontWeight: 900,
                         fontFamily: "'JetBrains Mono', monospace",
-                        cursor: 'pointer',
+                        cursor: updatingId === team.id ? 'not-allowed' : 'pointer',
                         boxShadow: '0 2px 6px rgba(220,38,38,0.25)',
                         transition: 'transform .1s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
-                      onMouseDown={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(0.94)')}
+                      onMouseDown={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(0.95)')}
                       onMouseUp={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(1)')}
                     >
                       -10
+                    </button>
+
+                    <button
+                      onClick={() => handleScoreChange(team.id, -5)}
+                      disabled={updatingId === team.id}
+                      title="Subtract 5 points"
+                      style={{
+                        height: 36,
+                        borderRadius: 8,
+                        border: 0,
+                        background: 'linear-gradient(135deg, #d97706, #b45309)',
+                        color: '#fff',
+                        fontSize: 15,
+                        fontWeight: 900,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        cursor: updatingId === team.id ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 2px 6px rgba(217,119,6,0.25)',
+                        transition: 'transform .1s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onMouseDown={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(0.95)')}
+                      onMouseUp={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(1)')}
+                    >
+                      -5
                     </button>
                   </div>
                 </div>
