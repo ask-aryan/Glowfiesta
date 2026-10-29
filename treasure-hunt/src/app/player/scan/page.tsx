@@ -1,5 +1,37 @@
 'use client'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import React, { Suspense, useEffect, useRef, useState, Component, type ReactNode } from 'react'
+
+class ScannerErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  componentDidCatch(err: any) {
+    console.warn('Scanner caught error:', err)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 50% 40%,#2a1238,#0a0414 75%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif' }}>
+          <div style={{ fontSize: 44, marginBottom: 12 }}>📷</div>
+          <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Camera scanner reset needed</div>
+          <div style={{ fontSize: 14, color: '#ffd9b8', maxWidth: 280, marginBottom: 24 }}>The camera session encountered a glitch. Tap below to reload.</div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ padding: '12px 28px', borderRadius: 14, border: 0, background: 'linear-gradient(135deg,#FFA23A,#FF6B35)', color: '#fff', fontFamily: 'Fredoka, sans-serif', fontSize: 17, fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(255,107,53,.4)' }}
+          >
+            Restart Scanner
+          </button>
+          <Link href="/player" style={{ color: '#ffd9b8', fontSize: 14, marginTop: 16 }}>Back to Dashboard</Link>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
@@ -176,14 +208,16 @@ function ScanPageInner() {
   async function stopScanner(instance: any) {
     if (!instance) return
     try {
-      if (instance.isScanning) {
-        await instance.stop()
+      if (typeof instance.isScanning === 'boolean' ? instance.isScanning : true) {
+        await instance.stop().catch(() => {})
       }
     } catch {
-      // html5-qrcode can throw synchronous string if already stopped
+      // ignore stop errors
     }
     try {
-      instance.clear()
+      if (typeof document !== 'undefined' && document.getElementById('qr-reader')) {
+        instance.clear()
+      }
     } catch {
       // ignore clear error
     }
@@ -392,8 +426,10 @@ function ScanPageInner() {
 
 export default function ScanPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 50% 40%,#2a1238,#0a0414 75%)' }} />}>
-      <ScanPageInner />
-    </Suspense>
+    <ScannerErrorBoundary>
+      <Suspense fallback={<div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 50% 40%,#2a1238,#0a0414 75%)' }} />}>
+        <ScanPageInner />
+      </Suspense>
+    </ScannerErrorBoundary>
   )
 }

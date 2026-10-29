@@ -15,7 +15,7 @@ export async function GET(
   const [event, teams] = await Promise.all([
     prisma.event.findUnique({
       where: { id: eventId },
-      select: { stagesPerTeam: true },
+      select: { id: true, name: true, status: true, stagesPerTeam: true },
     }),
     prisma.team.findMany({
       where: { eventId },
@@ -53,5 +53,9 @@ export async function GET(
     }
   })
 
-  return NextResponse.json({ teams: result, stagesPerTeam: event?.stagesPerTeam ?? 5 })
+  return NextResponse.json({
+    event: event ? { id: event.id, name: event.name, status: event.status } : null,
+    teams: result,
+    stagesPerTeam: event?.stagesPerTeam ?? 5,
+  })
 }
