@@ -97,16 +97,17 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
     }
   }
 
-  // Calculate optimal grid layout so all teams fit on a single screen without scrolling
+  const showPodium = !allZero && teams.length >= 3
+  const top3 = teams.slice(0, 3)
+
+  // Calculate grid layout for bottom cards so all fit without scroll
   const count = teams.length
   let columns = 1
-  if (count > 10) columns = 3
-  else if (count > 4) columns = 2
-  else columns = count > 2 ? 2 : 1
+  if (count > 8) columns = 3
+  else if (count > 3) columns = 2
+  else columns = count > 1 ? 2 : 1
 
-  const rowsPerCol = Math.ceil(count / columns) || 1
-  const isCompact = count > 6
-  const isVeryCompact = count > 10
+  const rows = Math.ceil(count / columns) || 1
 
   return (
     <div
@@ -117,7 +118,7 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
         background: 'radial-gradient(ellipse at 50% 25%, #20083b 0%, #0d0218 60%, #05010a 100%)',
         color: '#fff',
         fontFamily: "'Inter', system-ui, sans-serif",
-        padding: isVeryCompact ? '12px 18px' : isCompact ? '14px 22px' : '18px 28px',
+        padding: '14px 24px',
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
@@ -128,15 +129,15 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
       <div style={{ position: 'absolute', top: -80, left: '25%', width: 450, height: 450, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,107,53,0.14) 0%, transparent 70%)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', top: 120, right: '20%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,200,87,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-      {/* ── Sleek Compact Header Bar (Fits on single TV screen) ───────── */}
+      {/* ── Sleek Compact Header Bar ───────────────────────────────── */}
       <header
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: 14,
-          paddingBottom: isVeryCompact ? 8 : 12,
-          marginBottom: isVeryCompact ? 8 : 12,
+          paddingBottom: 8,
+          marginBottom: 8,
           borderBottom: '1px solid rgba(255,255,255,0.1)',
           flexShrink: 0,
           position: 'relative',
@@ -146,16 +147,16 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div
             style={{
-              width: isVeryCompact ? 38 : 44,
-              height: isVeryCompact ? 38 : 44,
+              width: 38,
+              height: 38,
               borderRadius: 12,
               background: 'linear-gradient(135deg, #FFA23A, #FF6B35 60%, #e8431a)',
               color: '#fff',
               display: 'grid',
               placeItems: 'center',
               fontWeight: 900,
-              fontSize: isVeryCompact ? 18 : 22,
-              boxShadow: '0 0 18px rgba(255,107,53,0.5)',
+              fontSize: 18,
+              boxShadow: '0 0 16px rgba(255,107,53,0.5)',
               flexShrink: 0,
             }}
           >
@@ -167,7 +168,7 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
                 style={{
                   fontFamily: "'Fredoka', sans-serif",
                   fontWeight: 800,
-                  fontSize: isVeryCompact ? 22 : isCompact ? 26 : 30,
+                  fontSize: 24,
                   letterSpacing: '-.01em',
                   margin: 0,
                   background: 'linear-gradient(180deg, #fff0b3 0%, #FFC857 50%, #FFA23A 100%)',
@@ -194,8 +195,8 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
                 {event?.gameType === 'FUNTAKSHARI' ? 'FUNTAKSHARI' : 'QUIZ BATTLE'}
               </span>
             </div>
-            <div style={{ color: '#ffd9b8', fontSize: isVeryCompact ? 11 : 12, marginTop: 2 }}>
-              GlowFiesta 2026 Championship · Single-Screen Live Leaderboard
+            <div style={{ color: '#ffd9b8', fontSize: 13, marginTop: 2 }}>
+              GlowFiesta 2026 Championship
             </div>
           </div>
         </div>
@@ -207,13 +208,13 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              padding: isVeryCompact ? '4px 10px' : '6px 14px',
+              padding: '5px 12px',
               borderRadius: 999,
               background: 'rgba(34,197,94,0.15)',
               border: '1px solid rgba(34,197,94,0.4)',
               color: '#4ade80',
               fontWeight: 800,
-              fontSize: isVeryCompact ? 11 : 12,
+              fontSize: 12,
               letterSpacing: '.06em',
             }}
           >
@@ -237,7 +238,7 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
               background: 'rgba(255,255,255,0.08)',
               border: '1px solid rgba(255,255,255,0.2)',
               borderRadius: 10,
-              padding: isVeryCompact ? '5px 12px' : '7px 14px',
+              padding: '6px 14px',
               color: '#fff',
               fontWeight: 700,
               fontSize: 12,
@@ -258,23 +259,23 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
         <div
           style={{
             textAlign: 'center',
-            padding: isVeryCompact ? '6px 14px' : '8px 18px',
+            padding: '7px 16px',
             borderRadius: 12,
             background: 'rgba(255,200,87,0.1)',
             border: '1px solid rgba(255,200,87,0.3)',
             color: '#fff0b3',
-            fontSize: isVeryCompact ? 12 : 13,
+            fontSize: 13,
             fontWeight: 600,
-            marginBottom: isVeryCompact ? 8 : 12,
+            marginBottom: 10,
             flexShrink: 0,
           }}
         >
-          🏁 All teams are ready at the starting line (0 pts). Leaderboard rankings will begin as soon as Round 1 points are awarded!
+          🏁 All teams are ready at the starting line (0 pts). The podium & leaderboard ranks will activate on the first score!
         </div>
       )}
 
-      {/* ── Content Viewport (Fits 100% of height without scrollbar) ─── */}
-      <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      {/* ── Main Viewport Container (Fits 100vh with Zero Scrolling) ── */}
+      <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {loading ? (
           <div style={{ flex: 1, display: 'grid', placeItems: 'center', fontSize: 18, color: '#ffd9b8' }}>
             Connecting to live scoreboard…
@@ -286,60 +287,258 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
             <div style={{ color: '#ffd9b8', marginTop: 6, fontSize: 14 }}>Scores will appear here live once teams are added.</div>
           </div>
         ) : (
-          /* Grid of Teams: Fills entire height with 0 scrolling */
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              display: 'grid',
-              gridTemplateColumns: `repeat(${columns}, 1fr)`,
-              gridTemplateRows: `repeat(${rowsPerCol}, 1fr)`,
-              gap: isVeryCompact ? 8 : isCompact ? 10 : 12,
-            }}
-          >
-            {teams.map((team, idx) => {
-              const reaction = reactions[team.id]
-              const color = COLORS[idx % COLORS.length]
-
-              return (
-                <SingleScreenTeamCard
-                  key={team.id}
-                  team={team}
-                  allZero={allZero}
-                  color={color}
-                  reaction={reaction}
-                  isCompact={isCompact}
-                  isVeryCompact={isVeryCompact}
+          <>
+            {/* ── Top 3 Rank Podium (Brought Back & Proportioned for TV) ── */}
+            {showPodium && (
+              <section
+                style={{
+                  height: '40%',
+                  maxHeight: '340px',
+                  minHeight: '210px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'flex-end',
+                  gap: 16,
+                  maxWidth: 880,
+                  width: '100%',
+                  margin: '0 auto',
+                  flexShrink: 0,
+                  position: 'relative',
+                  zIndex: 5,
+                }}
+              >
+                {/* Rank 2 (Silver) */}
+                <TVPodiumCard
+                  team={top3[1]}
+                  place={top3[1]?.rank ?? 2}
+                  reaction={reactions[top3[1]?.id]}
+                  color={top3[1]?.rank === 1 ? '#FFC857' : '#38bdf8'}
+                  isLeader={top3[1]?.rank === 1}
+                  baseHeight={100}
                 />
-              )
-            })}
-          </div>
+
+                {/* Rank 1 (Gold with 👑) */}
+                <TVPodiumCard
+                  team={top3[0]}
+                  place={top3[0]?.rank ?? 1}
+                  reaction={reactions[top3[0]?.id]}
+                  color="#FFC857"
+                  isLeader
+                  baseHeight={140}
+                />
+
+                {/* Rank 3 (Bronze) */}
+                <TVPodiumCard
+                  team={top3[2]}
+                  place={top3[2]?.rank ?? 3}
+                  reaction={reactions[top3[2]?.id]}
+                  color={top3[2]?.rank === 1 ? '#FFC857' : top3[2]?.rank === 2 ? '#38bdf8' : '#fb923c'}
+                  isLeader={top3[2]?.rank === 1}
+                  baseHeight={75}
+                />
+              </section>
+            )}
+
+            {/* ── All Teams Grid (Fits in remaining space with 0 scroll) ── */}
+            <section
+              style={{
+                flex: 1,
+                minHeight: 0,
+                display: 'grid',
+                gridTemplateColumns: `repeat(${columns}, 1fr)`,
+                gridTemplateRows: `repeat(${rows}, 1fr)`,
+                gap: 8,
+              }}
+            >
+              {teams.map((team, idx) => {
+                const reaction = reactions[team.id]
+                const color = COLORS[idx % COLORS.length]
+
+                return (
+                  <TVTeamCard
+                    key={team.id}
+                    team={team}
+                    allZero={allZero}
+                    color={color}
+                    reaction={reaction}
+                  />
+                )
+              })}
+            </section>
+          </>
         )}
       </main>
     </div>
   )
 }
 
-// ── Single-Screen TV Team Card Component ───────────────────────────────────
-function SingleScreenTeamCard({
+// ── Cool TV Rank Podium Pillar Component ───────────────────────────────────
+function TVPodiumCard({
+  team,
+  place,
+  reaction,
+  color,
+  isLeader = false,
+  baseHeight,
+}: {
+  team: TeamScore
+  place: number
+  reaction?: { type: 'HAPPY' | 'CRYING'; delta: number; key: number }
+  color: string
+  isLeader?: boolean
+  baseHeight: number
+}) {
+  if (!team) return null
+
+  const medal = place === 1 ? '👑' : place === 2 ? '🥈' : '🥉'
+  const isHappy = reaction?.type === 'HAPPY'
+  const isCrying = reaction?.type === 'CRYING'
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        maxWidth: 260,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        textAlign: 'center',
+        position: 'relative',
+        transition: 'transform .3s ease',
+        transform: isHappy ? 'translateY(-6px) scale(1.02)' : isCrying ? 'translateY(3px)' : 'none',
+      }}
+    >
+      {/* Reaction Speech Bubble */}
+      {reaction && (
+        <div
+          key={reaction.key}
+          style={{
+            position: 'absolute',
+            top: -24,
+            background: isHappy ? 'linear-gradient(135deg, #16a34a, #22c55e)' : 'linear-gradient(135deg, #b91c1c, #ef4444)',
+            color: '#fff',
+            fontWeight: 900,
+            fontSize: 13,
+            padding: '4px 12px',
+            borderRadius: 999,
+            boxShadow: isHappy ? '0 0 16px rgba(34,197,94,0.8)' : '0 0 16px rgba(239,68,68,0.8)',
+            animation: 'pop .4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both',
+            zIndex: 30,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {isHappy ? `+${reaction.delta} pts! 🥳` : `${reaction.delta} pts! 😭`}
+        </div>
+      )}
+
+      {/* Avatar with Medal */}
+      <div
+        style={{
+          width: isLeader ? 58 : 48,
+          height: isLeader ? 58 : 48,
+          borderRadius: '50%',
+          background: isHappy ? '#16a34a' : isCrying ? '#991b1b' : 'rgba(255,255,255,0.12)',
+          border: `3px solid ${isHappy ? '#4ade80' : isCrying ? '#f87171' : color}`,
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: isLeader ? 28 : 22,
+          marginBottom: 6,
+          boxShadow: isLeader ? `0 0 24px ${color}88` : '0 4px 14px rgba(0,0,0,0.4)',
+          position: 'relative',
+          animation: isHappy ? 'pulse-ring 1s infinite' : isCrying ? 'shake .3s infinite' : 'none',
+          flexShrink: 0,
+        }}
+      >
+        <span>{isHappy ? '😄' : isCrying ? '😭' : medal}</span>
+        <span
+          style={{
+            position: 'absolute',
+            bottom: -5,
+            background: color,
+            color: '#000',
+            fontWeight: 900,
+            fontSize: 10,
+            padding: '1px 6px',
+            borderRadius: 999,
+          }}
+        >
+          #{place} {team.isTied && '(Tied)'}
+        </span>
+      </div>
+
+      {/* Team Details */}
+      <div
+        style={{
+          fontFamily: "'Fredoka', sans-serif",
+          fontWeight: 800,
+          fontSize: isLeader ? 16 : 14,
+          color: '#fff',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: '100%',
+          marginBottom: 4,
+          flexShrink: 0,
+        }}
+      >
+        {team.teamName}
+      </div>
+
+      {/* 3D Podium Pillar */}
+      <div
+        style={{
+          width: '100%',
+          height: baseHeight,
+          background: isLeader
+            ? 'linear-gradient(180deg, rgba(255,200,87,0.38) 0%, rgba(255,107,53,0.18) 100%)'
+            : 'linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.03) 100%)',
+          border: `2px solid ${color}aa`,
+          borderRadius: '14px 14px 4px 4px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 2,
+          boxShadow: `0 8px 24px rgba(0,0,0,0.5)`,
+          backdropFilter: 'blur(8px)',
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            fontSize: isLeader ? 34 : 26,
+            fontWeight: 900,
+            fontFamily: "'JetBrains Mono', monospace",
+            lineHeight: 1,
+            color: isLeader ? '#FFC857' : '#fff',
+            textShadow: `0 0 14px ${color}`,
+          }}
+        >
+          {team.score > 0 ? `+${team.score}` : team.score}
+        </div>
+        <div style={{ fontSize: 10, color: '#ffd9b8', fontWeight: 700, letterSpacing: '.06em' }}>PTS</div>
+      </div>
+    </div>
+  )
+}
+
+// ── Single-Screen TV Team Card Component (Bottom Grid) ────────────────────
+function TVTeamCard({
   team,
   allZero,
   color,
   reaction,
-  isCompact,
-  isVeryCompact,
 }: {
   team: TeamScore
   allZero: boolean
   color: string
   reaction?: { type: 'HAPPY' | 'CRYING'; delta: number; key: number }
-  isCompact: boolean
-  isVeryCompact: boolean
 }) {
   const isHappy = reaction?.type === 'HAPPY'
   const isCrying = reaction?.type === 'CRYING'
 
-  // Tied teams are treated equally
   const isLeader = !allZero && Boolean(team.isLeader)
   const isTied = Boolean(team.isTied)
   const rank = team.rank
@@ -374,11 +573,11 @@ function SingleScreenTeamCard({
         height: '100%',
         minHeight: 0,
         display: 'grid',
-        gridTemplateColumns: isVeryCompact ? '52px 42px minmax(0, 1fr) auto' : isCompact ? '60px 48px minmax(0, 1fr) auto' : '70px 56px minmax(0, 1fr) auto',
+        gridTemplateColumns: '50px 42px minmax(0, 1fr) auto',
         alignItems: 'center',
-        gap: isVeryCompact ? 8 : 12,
-        padding: isVeryCompact ? '6px 12px' : isCompact ? '8px 16px' : '12px 20px',
-        borderRadius: isVeryCompact ? 12 : 16,
+        gap: 10,
+        padding: '6px 14px',
+        borderRadius: 14,
         background: isHappy
           ? 'linear-gradient(90deg, rgba(22,163,74,0.35) 0%, rgba(22,163,74,0.18) 100%)'
           : isCrying
@@ -398,23 +597,23 @@ function SingleScreenTeamCard({
           ? '1.5px solid #fb923c'
           : '1px solid rgba(255,255,255,0.12)',
         boxShadow: isHappy
-          ? '0 0 20px rgba(34,197,94,0.4)'
+          ? '0 0 16px rgba(34,197,94,0.4)'
           : isCrying
-          ? '0 0 20px rgba(239,68,68,0.4)'
+          ? '0 0 16px rgba(239,68,68,0.4)'
           : isLeader
-          ? '0 0 20px rgba(255,200,87,0.25)'
+          ? '0 0 16px rgba(255,200,87,0.25)'
           : 'none',
-        position: 'relative',
         boxSizing: 'border-box',
         overflow: 'hidden',
+        position: 'relative',
         transition: 'transform .2s ease, border-color .2s ease',
       }}
     >
-      {/* 1. Rank or Team Number */}
+      {/* 1. Rank */}
       <div style={{ textAlign: 'center' }}>
         <div
           style={{
-            fontSize: isVeryCompact ? 15 : isCompact ? 18 : 22,
+            fontSize: !allZero && rank && rank <= 3 ? 18 : 15,
             fontWeight: 900,
             fontFamily: "'JetBrains Mono', monospace",
             color: rankColor,
@@ -424,24 +623,24 @@ function SingleScreenTeamCard({
           {allZero ? `T-${team.initialOrder || '•'}` : `#${rank}`}
         </div>
         {!allZero && isTied && (
-          <div style={{ fontSize: 9, color: '#ffd9b8', fontWeight: 700, marginTop: 2 }}>
+          <div style={{ fontSize: 9, color: '#ffd9b8', fontWeight: 700, marginTop: 1 }}>
             TIED
           </div>
         )}
       </div>
 
-      {/* 2. Animated Emotion Avatar (Reacts to score changes) */}
+      {/* 2. Reaction Avatar */}
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <div
           style={{
-            width: isVeryCompact ? 36 : isCompact ? 42 : 48,
-            height: isVeryCompact ? 36 : isCompact ? 42 : 48,
+            width: 36,
+            height: 36,
             borderRadius: '50%',
             background: isHappy ? '#16a34a' : isCrying ? '#991b1b' : color,
             display: 'grid',
             placeItems: 'center',
-            fontSize: isVeryCompact ? 20 : isCompact ? 22 : 26,
-            boxShadow: `0 0 12px ${color}55`,
+            fontSize: 20,
+            boxShadow: `0 0 10px ${color}55`,
             animation: isHappy ? 'pulse-ring 1s infinite' : isCrying ? 'shake .3s infinite' : 'none',
             flexShrink: 0,
           }}
@@ -450,14 +649,14 @@ function SingleScreenTeamCard({
         </div>
       </div>
 
-      {/* 3. Team Details (Truncated to never break card height) */}
+      {/* 3. Team Details */}
       <div style={{ minWidth: 0, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap' }}>
           <span
             style={{
               fontFamily: "'Fredoka', sans-serif",
               fontWeight: 800,
-              fontSize: isVeryCompact ? 15 : isCompact ? 17 : 20,
+              fontSize: 16,
               color: '#fff',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -490,7 +689,7 @@ function SingleScreenTeamCard({
           <div
             style={{
               color: '#ffd9b8',
-              fontSize: isVeryCompact ? 10 : 11,
+              fontSize: 10,
               marginTop: 1,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -505,15 +704,15 @@ function SingleScreenTeamCard({
         )}
       </div>
 
-      {/* 4. Score & Instant Reaction Pop */}
-      <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+      {/* 4. Score */}
+      <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
         {reaction && (
           <span
             key={reaction.key}
             style={{
-              fontSize: isVeryCompact ? 11 : 12,
+              fontSize: 11,
               fontWeight: 900,
-              padding: '2px 8px',
+              padding: '2px 7px',
               borderRadius: 999,
               background: isHappy ? '#22c55e' : '#ef4444',
               color: '#fff',
@@ -528,7 +727,7 @@ function SingleScreenTeamCard({
 
         <div
           style={{
-            fontSize: isVeryCompact ? 24 : isCompact ? 28 : 34,
+            fontSize: 24,
             fontWeight: 900,
             fontFamily: "'JetBrains Mono', monospace",
             color: team.score > 0 ? '#4ade80' : team.score < 0 ? '#f87171' : '#cbd5e1',
@@ -538,7 +737,7 @@ function SingleScreenTeamCard({
           }}
         >
           {team.score > 0 ? `+${team.score}` : team.score}
-          <span style={{ fontSize: isVeryCompact ? 11 : 13, fontWeight: 700, marginLeft: 3, color: '#ffd9b8' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 2, color: '#ffd9b8' }}>
             pts
           </span>
         </div>
