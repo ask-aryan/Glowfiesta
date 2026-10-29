@@ -21,28 +21,30 @@ export default function PlayerRefreshButton() {
       onClick={handleRefresh}
       title="Refresh status"
       style={{
-        width: 38,
-        height: 38,
-        borderRadius: '50%',
-        border: '1px solid rgba(255,255,255,.2)',
-        background: 'rgba(255,255,255,.08)',
-        color: '#ffd9b8',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '7px 14px',
+        borderRadius: 999,
+        border: '1.5px solid rgba(255,200,87,0.4)',
+        background: 'rgba(255,200,87,0.12)',
+        color: '#FFC857',
+        fontSize: 13,
+        fontWeight: 700,
         cursor: 'pointer',
-        display: 'grid',
-        placeItems: 'center',
-        padding: 0,
-        transition: 'background .15s ease, transform .1s ease',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        transition: 'all .15s ease',
       }}
-      onMouseDown={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(0.92)')}
+      onMouseDown={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(0.94)')}
       onMouseUp={e => ((e.currentTarget as HTMLElement).style.transform = 'scale(1)')}
     >
       <svg
-        width={18}
-        height={18}
+        width={15}
+        height={15}
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth={2.4}
+        strokeWidth={2.6}
         strokeLinecap="round"
         strokeLinejoin="round"
         style={{
@@ -52,6 +54,7 @@ export default function PlayerRefreshButton() {
       >
         <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19" />
       </svg>
+      <span>{spinning ? 'Syncing…' : 'Refresh'}</span>
     </button>
   )
 }

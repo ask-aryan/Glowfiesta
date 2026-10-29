@@ -97,10 +97,7 @@ export default async function PlayerPage() {
               {team.event.name} · GlowFiesta
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <PlayerRefreshButton />
-            <PlayerLogout />
-          </div>
+          <PlayerRefreshButton />
         </div>
 
         {isCompleted ? (
@@ -208,7 +205,7 @@ export default async function PlayerPage() {
       </div>
 
       {!isCompleted && (
-        <div style={{ padding: '6px 20px calc(12px + env(safe-area-inset-bottom, 0px))', flexShrink: 0 }}>
+        <div style={{ padding: '6px 20px 4px', flexShrink: 0 }}>
           {awaitingVerification ? (
             <div
               style={{
@@ -225,6 +222,12 @@ export default async function PlayerPage() {
           )}
         </div>
       )}
+
+      {/* Discreet, Safe Footer Sign Out */}
+      <div style={{ textAlign: 'center', padding: '4px 20px calc(8px + env(safe-area-inset-bottom, 0px))', flexShrink: 0, opacity: 0.8 }}>
+        <span style={{ fontSize: 11, color: '#ffd9b8' }}>Logged in as {team.teamName} · </span>
+        <PlayerLogout teamName={team.teamName} variant="link" />
+      </div>
     </div>
   )
 }

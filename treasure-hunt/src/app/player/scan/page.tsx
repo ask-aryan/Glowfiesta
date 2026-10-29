@@ -127,9 +127,31 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 35%,#2a1238,#0a0414 75%)', display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <div style={{ display: 'flex', alignItems: 'center', padding: '20px 18px' }}>
-        <Link href="/player" style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid rgba(255,255,255,.2)', background: 'rgba(255,255,255,.08)', color: '#fff', display: 'grid', placeItems: 'center', textDecoration: 'none', fontSize: 18 }}>←</Link>
-        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Fredoka, sans-serif', fontSize: 18, marginRight: 40 }}>Team Selfie</div>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '16px 18px' }}>
+        <Link
+          href="/player"
+          aria-label="Back to dashboard"
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 14,
+            border: '1.5px solid rgba(255,255,255,0.22)',
+            background: 'rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(10px)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textDecoration: 'none',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+            transition: 'all .15s ease',
+          }}
+        >
+          <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </Link>
+        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Fredoka, sans-serif', fontSize: 19, marginRight: 42, fontWeight: 700 }}>Team Selfie</div>
       </div>
 
       <div style={{ textAlign: 'center', padding: '0 32px' }}>
@@ -496,9 +518,31 @@ function ScanPageInner() {
   // QR Scanner view
   return (
     <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 50% 40%,#2a1238,#0a0414 75%)', display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <div style={{ display: 'flex', alignItems: 'center', padding: '20px 18px' }}>
-        <button onClick={() => setSelfieDone(false)} style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid rgba(255,255,255,.2)', background: 'rgba(255,255,255,.08)', color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 18 }}>←</button>
-        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Fredoka, sans-serif', fontSize: 18, marginRight: 40 }}>Scan QR</div>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '16px 18px' }}>
+        <button
+          onClick={() => setSelfieDone(false)}
+          aria-label="Back to selfie"
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 14,
+            border: '1.5px solid rgba(255,255,255,0.22)',
+            background: 'rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(10px)',
+            color: '#fff',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+            transition: 'all .15s ease',
+          }}
+        >
+          <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Fredoka, sans-serif', fontSize: 19, marginRight: 42, fontWeight: 700 }}>Scan QR</div>
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: '0 20px' }}>
