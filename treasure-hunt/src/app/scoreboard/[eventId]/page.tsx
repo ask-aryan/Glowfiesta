@@ -104,7 +104,7 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
     }
   }
 
-  const showPodium = !allZero && teams.length >= 3
+  const showPodium = !allZero && teams.length > 3
   const top3 = teams.slice(0, 3)
 
   // Calculate grid layout for bottom cards so all fit without scroll
@@ -401,7 +401,13 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
             )}
 
             {/* ── Main Competition Viewport ──────────────────────────────── */}
-            {teams.length === 2 ? (
+            {teams.length === 3 ? (
+              <TVThreeTeamsGraphView
+                teams={teams}
+                allZero={allZero}
+                reactions={reactions}
+              />
+            ) : teams.length === 2 ? (
               <TVDuelBattleView
                 teams={teams}
                 allZero={allZero}
@@ -864,6 +870,368 @@ function TVTeamCard({
             pts
           </span>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Dynamic 3-Team Score Graph Arena Component (Bars Rise & Drop with Score) ──
+function TVThreeTeamsGraphView({
+  teams,
+  allZero,
+  reactions,
+}: {
+  teams: TeamScore[]
+  allZero: boolean
+  reactions: Record<number, { type: 'HAPPY' | 'CRYING'; delta: number; key: number }>
+}) {
+  if (teams.length < 3) return null
+
+  // Order for podium bar chart: Rank 2 on Left, Rank 1 in Center, Rank 3 on Right
+  const team1 = teams[0] // Rank 1 (highest score)
+  const team2 = teams[1] // Rank 2
+  const team3 = teams[2] // Rank 3
+
+  // Ordered array: [Left (2nd), Center (1st), Right (3rd)]
+  const displayItems = [
+    { team: team2, place: team2?.rank ?? 2, defaultColor: '#38bdf8', medal: '🥈' },
+    { team: team1, place: team1?.rank ?? 1, defaultColor: '#FFC857', medal: '👑' },
+    { team: team3, place: team3?.rank ?? 3, defaultColor: '#fb923c', medal: '🥉' },
+  ]
+
+  const scores = teams.map(t => t.score)
+  const maxScore = Math.max(...scores)
+  const minScore = Math.min(...scores)
+  const scoreSpread = maxScore - minScore
+
+  // Reference ceiling: at least 15 points spread or 15 points from 0
+  const effectiveCeiling = allZero ? 10 : Math.max(15, maxScore, scoreSpread * 1.25)
+  const effectiveFloor = allZero ? 0 : Math.min(0, minScore)
+  const range = Math.max(10, effectiveCeiling - effectiveFloor)
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '6px 0 0',
+        maxWidth: 1060,
+        width: '100%',
+        margin: '0 auto',
+        position: 'relative',
+      }}
+    >
+      {/* Graph Arena Header Banner */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '5px 20px',
+          borderRadius: 999,
+          background: 'linear-gradient(135deg, rgba(255, 200, 87, 0.25), rgba(255, 107, 53, 0.2))',
+          border: '1.5px solid rgba(255, 200, 87, 0.5)',
+          boxShadow: '0 0 20px rgba(255, 200, 87, 0.25)',
+          marginBottom: 10,
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ fontSize: 16 }}>📊</span>
+        <span
+          style={{
+            fontFamily: "'Fredoka', sans-serif",
+            fontWeight: 800,
+            fontSize: 14,
+            letterSpacing: '.1em',
+            textTransform: 'uppercase',
+            color: '#FFC857',
+          }}
+        >
+          Top 3 Championship Race · Live Score Graph
+        </span>
+        <span style={{ fontSize: 16 }}>📈</span>
+      </div>
+
+      {/* Main Score Graph Area with Dynamic Height Pillars */}
+      <div
+        style={{
+          flex: 1,
+          width: '100%',
+          minHeight: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'flex-end',
+          gap: 20,
+          position: 'relative',
+          paddingBottom: 4,
+        }}
+      >
+        {/* Background Grid Reference Lines */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: '30px 20px 20px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            pointerEvents: 'none',
+            zIndex: 1,
+            opacity: 0.25,
+          }}
+        >
+          <div style={{ borderBottom: '1px dashed #FFC857', width: '100%' }} />
+          <div style={{ borderBottom: '1px dashed rgba(255,255,255,0.4)', width: '100%' }} />
+          <div style={{ borderBottom: '1px dashed rgba(255,255,255,0.4)', width: '100%' }} />
+          <div style={{ borderBottom: '1.5px solid rgba(255,255,255,0.6)', width: '100%' }} />
+        </div>
+
+        {/* 3 Dynamic Graph Columns */}
+        {displayItems.map(({ team, place, defaultColor, medal }) => {
+          if (!team) return null
+
+          const reaction = reactions[team.id]
+          const isHappy = reaction?.type === 'HAPPY'
+          const isCrying = reaction?.type === 'CRYING'
+
+          const isLeader = !allZero && team.score === maxScore && maxScore > 0
+          const color = isLeader ? '#FFC857' : defaultColor
+
+          // Calculate dynamic pillar height (normalized between 28% and 92%)
+          let heightPct = 35 // default when all zero
+          if (!allZero) {
+            const normalized = (team.score - effectiveFloor) / range
+            heightPct = Math.min(92, Math.max(26, 26 + normalized * 62))
+          }
+
+          const emoji = isHappy
+            ? '🥳'
+            : isCrying
+            ? '😭'
+            : isLeader
+            ? '🤩'
+            : place === 2
+            ? '😊'
+            : '😄'
+
+          return (
+            <div
+              key={team.id}
+              style={{
+                flex: 1,
+                maxWidth: 300,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+                position: 'relative',
+                zIndex: 5,
+              }}
+            >
+              {/* Floating Reaction Pill */}
+              {reaction && (
+                <div
+                  key={reaction.key}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    background: isHappy ? 'linear-gradient(135deg, #16a34a, #22c55e)' : 'linear-gradient(135deg, #b91c1c, #ef4444)',
+                    color: '#fff',
+                    fontWeight: 900,
+                    fontSize: 13,
+                    padding: '4px 14px',
+                    borderRadius: 999,
+                    boxShadow: isHappy ? '0 0 16px rgba(34,197,94,0.8)' : '0 0 16px rgba(239,68,68,0.8)',
+                    animation: 'pop .4s both',
+                    zIndex: 30,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {isHappy ? `+${reaction.delta} pts! 🥳` : `${reaction.delta} pts! 😭`}
+                </div>
+              )}
+
+              {/* Header on top of the graph pillar */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  marginBottom: 8,
+                  width: '100%',
+                  flexShrink: 0,
+                }}
+              >
+                {/* Rank & Medal Pill */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '2px 10px',
+                    borderRadius: 999,
+                    background: isLeader ? 'rgba(255,200,87,0.25)' : 'rgba(255,255,255,0.08)',
+                    border: `1.5px solid ${color}`,
+                    color,
+                    fontWeight: 900,
+                    fontSize: 11,
+                    letterSpacing: '.06em',
+                    marginBottom: 6,
+                  }}
+                >
+                  <span>{medal}</span>
+                  <span>{allZero ? `TEAM #${place}` : place === 1 ? '#1 LEADER' : `#${place} PLACE`}</span>
+                </div>
+
+                {/* Mascot Avatar */}
+                <div
+                  style={{
+                    width: isLeader ? 68 : 56,
+                    height: isLeader ? 68 : 56,
+                    borderRadius: '50%',
+                    background: isHappy ? '#15803d' : isCrying ? '#991b1b' : 'rgba(255,255,255,0.08)',
+                    border: `3px solid ${isHappy ? '#4ade80' : isCrying ? '#f87171' : color}`,
+                    boxShadow: `0 0 22px ${color}66`,
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: isLeader ? 34 : 26,
+                    marginBottom: 6,
+                    animation: isHappy ? 'pulse-ring 1s infinite' : isCrying ? 'shake .3s infinite' : 'none',
+                    transition: 'all .3s ease',
+                  }}
+                >
+                  {emoji}
+                </div>
+
+                {/* Team Name */}
+                <div
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 800,
+                    fontSize: isLeader ? 22 : 19,
+                    color: '#fff',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '100%',
+                    textShadow: `0 0 16px ${color}55`,
+                  }}
+                >
+                  {team.teamName}
+                </div>
+
+                {/* Score Number with Glow */}
+                <div
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontWeight: 900,
+                    fontSize: isLeader ? 32 : 28,
+                    color: team.score > 0 ? '#4ade80' : team.score < 0 ? '#f87171' : '#cbd5e1',
+                    lineHeight: 1.1,
+                    marginTop: 2,
+                  }}
+                >
+                  {team.score > 0 ? `+${team.score}` : team.score}
+                  <span style={{ fontSize: 12, fontWeight: 700, marginLeft: 4, color: '#ffd9b8' }}>
+                    pts
+                  </span>
+                </div>
+              </div>
+
+              {/* Dynamic Rising/Falling Bar Pillar */}
+              <div
+                style={{
+                  width: '84%',
+                  height: `${heightPct}%`,
+                  minHeight: 70,
+                  borderRadius: '16px 16px 0 0',
+                  background: isLeader
+                    ? 'linear-gradient(180deg, rgba(255,200,87,0.5) 0%, rgba(255,107,53,0.3) 40%, rgba(20,5,35,0.9) 100%)'
+                    : `linear-gradient(180deg, ${color}55 0%, rgba(20,5,35,0.9) 100%)`,
+                  border: `2px solid ${color}`,
+                  borderBottom: 'none',
+                  boxShadow: `0 0 30px ${color}33, inset 0 2px 14px ${color}44`,
+                  transition: 'height 0.8s cubic-bezier(0.34, 1.35, 0.64, 1), border-color 0.4s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '10px 8px',
+                  boxSizing: 'border-box',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Glowing top line edge */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 4,
+                    background: color,
+                    boxShadow: `0 0 12px ${color}`,
+                  }}
+                />
+
+                {/* Bar Graph Indicator / Margin Badge */}
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    padding: '3px 8px',
+                    borderRadius: 999,
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    border: `1px solid ${color}88`,
+                    color: '#fff',
+                    letterSpacing: '.05em',
+                    textTransform: 'uppercase',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {allZero
+                    ? 'START'
+                    : isLeader
+                    ? `👑 +${maxScore - (teams[1]?.score ?? 0)} LEAD`
+                    : `-${maxScore - team.score} PTS`}
+                </div>
+
+                {/* Measurement Tick Marks inside bar */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    width: '60%',
+                    opacity: 0.35,
+                  }}
+                >
+                  <div style={{ height: 2, background: color, borderRadius: 2 }} />
+                  <div style={{ height: 2, background: color, borderRadius: 2 }} />
+                  <div style={{ height: 2, background: color, borderRadius: 2 }} />
+                </div>
+
+                {/* Pedestal Bottom Base */}
+                <div
+                  style={{
+                    fontFamily: "'Fredoka', sans-serif",
+                    fontWeight: 900,
+                    fontSize: 18,
+                    color,
+                    letterSpacing: '.05em',
+                  }}
+                >
+                  {medal} #{place}
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
