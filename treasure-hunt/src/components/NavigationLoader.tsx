@@ -60,14 +60,18 @@ export default function NavigationLoader() {
         }
       }
 
-      // Check if clicked element is an explicit signout / nav trigger (but NOT a refresh button)
+      // Check if clicked element is an explicit signout / refresh trigger
       const btn = (e.target as HTMLElement)?.closest('button, [role="button"]')
       if (btn) {
         const title = (btn.getAttribute('title') || '').toLowerCase()
         const text = (btn.textContent || '').toLowerCase()
 
-        // Ignore refresh buttons since they don't change routes and have their own spinner
-        if (title.includes('refresh') || text.includes('refresh')) {
+        // Handle refresh buttons: trigger quick progress sweep and auto-complete after 550ms
+        if (title.includes('refresh') || text.includes('refresh') || btn.hasAttribute('data-refresh')) {
+          start()
+          setTimeout(() => {
+            complete()
+          }, 550)
           return
         }
 

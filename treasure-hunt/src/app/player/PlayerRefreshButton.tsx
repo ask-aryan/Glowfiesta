@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { startNav, endNav } from '@/components/NavigationLoader'
 
 export default function PlayerRefreshButton() {
   const router = useRouter()
@@ -10,10 +11,12 @@ export default function PlayerRefreshButton() {
   function handleRefresh() {
     if (spinning) return
     setSpinning(true)
+    startNav()
     router.refresh()
     setTimeout(() => {
+      endNav()
       setSpinning(false)
-    }, 700)
+    }, 600)
   }
 
   return (
