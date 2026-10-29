@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getSession } from '@/lib/auth'
 import PlayerLogout from './PlayerLogout'
 import ScanQrButton from './ScanQrButton'
+import PlayerAutoRefresh from './PlayerAutoRefresh'
 
 async function getTeamInfo(teamId: number) {
   const { prisma } = await import('@/lib/db')
@@ -77,6 +78,7 @@ export default async function PlayerPage() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'linear-gradient(135deg,#1a0533,#3d1a00,#FF6B35 200%)', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 15 }}>
+      <PlayerAutoRefresh />
       {isPaused && (
         <div style={{ background: '#f59e0b', color: '#2a1700', textAlign: 'center', fontWeight: 700, padding: '12px 16px', fontSize: 14, animation: 'bannerPulse 2s infinite' }}>
           Hunt is paused — please wait
