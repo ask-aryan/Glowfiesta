@@ -35,7 +35,13 @@ class ScannerErrorBoundary extends Component<{ children: ReactNode }, { hasError
   }
 }
 
-interface ScanResult { success: boolean; message: string; resultCode?: string; final?: boolean }
+interface ScanResult {
+  success: boolean
+  message: string
+  resultCode?: string
+  final?: boolean
+  isLastStage?: boolean
+}
 
 // ── Selfie screen ──────────────────────────────────────────────────────────
 function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void }) {
@@ -494,7 +500,11 @@ function ScanPageInner() {
         </div>
         <div style={{ fontSize: 13, letterSpacing: '.3em', color: '#ffd9b8', fontWeight: 600 }}>YOUR CODE IS</div>
         <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, fontSize: 88, lineHeight: 1.1, letterSpacing: '.12em', background: 'linear-gradient(180deg,#fff0b3,#FFC857 55%,#e8962a)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: 'drop-shadow(0 4px 24px rgba(255,170,60,.5))', animation: 'pop .6s .3s both' }}>{result.resultCode}</div>
-        <div style={{ fontSize: 17, color: '#fff', maxWidth: 260, lineHeight: 1.4, margin: '6px 0 34px' }}>Go to the reception desk and show this code</div>
+        <div style={{ fontSize: 17, color: '#fff', maxWidth: 280, lineHeight: 1.4, margin: '6px 0 34px' }}>
+          {result.isLastStage
+            ? '🎉 Last stage completed! Go to the reception desk to unlock your FINAL CLUE!'
+            : 'Go to the reception desk and show this code'}
+        </div>
         <Link href="/player" style={{ display: 'block', width: '100%', maxWidth: 300, height: 54, lineHeight: '54px', borderRadius: 16, fontFamily: 'Fredoka, sans-serif', fontWeight: 600, fontSize: 18, color: '#fff', textAlign: 'center', background: 'linear-gradient(135deg,#FFA23A,#FF6B35 60%,#e8431a)', boxShadow: '0 8px 28px rgba(255,107,53,.45)', textDecoration: 'none' }}>Back to Dashboard</Link>
       </div>
     )

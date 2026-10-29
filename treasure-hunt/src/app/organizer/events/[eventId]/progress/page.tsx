@@ -129,7 +129,9 @@ function FourBlockVerify({
       } else {
         setMessage({
           type: 'success',
-          text: `✓ Stage ${stageNumber} verified! Stage ${data.nextStage} clue released to ${teamName}.`,
+          text: data.isLastStage
+            ? `✓ Final stage verified! Common final clue unlocked for ${teamName}.`
+            : `✓ Stage ${stageNumber} verified! Stage ${data.nextStage} clue released to ${teamName}.`,
         })
         setBlocks(['', '', '', ''])
         onSuccess()

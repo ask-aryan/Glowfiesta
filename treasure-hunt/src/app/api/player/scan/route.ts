@@ -175,10 +175,15 @@ export async function POST(req: NextRequest) {
       })
     })
 
+    const isLastStage = qrCode.stageNumber === qrCode.event.stagesPerTeam
+
     return NextResponse.json({
       success: true,
       resultCode: clue?.resultCode ?? '????',
-      message: `Show this code at reception`,
+      isLastStage,
+      message: isLastStage
+        ? 'Last stage QR scanned! Show this code at reception to unlock your FINAL CLUE!'
+        : 'Show this code at reception',
     })
   }
 

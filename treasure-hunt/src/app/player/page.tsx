@@ -11,7 +11,7 @@ async function getTeamInfo(teamId: number) {
   return prisma.team.findUnique({
     where: { id: teamId },
     include: {
-      event: { select: { name: true, status: true, stagesPerTeam: true } },
+      event: { select: { name: true, status: true, stagesPerTeam: true, hasCommonFinalQr: true } },
       stageProgress: { orderBy: { stageNumber: 'asc' } },
     },
   })
@@ -22,6 +22,14 @@ async function getClueForTeamStage(teamId: number, eventId: number, stageNumber:
   return prisma.clue.findFirst({
     where: { eventId, teamId, stageNumber, isCommonFinal: false },
     select: { id: true, clueText: true, resultCode: true },
+  })
+}
+
+async function getCommonFinalClue(eventId: number) {
+  const { prisma } = await import('@/lib/db')
+  return prisma.clue.findFirst({
+    where: { eventId, isCommonFinal: true },
+    select: { id: true, clueText: true },
   })
 }
 
@@ -54,12 +62,26 @@ export default async function PlayerPage() {
   const isPaused = team.event.status === 'PAUSED'
   const isCompleted = team.status === 'COMPLETED'
 
-  const currentStageProgress = team.stageProgress.find(p =>
-    p.status !== 'COMPLETED' && p.status !== 'NEXT_CLUE_RELEASED'
-  ) ?? team.stageProgress[team.stageProgress.length - 1]
-
   const totalStages = team.event.stagesPerTeam
-  const completedCount = team.stageProgress.filter(p => p.status === 'COMPLETED' || p.status === 'NEXT_CLUE_RELEASED').length
+  const completedCount = team.stageProgress.filter(
+    p => p.status === 'COMPLETED' || p.status === 'NEXT_CLUE_RELEASED'
+  ).length
+
+  // All team stages (1..totalStages) have been verified and completed
+  const allStagesCompleted =
+    team.stageProgress.length >= totalStages &&
+    team.stageProgress.every(
+      p => p.status === 'COMPLETED' || p.status === 'NEXT_CLUE_RELEASED'
+    )
+
+  // In the common final clue stage when all team stages are verified and event is not yet finished
+  const isFinalClueStage = allStagesCompleted && !isCompleted
+
+  const currentStageProgress = isFinalClueStage
+    ? null
+    : (team.stageProgress.find(p => p.status !== 'COMPLETED' && p.status !== 'NEXT_CLUE_RELEASED') ?? team.stageProgress[team.stageProgress.length - 1])
+
+  const awaitingVerification = currentStageProgress?.status === 'AWAITING_RECEPTION_VERIFICATION'
 
   // Determine if the current stage's clue should be visible:
   // Stage 1 → always visible when live. Stage N → visible only after stage N-1 is NEXT_CLUE_RELEASED.
@@ -68,14 +90,14 @@ export default async function PlayerPage() {
       || team.stageProgress.some(p => p.stageNumber === currentStageProgress.stageNumber - 1 && (p.status === 'NEXT_CLUE_RELEASED' || p.status === 'COMPLETED'))
     : false
 
-  const awaitingVerification = currentStageProgress?.status === 'AWAITING_RECEPTION_VERIFICATION'
-
   const clueVisible = (isLive || isPaused) && prevStageReleased
     && !awaitingVerification
 
   const currentClue = (clueVisible || awaitingVerification) && currentStageProgress?.stageNumber
     ? await getClueForTeamStage(team.id, team.eventId, currentStageProgress.stageNumber)
     : null
+
+  const finalClue = isFinalClueStage ? await getCommonFinalClue(team.eventId) : null
 
   return (
     <div style={{ height: '100dvh', maxHeight: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'linear-gradient(135deg,#1a0533,#3d1a00,#FF6B35 200%)', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
@@ -114,16 +136,35 @@ export default async function PlayerPage() {
         ) : (
           <>
             {/* Current mission card */}
-            <div style={{ marginTop: 14, borderRadius: 18, padding: '14px 16px', background: 'rgba(26,5,51,.55)', border: '1.5px solid #FF6B35', animation: 'glow-box 2.6s ease-in-out infinite', opacity: isPaused ? 0.55 : 1, flexShrink: 0 }}>
+            <div style={{
+              marginTop: 14,
+              borderRadius: 18,
+              padding: '14px 16px',
+              background: isFinalClueStage ? 'rgba(38, 12, 60, 0.75)' : 'rgba(26,5,51,.55)',
+              border: isFinalClueStage ? '1.5px solid #FFC857' : '1.5px solid #FF6B35',
+              boxShadow: isFinalClueStage ? '0 0 24px rgba(255,200,87,0.25)' : undefined,
+              animation: 'glow-box 2.6s ease-in-out infinite',
+              opacity: isPaused ? 0.55 : 1,
+              flexShrink: 0
+            }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, letterSpacing: '.16em', fontWeight: 700, color: '#FFC857' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#FF6B35', animation: isLive ? 'pulse-ring 1.6s infinite' : 'none' }} />
-                CURRENT MISSION · STAGE {currentStageProgress?.stageNumber ?? '—'}
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: isFinalClueStage ? '#FFC857' : '#FF6B35', animation: isLive ? 'pulse-ring 1.6s infinite' : 'none' }} />
+                {isFinalClueStage ? '🌟 FINAL MISSION · THE FINAL TREASURE' : `CURRENT MISSION · STAGE ${currentStageProgress?.stageNumber ?? '—'}`}
               </div>
               {!isLive && !isPaused ? (
                 <>
                   <div style={{ fontSize: 11, color: '#ffd9b8', marginTop: 8 }}>Status:</div>
                   <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 500, fontSize: 17, lineHeight: 1.3, marginTop: 4, color: '#8b7fa8' }}>
                     Waiting for the hunt to start…
+                  </div>
+                </>
+              ) : isFinalClueStage ? (
+                <>
+                  <div style={{ fontSize: 11, color: '#ffd9b8', marginTop: 8 }}>Your final clue:</div>
+                  <div style={{ background: 'rgba(255,200,87,.12)', borderRadius: 12, padding: '12px 14px', borderLeft: '3px solid #FFC857', marginTop: 6 }}>
+                    <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 500, fontSize: 17, lineHeight: 1.35, color: '#fff' }}>
+                      {finalClue?.clueText || 'Find the common final QR code to complete the hunt and claim victory!'}
+                    </div>
                   </div>
                 </>
               ) : awaitingVerification ? (
@@ -173,15 +214,16 @@ export default async function PlayerPage() {
             <div style={{ marginTop: 14, flexShrink: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
                 <span style={{ fontSize: 10, letterSpacing: '.16em', fontWeight: 700, color: '#c9a9e8' }}>PROGRESS</span>
-                <span style={{ fontSize: 11, color: '#ffd9b8' }}>{completedCount} of {totalStages} complete</span>
+                <span style={{ fontSize: 11, color: '#ffd9b8' }}>
+                  {isFinalClueStage ? 'All stages complete · Final Clue' : `${completedCount} of ${totalStages} complete`}
+                </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                {team.stageProgress.map((p, i) => {
+                {team.stageProgress.map((p) => {
                   const done = p.status === 'COMPLETED' || p.status === 'NEXT_CLUE_RELEASED'
                   const cur = !done && p.status !== 'NOT_STARTED'
-                  const last = i === team.stageProgress.length - 1
                   return (
-                    <div key={p.id} style={{ display: 'flex', alignItems: 'flex-start', flex: last ? 0 : 1 }}>
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'flex-start', flex: 1 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 30 }}>
                         <div style={{
                           width: 28, height: 28, borderRadius: '50%', display: 'grid', placeItems: 'center',
@@ -197,10 +239,28 @@ export default async function PlayerPage() {
                           {STAGE_STATUS_LABEL[p.status] ?? p.status}
                         </div>
                       </div>
-                      {!last && <div style={{ flex: 1, height: 2.5, borderRadius: 2, margin: '12px 3px 0', background: done ? '#22c55e' : 'rgba(255,255,255,.14)' }} />}
+                      <div style={{ flex: 1, height: 2.5, borderRadius: 2, margin: '12px 3px 0', background: done ? '#22c55e' : 'rgba(255,255,255,.14)' }} />
                     </div>
                   )
                 })}
+
+                {/* Final Step Node */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 32 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%', display: 'grid', placeItems: 'center',
+                    fontWeight: 700, fontSize: 13,
+                    background: isCompleted ? '#22c55e' : isFinalClueStage ? 'linear-gradient(135deg, #FFA23A, #FF6B35)' : 'rgba(255,255,255,.08)',
+                    color: '#fff',
+                    animation: isFinalClueStage && isLive ? 'pulse-ring 1.6s infinite' : 'none',
+                    border: isFinalClueStage ? '2px solid #FFC857' : isCompleted ? '2px solid #22c55e' : '2px solid rgba(255,255,255,.14)',
+                    boxShadow: isFinalClueStage ? '0 0 12px rgba(255,200,87,0.5)' : undefined,
+                  }}>
+                    {isCompleted ? '✓' : '🏆'}
+                  </div>
+                  <div style={{ fontSize: 9, color: isCompleted ? '#86efac' : isFinalClueStage ? '#FFC857' : '#8b7fa8', fontWeight: 600, textAlign: 'center', lineHeight: 1.1 }}>
+                    {isCompleted ? 'Done' : isFinalClueStage ? 'Final' : 'Locked'}
+                  </div>
+                </div>
               </div>
             </div>
           </>
@@ -221,7 +281,7 @@ export default async function PlayerPage() {
               ⏳ AT RECEPTION DESK
             </div>
           ) : (
-            <ScanQrButton isLive={isLive} isPaused={isPaused} />
+            <ScanQrButton isLive={isLive} isPaused={isPaused} isFinal={isFinalClueStage} />
           )}
         </div>
       )}
