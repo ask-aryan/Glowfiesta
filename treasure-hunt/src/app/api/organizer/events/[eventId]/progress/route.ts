@@ -44,6 +44,8 @@ export async function GET(
     return {
       teamId: team.id,
       teamName: team.teamName,
+      leaderName: team.leaderName ?? null,
+      members: team.members ?? null,
       status: team.status,
       currentStage: activeStage?.stageNumber ?? 0,
       lastScanTime: latestScan?.scannedAt ?? null,

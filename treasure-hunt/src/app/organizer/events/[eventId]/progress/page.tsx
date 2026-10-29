@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 interface TeamProgress {
   teamId: number
   teamName: string
+  leaderName?: string | null
+  members?: string | null
   status: string
   currentStage: number
   lastScanTime: string | null
@@ -283,6 +285,7 @@ export default function ProgressPage({ params }: { params: { eventId: string } }
   const [loading, setLoading] = useState(true)
   const [countdown, setCountdown] = useState(5)
   const [statusLoading, setStatusLoading] = useState(false)
+  const [selectedTeam, setSelectedTeam] = useState<TeamProgress | null>(null)
 
   const fetchProgress = useCallback(async () => {
     try {
@@ -666,12 +669,35 @@ export default function ProgressPage({ params }: { params: { eventId: string } }
                     {idx + 1}
                   </div>
 
-                  {/* Column 2: Team Name */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: 15, color: '#0f172a' }}>
+                  {/* Column 2: Team Name (clickable for details) */}
+                  <div
+                    onClick={() => setSelectedTeam(team)}
+                    title="Click to view team leader and players"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      fontWeight: 700,
+                      fontSize: 15,
+                      color: '#0f172a',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                    }}
+                  >
                     <span style={{ width: 32, height: 32, borderRadius: '50%', background: color, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
                       {team.teamName.trim().slice(0, 2).toUpperCase()}
                     </span>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team.teamName}</span>
+                    <span style={{
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      textDecoration: 'underline',
+                      textDecorationStyle: 'dotted',
+                      textUnderlineOffset: 3,
+                    }}>
+                      {team.teamName}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#64748b' }} title="View team members">👥</span>
                     {isLead && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.04em', background: '#FF6B35', color: '#fff', borderRadius: 999, padding: '2px 8px' }}>LEADING</span>}
                     {team.status === 'COMPLETED' && <span style={{ fontSize: 18 }}>🏆</span>}
                   </div>
@@ -730,6 +756,130 @@ export default function ProgressPage({ params }: { params: { eventId: string } }
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Team Details Modal */}
+      {selectedTeam && (
+        <div
+          onClick={() => setSelectedTeam(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(15, 23, 42, 0.55)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              borderRadius: 18,
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.22)',
+              padding: '24px 26px',
+              width: '100%',
+              maxWidth: 420,
+              boxSizing: 'border-box',
+              animation: 'pop 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{
+                  width: 38, height: 38, borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #FFA23A, #FF6B35)',
+                  color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 14
+                }}>
+                  {selectedTeam.teamName.trim().slice(0, 2).toUpperCase()}
+                </span>
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{selectedTeam.teamName}</div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>Team Details &amp; Players</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedTeam(null)}
+                style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 600 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ background: '#f8fafc', borderRadius: 12, padding: '12px 14px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>
+                  👑 Team Leader
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: selectedTeam.leaderName ? '#0f172a' : '#94a3b8' }}>
+                  {selectedTeam.leaderName || 'No leader specified'}
+                </div>
+              </div>
+
+              <div style={{ background: '#f8fafc', borderRadius: 12, padding: '12px 14px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>
+                  👥 Players / Members
+                </div>
+                {selectedTeam.members ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {selectedTeam.members.split(',').map((p, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          background: '#fff',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: 999,
+                          padding: '4px 10px',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: '#334155',
+                        }}
+                      >
+                        {p.trim()}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>
+                    No player names added yet
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, background: selectedTeam.status === 'COMPLETED' ? '#f0fdf4' : '#fffbeb', border: selectedTeam.status === 'COMPLETED' ? '1px solid #bbf7d0' : '1px solid #fef08a' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>Current Status:</span>
+                <span style={{ fontWeight: 700, fontSize: 13, color: selectedTeam.status === 'COMPLETED' ? '#16a34a' : '#b45309' }}>
+                  {selectedTeam.status === 'COMPLETED' ? '🏆 Completed the Hunt' : `Stage ${selectedTeam.currentStage} of ${stagesPerTeam}`}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedTeam(null)}
+              style={{
+                marginTop: 18,
+                width: '100%',
+                padding: '10px 0',
+                borderRadius: 10,
+                border: 0,
+                background: 'linear-gradient(135deg, #FFA23A 0%, #FF6B35 100%)',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(255,107,53,0.3)',
+              }}
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>

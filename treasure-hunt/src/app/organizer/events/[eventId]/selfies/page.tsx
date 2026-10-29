@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
+import ExportSelfiesButton from './ExportSelfiesButton'
 
 async function getSelfies(eventId: number) {
   const { prisma } = await import('@/lib/db')
@@ -39,11 +40,14 @@ export default async function SelfiesPage({ params }: { params: { eventId: strin
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ color: '#64748b', marginBottom: 6 }}>{event.name}</div>
-        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em' }}>
-          Team Selfies <span style={{ color: '#94a3b8', fontWeight: 500 }}>{selfies.length}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <div style={{ color: '#64748b', marginBottom: 6 }}>{event.name}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em', color: '#0f172a' }}>
+            Team Selfies <span style={{ color: '#94a3b8', fontWeight: 500 }}>({selfies.length})</span>
+          </div>
         </div>
+        <ExportSelfiesButton selfies={selfies} eventName={event.name} />
       </div>
 
       {selfies.length === 0 ? (

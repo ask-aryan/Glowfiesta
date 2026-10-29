@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 const IC = {
   dash: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',
@@ -12,31 +13,6 @@ const IC = {
   score: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
   board: 'M2 3h20v14H2zm6 18h8m-4-4v4',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
-}
-
-function NavItem({ icon, label, href, active, count }: { icon: string; label: string; href: string; active: boolean; count?: number | string }) {
-  const router = useRouter()
-  return (
-    <div
-      onClick={() => router.push(href)}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
-        borderRadius: 8, cursor: 'pointer', fontWeight: 500, position: 'relative',
-        background: active ? 'rgba(255,107,53,.14)' : 'transparent',
-        color: active ? '#fff' : '#cbd5e1',
-        transition: 'background .15s, color .15s',
-      }}
-      onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = '#1a2540'; (e.currentTarget as HTMLElement).style.color = '#fff'; } }}
-      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#cbd5e1'; } }}
-    >
-      {active && <span style={{ position: 'absolute', left: -12, top: 8, bottom: 8, width: 3, borderRadius: '0 3px 3px 0', background: '#FF6B35' }} />}
-      <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-        <path d={icon} />
-      </svg>
-      <span style={{ flex: 1 }}>{label}</span>
-      {count !== undefined && count !== '' && <span style={{ fontSize: 11, color: '#64748b' }}>{count}</span>}
-    </div>
-  )
 }
 
 export default function OrganizerLayout({ children }: { children: React.ReactNode }) {
@@ -87,86 +63,414 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
   }
 
   const gameLabel = isScoreGame
-    ? (eventMeta?.gameType === 'QUIZ' ? 'Quiz Scoreboard' : 'Funtakshari')
+    ? (eventMeta?.gameType === 'QUIZ' ? 'Quiz' : 'Funtakshari')
     : 'Treasure Hunt'
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 13, color: '#0f172a' }}>
-      <aside style={{
-        width: 232, flexShrink: 0, background: '#0b1220', color: '#cbd5e1',
-        display: 'flex', flexDirection: 'column', padding: '16px 12px',
-        position: 'sticky', top: 0, height: '100vh', overflowY: 'auto',
-      }}>
-        <div
-          onClick={() => router.push(eventId ? `/organizer/events/${eventId}` : '/organizer')}
-          style={{ display: 'flex', gap: 10, alignItems: 'center', padding: 8, borderRadius: 10, cursor: 'pointer', background: '#131c30', marginBottom: 4 }}
-        >
-          <div style={{
-            width: 32, height: 32, borderRadius: 9,
-            background: isScoreGame ? (eventMeta?.gameType === 'QUIZ' ? '#0284c7' : '#db2777') : '#FF6B35',
-            color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0,
-          }}>
-            {isScoreGame ? (eventMeta?.gameType === 'QUIZ' ? 'QZ' : 'FK') : 'TH'}
-          </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: '#fff', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {eventMeta?.name || 'GlowFiesta 2026'}
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 13, color: '#0f172a' }}>
+      {/* Top Compact Glassmorphism Header */}
+      <header
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+          height: 56,
+          background: 'rgba(11, 18, 32, 0.88)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.22)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 20px',
+          gap: 16,
+          flexShrink: 0,
+        }}
+      >
+        {/* Left: Brand / Event Pill */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 0 }}>
+          {eventId ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Link
+                href="/organizer"
+                title="Back to All Events"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  color: '#94a3b8',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>←</span>
+                <span>Events</span>
+              </Link>
+
+              <Link
+                href={`/organizer/events/${eventId}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  textDecoration: 'none',
+                  padding: '4px 10px',
+                  borderRadius: 8,
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                }}
+              >
+                <div style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 6,
+                  background: isScoreGame
+                    ? (eventMeta?.gameType === 'QUIZ' ? '#0284c7' : '#db2777')
+                    : 'linear-gradient(135deg, #FFA23A, #FF6B35)',
+                  color: '#fff',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontWeight: 800,
+                  fontSize: 10,
+                  flexShrink: 0,
+                }}>
+                  {isScoreGame ? (eventMeta?.gameType === 'QUIZ' ? 'QZ' : 'FK') : 'TH'}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: '#fff', fontWeight: 700, fontSize: 13, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
+                    {eventMeta?.name || 'Loading…'}
+                  </div>
+                  <div style={{ fontSize: 10, color: isScoreGame ? '#38bdf8' : '#FF6B35', fontWeight: 600, marginTop: 1 }}>
+                    {gameLabel}
+                  </div>
+                </div>
+              </Link>
             </div>
-            <div style={{ fontSize: 11, color: isScoreGame ? '#38bdf8' : '#FF6B35', marginTop: 2, fontWeight: 600 }}>
-              {gameLabel}
-            </div>
-          </div>
+          ) : (
+            <Link
+              href="/organizer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                textDecoration: 'none',
+                color: '#fff',
+                fontWeight: 800,
+                fontSize: 16,
+                letterSpacing: '-.02em',
+              }}
+            >
+              <span style={{ fontSize: 20 }}>🪔</span>
+              <span style={{ background: 'linear-gradient(135deg,#fff,#ffd9b8)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+                GlowFiesta
+              </span>
+              <span style={{ fontSize: 11, background: '#FF6B35', color: '#fff', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                ORG
+              </span>
+            </Link>
+          )}
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em', color: '#64748b', margin: '22px 10px 8px' }}>WORKSPACE</div>
-
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <NavItem icon={IC.dash} label="Dashboard" href="/organizer" active={isActive('dashboard')} />
-
-          {eventId && (
+        {/* Center: Navigation Tabs with Heavy Weightage for Live Progress / Scorekeeper */}
+        <nav style={{ display: 'flex', alignItems: 'center', gap: 6, overflowX: 'auto', padding: '4px 0', scrollbarWidth: 'none' }}>
+          {eventId ? (
             <>
-              <NavItem icon={IC.teams} label="Teams" href={`/organizer/events/${eventId}/teams`} active={isActive('teams')} />
+              {/* TREASURE HUNT: Heavy weightage to Live Progress */}
+              {!isScoreGame && (
+                <Link
+                  href={`/organizer/events/${eventId}/progress`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    padding: '6px 14px',
+                    borderRadius: 999,
+                    fontWeight: 700,
+                    fontSize: 13,
+                    letterSpacing: '.02em',
+                    textDecoration: 'none',
+                    transition: 'all 0.15s ease',
+                    background: isActive('progress')
+                      ? 'linear-gradient(135deg, #FFA23A 0%, #FF6B35 100%)'
+                      : 'rgba(255, 107, 53, 0.18)',
+                    color: '#fff',
+                    border: isActive('progress')
+                      ? '1px solid #FFC857'
+                      : '1px solid rgba(255, 107, 53, 0.45)',
+                    boxShadow: isActive('progress')
+                      ? '0 2px 14px rgba(255, 107, 53, 0.5)'
+                      : '0 1px 6px rgba(255, 107, 53, 0.25)',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      background: '#22c55e',
+                      boxShadow: '0 0 6px #22c55e',
+                    }}
+                  />
+                  <span>⚡ LIVE PROGRESS</span>
+                </Link>
+              )}
 
-              {isScoreGame ? (
+              {/* SCORE GAMES: Heavy weightage to Scorekeeper */}
+              {isScoreGame && (
+                <Link
+                  href={`/organizer/events/${eventId}/scores`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    padding: '6px 14px',
+                    borderRadius: 999,
+                    fontWeight: 700,
+                    fontSize: 13,
+                    letterSpacing: '.02em',
+                    textDecoration: 'none',
+                    transition: 'all 0.15s ease',
+                    background: isActive('scores')
+                      ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                      : 'rgba(245, 158, 11, 0.2)',
+                    color: '#fff',
+                    border: isActive('scores')
+                      ? '1px solid #fef08a'
+                      : '1px solid rgba(245, 158, 11, 0.45)',
+                    boxShadow: isActive('scores')
+                      ? '0 2px 14px rgba(245, 158, 11, 0.5)'
+                      : '0 1px 6px rgba(245, 158, 11, 0.25)',
+                  }}
+                >
+                  <span>⭐</span>
+                  <span>SCOREKEEPER</span>
+                </Link>
+              )}
+
+              {/* Teams Tab */}
+              <Link
+                href={`/organizer/events/${eventId}/teams`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '5px 11px',
+                  borderRadius: 8,
+                  fontWeight: isActive('teams') ? 600 : 500,
+                  fontSize: 12.5,
+                  textDecoration: 'none',
+                  color: isActive('teams') ? '#fff' : '#cbd5e1',
+                  background: isActive('teams') ? 'rgba(255,255,255,0.12)' : 'transparent',
+                  border: isActive('teams') ? '1px solid rgba(255,255,255,0.15)' : '1px solid transparent',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d={IC.teams} />
+                </svg>
+                <span>Teams</span>
+              </Link>
+
+              {/* Treasure Hunt specific secondary tabs */}
+              {!isScoreGame && (
                 <>
-                  <NavItem icon={IC.score} label="Give Score" href={`/organizer/events/${eventId}/scores`} active={isActive('scores')} />
-                  <NavItem icon={IC.board} label="Live Scoreboard ↗" href={`/scoreboard/${eventId}`} active={false} />
-                </>
-              ) : (
-                <>
-                  <NavItem icon={IC.clues} label="Clues" href={`/organizer/events/${eventId}/clues`} active={isActive('clues')} />
-                  <NavItem icon={IC.qr} label="QR Codes" href={`/organizer/events/${eventId}/qr`} active={isActive('qr')} />
-                  <NavItem icon={IC.prog} label="Live Progress" href={`/organizer/events/${eventId}/progress`} active={isActive('progress')} />
-                  <NavItem icon={IC.selfie} label="Team Selfies" href={`/organizer/events/${eventId}/selfies`} active={isActive('selfies')} />
+                  <Link
+                    href={`/organizer/events/${eventId}/clues`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '5px 11px',
+                      borderRadius: 8,
+                      fontWeight: isActive('clues') ? 600 : 500,
+                      fontSize: 12.5,
+                      textDecoration: 'none',
+                      color: isActive('clues') ? '#fff' : '#cbd5e1',
+                      background: isActive('clues') ? 'rgba(255,255,255,0.12)' : 'transparent',
+                      border: isActive('clues') ? '1px solid rgba(255,255,255,0.15)' : '1px solid transparent',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d={IC.clues} />
+                    </svg>
+                    <span>Clues</span>
+                  </Link>
+
+                  <Link
+                    href={`/organizer/events/${eventId}/qr`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '5px 11px',
+                      borderRadius: 8,
+                      fontWeight: isActive('qr') ? 600 : 500,
+                      fontSize: 12.5,
+                      textDecoration: 'none',
+                      color: isActive('qr') ? '#fff' : '#cbd5e1',
+                      background: isActive('qr') ? 'rgba(255,255,255,0.12)' : 'transparent',
+                      border: isActive('qr') ? '1px solid rgba(255,255,255,0.15)' : '1px solid transparent',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d={IC.qr} />
+                    </svg>
+                    <span>QR Codes</span>
+                  </Link>
+
+                  <Link
+                    href={`/organizer/events/${eventId}/selfies`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '5px 11px',
+                      borderRadius: 8,
+                      fontWeight: isActive('selfies') ? 600 : 500,
+                      fontSize: 12.5,
+                      textDecoration: 'none',
+                      color: isActive('selfies') ? '#fff' : '#cbd5e1',
+                      background: isActive('selfies') ? 'rgba(255,255,255,0.12)' : 'transparent',
+                      border: isActive('selfies') ? '1px solid rgba(255,255,255,0.15)' : '1px solid transparent',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d={IC.selfie} />
+                    </svg>
+                    <span>Selfies</span>
+                  </Link>
                 </>
               )}
+
+              {/* Score Games secondary tab: Live Scoreboard Projector */}
+              {isScoreGame && (
+                <Link
+                  href={`/scoreboard/${eventId}`}
+                  target="_blank"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 11px',
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    fontSize: 12.5,
+                    textDecoration: 'none',
+                    color: '#38bdf8',
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d={IC.board} />
+                  </svg>
+                  <span>Projector ↗</span>
+                </Link>
+              )}
             </>
+          ) : (
+            <Link
+              href="/organizer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 14px',
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: 13,
+                textDecoration: 'none',
+                color: '#fff',
+                background: 'rgba(255,255,255,0.12)',
+              }}
+            >
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d={IC.dash} />
+              </svg>
+              <span>All Events</span>
+            </Link>
           )}
         </nav>
 
-        <div style={{ flex: 1 }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', borderTop: '1px solid #1e293b' }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#1e293b', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 600, fontSize: 12, flexShrink: 0 }}>A</div>
-          <div style={{ flex: 1, lineHeight: 1.25 }}>
-            <div style={{ color: '#fff', fontWeight: 600 }}>Admin</div>
-            <div style={{ fontSize: 11, color: '#64748b' }}>Organizer</div>
+        {/* Right: Admin info and Logout button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              padding: '4px 8px',
+              borderRadius: 8,
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #38bdf8, #2563eb)',
+                color: '#fff',
+                display: 'grid',
+                placeItems: 'center',
+                fontWeight: 700,
+                fontSize: 11,
+              }}
+            >
+              A
+            </div>
+            <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 12 }}>Admin</span>
           </div>
+
           <button
             onClick={handleLogout}
-            title="Logout"
-            style={{ background: 'none', border: 0, color: '#94a3b8', cursor: 'pointer', padding: 6, borderRadius: 6, display: 'flex', alignItems: 'center' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#fb923c'; (e.currentTarget as HTMLElement).style.background = '#1e293b'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8'; (e.currentTarget as HTMLElement).style.background = 'none'; }}
+            title="Sign out"
+            type="button"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#94a3b8',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = '#ef4444'
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = '#94a3b8'
+              e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
+            }}
           >
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
               <path d={IC.logout} />
             </svg>
           </button>
         </div>
-      </aside>
+      </header>
 
-      <main style={{ flex: 1, minWidth: 0, padding: '28px 40px 60px', boxSizing: 'border-box' }}>
+      {/* Main Content Area: Maximum Horizontal Space */}
+      <main style={{ flex: 1, minWidth: 0, padding: '24px 32px 60px', boxSizing: 'border-box', maxWidth: 1440, width: '100%', margin: '0 auto' }}>
         {children}
       </main>
     </div>

@@ -58,16 +58,16 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
 
   const links = isScoreGame
     ? [
+        { href: `/organizer/events/${eventId}/scores`, label: '⭐ Give Score (Scorekeeper)', sub: 'Fast 2x2 interactive scoring buttons with instant undo', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z', isHero: true },
         { href: `/organizer/events/${eventId}/teams`, label: 'Manage Teams', sub: `${event._count.teams} teams (Leader & Members)`, icon: IC.teams },
-        { href: `/organizer/events/${eventId}/scores`, label: 'Give Score', sub: 'Interactive +10, +5, -5, -10 buttons', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
         { href: `/scoreboard/${eventId}`, label: 'Live Scoreboard ↗', sub: 'Projector screen with animated happy/sad reactions', icon: 'M2 3h20v14H2zm6 18h8m-4-4v4' },
       ]
     : [
+        { href: `/organizer/events/${eventId}/progress`, label: '⚡ Live Progress', sub: 'Main command center: real-time stages & reception desk verification', icon: IC.prog, isHero: true },
         { href: `/organizer/events/${eventId}/teams`, label: 'Manage Teams', sub: `${event._count.teams} teams`, icon: IC.teams },
         { href: `/organizer/events/${eventId}/clues`, label: 'Manage Clues', sub: `${event._count.clues} clues`, icon: IC.clues },
         { href: `/organizer/events/${eventId}/qr`, label: 'QR Codes', sub: `${event._count.qrCodes} codes`, icon: IC.qr },
-        { href: `/organizer/events/${eventId}/progress`, label: 'Live Progress', sub: 'Real-time dashboard', icon: IC.prog },
-        { href: `/organizer/events/${eventId}/selfies`, label: 'Team Selfies', sub: 'Photos from the hunt', icon: IC.selfie },
+        { href: `/organizer/events/${eventId}/selfies`, label: 'Team Selfies', sub: 'View photos & ZIP export', icon: IC.selfie },
       ]
 
   return (
@@ -148,17 +148,40 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
       <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 4 }}>MANAGE</div>
       <div style={{ borderTop: '1px solid #e5e7eb', maxWidth: 760, marginTop: 8 }}>
         {links.map(l => (
-          <Link key={l.href} href={l.href} className="manage-link">
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#fff1ea', color: '#e8541f', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+          <Link
+            key={l.href}
+            href={l.href}
+            className="manage-link"
+            style={l.isHero ? {
+              background: 'linear-gradient(135deg, #fff7ed 0%, #fff 100%)',
+              border: '1.5px solid #fdba74',
+              borderRadius: 12,
+              marginBottom: 8,
+              boxShadow: '0 2px 8px rgba(255, 107, 53, 0.1)',
+            } : undefined}
+          >
+            <div style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              background: l.isHero ? 'linear-gradient(135deg, #FFA23A, #FF6B35)' : '#fff1ea',
+              color: l.isHero ? '#fff' : '#e8541f',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+              boxShadow: l.isHero ? '0 2px 6px rgba(255,107,53,0.3)' : 'none',
+            }}>
+              <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                 <path d={l.icon} />
               </svg>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600 }}>{l.label}</div>
-              <div style={{ color: '#64748b' }}>{l.sub}</div>
+              <div style={{ fontWeight: l.isHero ? 700 : 600, fontSize: l.isHero ? 14 : 13, color: l.isHero ? '#c2410c' : '#0f172a' }}>
+                {l.label}
+              </div>
+              <div style={{ color: '#64748b', fontSize: 12 }}>{l.sub}</div>
             </div>
-            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth={2.5} strokeLinecap="round">
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={l.isHero ? '#ea580c' : '#94a3b8'} strokeWidth={2.5} strokeLinecap="round">
               <path d="M9 6l6 6-6 6" />
             </svg>
           </Link>
