@@ -33,6 +33,34 @@ async function getCommonFinalClue(eventId: number) {
   })
 }
 
+async function getCompletedWinners(eventId: number, currentTeamId: number) {
+  const { prisma } = await import('@/lib/db')
+  const teams = await prisma.team.findMany({
+    where: { eventId, status: 'COMPLETED' },
+    select: {
+      id: true,
+      teamName: true,
+      updatedAt: true,
+      stageProgress: {
+        where: { completedAt: { not: null } },
+        orderBy: { completedAt: 'desc' },
+        take: 1,
+        select: { completedAt: true },
+      },
+    },
+  })
+
+  return teams
+    .map(t => ({
+      id: t.id,
+      teamName: t.teamName,
+      isCurrentTeam: t.id === currentTeamId,
+      completedAt: t.stageProgress[0]?.completedAt ?? t.updatedAt,
+    }))
+    .sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime())
+    .map((t, idx) => ({ ...t, place: idx + 1 }))
+}
+
 const STAGE_STATUS_LABEL: Record<string, string> = {
   NOT_STARTED: 'Not started',
   CLUE_ISSUED: 'Clue issued',
@@ -61,6 +89,10 @@ export default async function PlayerPage() {
   const isLive = team.event.status === 'LIVE'
   const isPaused = team.event.status === 'PAUSED'
   const isCompleted = team.status === 'COMPLETED'
+
+  const winners = await getCompletedWinners(team.eventId, team.id)
+  const otherWinners = winners.filter(w => !w.isCurrentTeam)
+  const currentTeamWin = winners.find(w => w.isCurrentTeam)
 
   const totalStages = team.event.stagesPerTeam
   const completedCount = team.stageProgress.filter(
@@ -127,17 +159,57 @@ export default async function PlayerPage() {
 
         {isCompleted ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '24px 0' }}>
-            <div style={{ fontSize: 64, marginBottom: 12 }}>🏆</div>
+            <div style={{ fontSize: 64, marginBottom: 12 }}>
+              {currentTeamWin?.place === 1 ? '🥇' : currentTeamWin?.place === 2 ? '🥈' : currentTeamWin?.place === 3 ? '🥉' : '🏆'}
+            </div>
             <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 28, background: 'linear-gradient(180deg,#fff0b3,#FFC857 55%,#e8962a)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
-              You finished!
+              {currentTeamWin ? `You finished in ${currentTeamWin.place === 1 ? '1st' : currentTeamWin.place === 2 ? '2nd' : currentTeamWin.place === 3 ? '3rd' : `${currentTeamWin.place}th`} Place!` : 'You finished!'}
             </div>
             <div style={{ color: '#ffe3cc', marginTop: 8, fontSize: 15 }}>Every stage is complete. Head to the reception desk.</div>
           </div>
         ) : (
           <>
+            {/* Final Treasure Found Announcement */}
+            {otherWinners.length > 0 && (
+              <div
+                style={{
+                  marginTop: 12,
+                  borderRadius: 14,
+                  padding: '9px 12px',
+                  background: 'linear-gradient(135deg, rgba(255, 107, 53, 0.25) 0%, rgba(255, 200, 87, 0.2) 100%)',
+                  border: '1.5px solid #FFC857',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  boxShadow: '0 0 16px rgba(255, 200, 87, 0.25)',
+                  animation: 'glow-box 2.4s infinite ease-in-out',
+                  flexShrink: 0,
+                }}
+              >
+                <div style={{ fontSize: 24, lineHeight: 1, flexShrink: 0 }}>🏆</div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.12em', color: '#FFC857', textTransform: 'uppercase' }}>
+                    Final Treasure Discovered!
+                  </div>
+                  <div style={{ fontSize: 12.5, color: '#fff', fontWeight: 600, marginTop: 1, lineHeight: 1.25 }}>
+                    {otherWinners.length === 1 ? (
+                      <>
+                        <span style={{ color: '#FFC857', fontWeight: 700 }}>{otherWinners[0].teamName}</span> has found the Final Treasure! 🎯 Race on for runner-up!
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ color: '#FFC857', fontWeight: 700 }}>{otherWinners[0].teamName}</span> (1st) &amp;{' '}
+                        <span style={{ color: '#FFC857', fontWeight: 700 }}>{otherWinners.slice(1).map(w => w.teamName).join(', ')}</span> have found the Final Treasure! 🎯
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Current mission card */}
             <div style={{
-              marginTop: 14,
+              marginTop: 12,
               borderRadius: 18,
               padding: '14px 16px',
               background: isFinalClueStage ? 'rgba(38, 12, 60, 0.75)' : 'rgba(26,5,51,.55)',
@@ -166,6 +238,25 @@ export default async function PlayerPage() {
                       {finalClue?.clueText || 'Find the common final QR code to complete the hunt and claim victory!'}
                     </div>
                   </div>
+                  {otherWinners.length > 0 && (
+                    <div style={{
+                      marginTop: 8,
+                      padding: '7px 10px',
+                      borderRadius: 10,
+                      background: 'rgba(255, 107, 53, 0.25)',
+                      border: '1px solid rgba(255, 200, 87, 0.45)',
+                      fontSize: 12,
+                      color: '#ffd9b8',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}>
+                      <span>⚡</span>
+                      <span>
+                        <strong style={{ color: '#FFC857' }}>{otherWinners[0].teamName}</strong> found the Final Treasure first! Hurry to claim {otherWinners.length === 1 ? '2nd' : `${otherWinners.length + 1}th`} place!
+                      </span>
+                    </div>
+                  )}
                 </>
               ) : awaitingVerification ? (
                 <>
