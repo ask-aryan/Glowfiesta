@@ -1,13 +1,15 @@
 'use client'
 import React, { Suspense, useEffect, useRef, useState, Component, type ReactNode } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 
-class ScannerErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+class ScannerErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; errorText: string }> {
   constructor(props: { children: ReactNode }) {
     super(props)
-    this.state = { hasError: false }
+    this.state = { hasError: false, errorText: '' }
   }
-  static getDerivedStateFromError() {
-    return { hasError: true }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, errorText: error?.message || 'Unexpected camera glitch' }
   }
   componentDidCatch(err: any) {
     console.warn('Scanner caught error:', err)
@@ -18,7 +20,7 @@ class ScannerErrorBoundary extends Component<{ children: ReactNode }, { hasError
         <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 50% 40%,#2a1238,#0a0414 75%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif' }}>
           <div style={{ fontSize: 44, marginBottom: 12 }}>📷</div>
           <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Camera scanner reset needed</div>
-          <div style={{ fontSize: 14, color: '#ffd9b8', maxWidth: 280, marginBottom: 24 }}>The camera session encountered a glitch. Tap below to reload.</div>
+          <div style={{ fontSize: 14, color: '#ffd9b8', maxWidth: 280, marginBottom: 24 }}>The camera session encountered a temporary issue. Tap below to reload.</div>
           <button
             onClick={() => window.location.reload()}
             style={{ padding: '12px 28px', borderRadius: 14, border: 0, background: 'linear-gradient(135deg,#FFA23A,#FF6B35)', color: '#fff', fontFamily: 'Fredoka, sans-serif', fontSize: 17, fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(255,107,53,.4)' }}
@@ -32,8 +34,6 @@ class ScannerErrorBoundary extends Component<{ children: ReactNode }, { hasError
     return this.props.children
   }
 }
-import { useSearchParams } from 'next/navigation'
-import Link from 'next/link'
 
 interface ScanResult { success: boolean; message: string; resultCode?: string; final?: boolean }
 
@@ -48,13 +48,41 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
   const streamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-      .then(stream => {
-        streamRef.current = stream
-        if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play() }
-      })
-      .catch(() => setCamError('Camera access denied. Please allow camera permission and try again.'))
-    return () => { streamRef.current?.getTracks().forEach(t => t.stop()) }
+    let mounted = true
+
+    if (typeof window === 'undefined' || !navigator?.mediaDevices?.getUserMedia) {
+      setCamError('Camera access is not supported by this browser or connection. Please use Chrome/Safari over HTTPS.')
+      return
+    }
+
+    try {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+        .then(stream => {
+          if (!mounted) {
+            stream.getTracks().forEach(t => t.stop())
+            return
+          }
+          streamRef.current = stream
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream
+            videoRef.current.play().catch(() => {})
+          }
+        })
+        .catch(err => {
+          if (!mounted) return
+          console.warn('Camera error:', err)
+          setCamError('Camera access denied or unavailable. Please allow camera permission and try again.')
+        })
+    } catch (err) {
+      console.warn('getUserMedia synchronous error:', err)
+      setCamError('Camera could not be started.')
+    }
+
+    return () => {
+      mounted = false
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -62,16 +90,23 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
     const video = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas) return
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
+    const width = video.videoWidth || 640
+    const height = video.videoHeight || 480
+    if (width === 0 || height === 0) return
+    canvas.width = width
+    canvas.height = height
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     // Mirror horizontally so the captured photo matches the live selfie mirror preview
     ctx.translate(canvas.width, 0)
     ctx.scale(-1, 1)
-    ctx.drawImage(video, 0, 0)
-    setPreviewUrl(canvas.toDataURL('image/jpeg', 0.85))
-    setPreview(true)
+    ctx.drawImage(video, 0, 0, width, height)
+    try {
+      setPreviewUrl(canvas.toDataURL('image/jpeg', 0.85))
+      setPreview(true)
+    } catch (e) {
+      console.warn('Canvas toDataURL failed:', e)
+    }
   }
 
   function retake() { setPreview(false); setPreviewUrl('') }
@@ -250,58 +285,75 @@ function ScanPageInner() {
   useEffect(() => {
     if (!selfieDone || result || tokenFromUrl) return
     isHandlingRef.current = false
+    let isCancelled = false
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let html5QrCode: any
+
     import('html5-qrcode').then(({ Html5Qrcode }) => {
-      if (!scannerRef.current) return
-      html5QrCode = new Html5Qrcode('qr-reader')
-      scannerInstanceRef.current = html5QrCode
+      if (isCancelled) return
+      const elem = document.getElementById('qr-reader')
+      if (!elem) return
 
-      const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
-        const minEdge = Math.min(viewfinderWidth, viewfinderHeight)
-        const qrboxSize = Math.floor(minEdge * 0.75)
-        return { width: qrboxSize, height: qrboxSize }
-      }
+      try {
+        html5QrCode = new Html5Qrcode('qr-reader')
+        scannerInstanceRef.current = html5QrCode
 
-      async function handleDecoded(decodedText: string) {
-        if (isHandlingRef.current) return
-        isHandlingRef.current = true
-        setScanning(false)
-
-        const inst = scannerInstanceRef.current
-        scannerInstanceRef.current = null
-        if (inst) {
-          await stopScanner(inst)
+        const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight)
+          const qrboxSize = Math.floor(minEdge * 0.75)
+          return { width: qrboxSize, height: qrboxSize }
         }
 
-        let token = decodedText.trim()
-        const match = token.match(/scan\/([a-zA-Z0-9_-]+)/)
-        if (match) {
-          token = match[1]
-        } else {
-          token = token.split(/[?#/]/)[0]
-        }
-        await submitToken(token)
-      }
+        const handleDecoded = async (decodedText: string) => {
+          if (isHandlingRef.current || isCancelled) return
+          isHandlingRef.current = true
+          setScanning(false)
 
-      setScanning(true)
-      html5QrCode.start(
-        { facingMode: 'environment' },
-        { fps: 15, qrbox: qrboxFunction, aspectRatio: 1.0 },
-        handleDecoded,
-        () => { /* frame scanning in progress */ }
-      ).catch((err: any) => {
-        console.warn('Environment camera failed, falling back to default camera', err)
+          const inst = scannerInstanceRef.current
+          scannerInstanceRef.current = null
+          if (inst) {
+            await stopScanner(inst)
+          }
+
+          let token = decodedText.trim()
+          const match = token.match(/scan\/([a-zA-Z0-9_-]+)/)
+          if (match) {
+            token = match[1]
+          } else {
+            token = token.split(/[?#/]/)[0]
+          }
+          await submitToken(token)
+        }
+
+        setScanning(true)
         html5QrCode.start(
-          { facingMode: 'user' },
+          { facingMode: 'environment' },
           { fps: 15, qrbox: qrboxFunction, aspectRatio: 1.0 },
           handleDecoded,
-          () => {}
-        ).catch(() => setScanning(false))
-      })
+          () => { /* frame scanning in progress */ }
+        ).catch((err: any) => {
+          if (isCancelled) return
+          console.warn('Environment camera failed, falling back to default camera', err)
+          html5QrCode.start(
+            { facingMode: 'user' },
+            { fps: 15, qrbox: qrboxFunction, aspectRatio: 1.0 },
+            handleDecoded,
+            () => {}
+          ).catch(() => {
+            if (!isCancelled) setScanning(false)
+          })
+        })
+      } catch (e) {
+        console.warn('Html5Qrcode initialization error:', e)
+        if (!isCancelled) setScanning(false)
+      }
+    }).catch(err => {
+      console.warn('Failed to load html5-qrcode module:', err)
+      if (!isCancelled) setScanning(false)
     })
 
     return () => {
+      isCancelled = true
       if (scannerInstanceRef.current) {
         const inst = scannerInstanceRef.current
         scannerInstanceRef.current = null

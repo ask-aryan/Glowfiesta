@@ -80,10 +80,27 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em' }}>{event.name}</div>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: st.bg, color: st.fg }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: st.dot, animation: st.anim, flexShrink: 0 }} />
-          {event.status}
-        </span>
+        {isScoreGame ? (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 10px',
+            borderRadius: 999,
+            fontSize: 12,
+            fontWeight: 700,
+            background: event.gameType === 'QUIZ' ? '#e0f2fe' : '#fdf2f8',
+            color: event.gameType === 'QUIZ' ? '#0369a1' : '#be185d',
+            border: `1px solid ${event.gameType === 'QUIZ' ? '#bae6fd' : '#fbcfe8'}`,
+          }}>
+            {event.gameType === 'QUIZ' ? '🧠 Quiz Event' : '🎵 Funtakshari Event'}
+          </span>
+        ) : (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 600, background: st.bg, color: st.fg }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: st.dot, animation: st.anim, flexShrink: 0 }} />
+            {event.status}
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', border: '1px solid #e5e7eb', borderRadius: 12, marginBottom: 28 }}>
@@ -95,34 +112,38 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
         ))}
       </div>
 
-      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 12 }}>EVENT STATUS</div>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16, maxWidth: 760 }}>
-        {ORDER.map((status, i) => {
-          const done = i < ci, cur = i === ci
-          const sm = STATUS_STYLE[status]
-          return (
-            <div key={status} style={{ display: 'flex', alignItems: 'center', flex: i < 4 ? 1 : 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
-                <span style={{
-                  width: 22, height: 22, borderRadius: '50%', display: 'grid', placeItems: 'center',
-                  fontSize: 11, fontWeight: 700,
-                  background: cur ? sm.dot : done ? '#0f172a' : '#e2e8f0',
-                  color: cur || done ? '#fff' : '#64748b',
-                  boxShadow: cur ? `0 0 0 4px ${sm.bg}` : 'none',
-                }}>
-                  {done ? '✓' : i + 1}
-                </span>
-                <span style={{ fontWeight: cur ? 700 : 500, color: cur ? '#0f172a' : '#64748b' }}>{status}</span>
-              </div>
-              {i < 4 && <div style={{ flex: 1, height: 2, margin: '0 12px', background: done ? '#0f172a' : '#e2e8f0' }} />}
-            </div>
-          )
-        })}
-      </div>
+      {!isScoreGame && (
+        <>
+          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 12 }}>EVENT STATUS</div>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16, maxWidth: 760 }}>
+            {ORDER.map((status, i) => {
+              const done = i < ci, cur = i === ci
+              const sm = STATUS_STYLE[status]
+              return (
+                <div key={status} style={{ display: 'flex', alignItems: 'center', flex: i < 4 ? 1 : 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+                    <span style={{
+                      width: 22, height: 22, borderRadius: '50%', display: 'grid', placeItems: 'center',
+                      fontSize: 11, fontWeight: 700,
+                      background: cur ? sm.dot : done ? '#0f172a' : '#e2e8f0',
+                      color: cur || done ? '#fff' : '#64748b',
+                      boxShadow: cur ? `0 0 0 4px ${sm.bg}` : 'none',
+                    }}>
+                      {done ? '✓' : i + 1}
+                    </span>
+                    <span style={{ fontWeight: cur ? 700 : 500, color: cur ? '#0f172a' : '#64748b' }}>{status}</span>
+                  </div>
+                  {i < 4 && <div style={{ flex: 1, height: 2, margin: '0 12px', background: done ? '#0f172a' : '#e2e8f0' }} />}
+                </div>
+              )
+            })}
+          </div>
 
-      <div style={{ marginBottom: 32 }}>
-        <EventStatusActions eventId={event.id} currentStatus={event.status} />
-      </div>
+          <div style={{ marginBottom: 32 }}>
+            <EventStatusActions eventId={event.id} currentStatus={event.status} />
+          </div>
+        </>
+      )}
 
       <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '.06em', color: '#64748b', marginBottom: 4 }}>MANAGE</div>
       <div style={{ borderTop: '1px solid #e5e7eb', maxWidth: 760, marginTop: 8 }}>
