@@ -146,3 +146,20 @@ input::placeholder { color: rgba(255,255,255,.4); }
 #qr-reader img {
   display: none !important;
 }
+
+/* Event Overview Responsive Grid */
+@media (min-width: 1024px) {
+  .event-overview-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(360px, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+}
+@media (max-width: 1023px) {
+  .event-overview-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+}
