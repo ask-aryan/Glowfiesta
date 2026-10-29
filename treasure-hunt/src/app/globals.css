@@ -79,6 +79,17 @@ input::placeholder { color: rgba(255,255,255,.4); }
   50% { opacity: .75; }
 }
 
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px) rotate(-1deg); }
+  40%, 80% { transform: translateX(4px) rotate(1deg); }
+}
+
+@keyframes bounce-happy {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.05); }
+}
+
 .row-link {
   display: grid;
   align-items: center;

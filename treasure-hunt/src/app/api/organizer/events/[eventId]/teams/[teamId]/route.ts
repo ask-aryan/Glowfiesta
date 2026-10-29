@@ -26,7 +26,9 @@ export async function PATCH(
     if (password) {
       const passwordHash = await bcrypt.hash(password, 10)
       await tx.team.update({ where: { id: teamId }, data: { plainPassword: password } })
-      await tx.user.update({ where: { id: team.userId }, data: { passwordHash } })
+      if (team.userId) {
+        await tx.user.update({ where: { id: team.userId }, data: { passwordHash } })
+      }
     }
   })
 
@@ -51,7 +53,9 @@ export async function DELETE(
     await tx.teamStageProgress.deleteMany({ where: { teamId } })
     await tx.qrCode.deleteMany({ where: { assignedTeamId: teamId } })
     await tx.team.delete({ where: { id: teamId } })
-    await tx.user.delete({ where: { id: team.userId } })
+    if (team.userId) {
+      await tx.user.delete({ where: { id: team.userId } })
+    }
   })
 
   return NextResponse.json({ ok: true })

@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 const IC = {
@@ -8,6 +9,8 @@ const IC = {
   qr: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v3M14 20h3M20 20h1',
   prog: 'M3 3v18h18M7 14l4-4 4 4 5-6',
   selfie: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  score: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+  board: 'M2 3h20v14H2zm6 18h8m-4-4v4',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
 }
 
@@ -39,14 +42,37 @@ function NavItem({ icon, label, href, active, count }: { icon: string; label: st
 export default function OrganizerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [eventMeta, setEventMeta] = useState<{ id: number; name: string; gameType: string } | null>(null)
 
   const eventMatch = pathname.match(/\/organizer\/events\/(\d+)/)
   const eventId = eventMatch?.[1]
+
+  useEffect(() => {
+    if (!eventId) {
+      setEventMeta(null)
+      return
+    }
+    fetch(`/api/organizer/events/${eventId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.event) {
+          setEventMeta({
+            id: data.event.id,
+            name: data.event.name,
+            gameType: data.event.gameType || 'TREASURE_HUNT',
+          })
+        }
+      })
+      .catch(() => {})
+  }, [eventId])
+
+  const isScoreGame = eventMeta?.gameType === 'QUIZ' || eventMeta?.gameType === 'FUNTAKSHARI'
 
   const isActive = (key: string) => {
     if (key === 'dashboard') return pathname === '/organizer'
     if (!eventId) return false
     if (key === 'teams') return pathname.includes('/teams')
+    if (key === 'scores') return pathname.includes('/scores')
     if (key === 'clues') return pathname.includes('/clues')
     if (key === 'qr') return pathname.includes('/qr')
     if (key === 'progress') return pathname.includes('/progress')
@@ -60,6 +86,10 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
     router.push('/login')
   }
 
+  const gameLabel = isScoreGame
+    ? (eventMeta?.gameType === 'QUIZ' ? 'Quiz Scoreboard' : 'Funtakshari')
+    : 'Treasure Hunt'
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 13, color: '#0f172a' }}>
       <aside style={{
@@ -71,10 +101,20 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
           onClick={() => router.push(eventId ? `/organizer/events/${eventId}` : '/organizer')}
           style={{ display: 'flex', gap: 10, alignItems: 'center', padding: 8, borderRadius: 10, cursor: 'pointer', background: '#131c30', marginBottom: 4 }}
         >
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: '#FF6B35', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>TH</div>
+          <div style={{
+            width: 32, height: 32, borderRadius: 9,
+            background: isScoreGame ? (eventMeta?.gameType === 'QUIZ' ? '#0284c7' : '#db2777') : '#FF6B35',
+            color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0,
+          }}>
+            {isScoreGame ? (eventMeta?.gameType === 'QUIZ' ? 'QZ' : 'FK') : 'TH'}
+          </div>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: '#fff', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>GlowFiesta 2026</div>
-            <div style={{ fontSize: 11, color: '#FF6B35', marginTop: 2 }}>Treasure Hunt</div>
+            <div style={{ color: '#fff', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {eventMeta?.name || 'GlowFiesta 2026'}
+            </div>
+            <div style={{ fontSize: 11, color: isScoreGame ? '#38bdf8' : '#FF6B35', marginTop: 2, fontWeight: 600 }}>
+              {gameLabel}
+            </div>
           </div>
         </div>
 
@@ -82,13 +122,26 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <NavItem icon={IC.dash} label="Dashboard" href="/organizer" active={isActive('dashboard')} />
-          {eventId && <>
-            <NavItem icon={IC.teams} label="Teams" href={`/organizer/events/${eventId}/teams`} active={isActive('teams')} />
-            <NavItem icon={IC.clues} label="Clues" href={`/organizer/events/${eventId}/clues`} active={isActive('clues')} />
-            <NavItem icon={IC.qr} label="QR Codes" href={`/organizer/events/${eventId}/qr`} active={isActive('qr')} />
-            <NavItem icon={IC.prog} label="Live Progress" href={`/organizer/events/${eventId}/progress`} active={isActive('progress')} />
-            <NavItem icon={IC.selfie} label="Team Selfies" href={`/organizer/events/${eventId}/selfies`} active={isActive('selfies')} />
-          </>}
+
+          {eventId && (
+            <>
+              <NavItem icon={IC.teams} label="Teams" href={`/organizer/events/${eventId}/teams`} active={isActive('teams')} />
+
+              {isScoreGame ? (
+                <>
+                  <NavItem icon={IC.score} label="Give Score" href={`/organizer/events/${eventId}/scores`} active={isActive('scores')} />
+                  <NavItem icon={IC.board} label="Live Scoreboard ↗" href={`/scoreboard/${eventId}`} active={false} />
+                </>
+              ) : (
+                <>
+                  <NavItem icon={IC.clues} label="Clues" href={`/organizer/events/${eventId}/clues`} active={isActive('clues')} />
+                  <NavItem icon={IC.qr} label="QR Codes" href={`/organizer/events/${eventId}/qr`} active={isActive('qr')} />
+                  <NavItem icon={IC.prog} label="Live Progress" href={`/organizer/events/${eventId}/progress`} active={isActive('progress')} />
+                  <NavItem icon={IC.selfie} label="Team Selfies" href={`/organizer/events/${eventId}/selfies`} active={isActive('selfies')} />
+                </>
+              )}
+            </>
+          )}
         </nav>
 
         <div style={{ flex: 1 }} />

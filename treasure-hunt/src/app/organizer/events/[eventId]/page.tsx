@@ -40,20 +40,35 @@ export default async function EventDetailPage({ params }: { params: { eventId: s
   const st = STATUS_STYLE[event.status] ?? STATUS_STYLE.DRAFT
   const ci = ORDER.indexOf(event.status)
 
-  const stats = [
-    { label: 'Teams', value: event._count.teams },
-    { label: 'Clues', value: event._count.clues },
-    { label: 'QR Codes', value: event._count.qrCodes },
-    { label: 'Stages / Team', value: event.stagesPerTeam },
-  ]
+  const isScoreGame = event.gameType === 'QUIZ' || event.gameType === 'FUNTAKSHARI'
 
-  const links = [
-    { href: `/organizer/events/${eventId}/teams`, label: 'Manage Teams', sub: `${event._count.teams} teams`, icon: IC.teams },
-    { href: `/organizer/events/${eventId}/clues`, label: 'Manage Clues', sub: `${event._count.clues} clues`, icon: IC.clues },
-    { href: `/organizer/events/${eventId}/qr`, label: 'QR Codes', sub: `${event._count.qrCodes} codes`, icon: IC.qr },
-    { href: `/organizer/events/${eventId}/progress`, label: 'Live Progress', sub: 'Real-time dashboard', icon: IC.prog },
-    { href: `/organizer/events/${eventId}/selfies`, label: 'Team Selfies', sub: 'Photos from the hunt', icon: IC.selfie },
-  ]
+  const stats = isScoreGame
+    ? [
+        { label: 'Registered Teams', value: event._count.teams },
+        { label: 'Members / Team', value: event.membersPerTeam || 4 },
+        { label: 'Game Type', value: event.gameType === 'QUIZ' ? 'Quiz' : 'Funtakshari' },
+        { label: 'Scoreboard', value: 'Live Animated' },
+      ]
+    : [
+        { label: 'Teams', value: event._count.teams },
+        { label: 'Clues', value: event._count.clues },
+        { label: 'QR Codes', value: event._count.qrCodes },
+        { label: 'Stages / Team', value: event.stagesPerTeam },
+      ]
+
+  const links = isScoreGame
+    ? [
+        { href: `/organizer/events/${eventId}/teams`, label: 'Manage Teams', sub: `${event._count.teams} teams (Leader & Members)`, icon: IC.teams },
+        { href: `/organizer/events/${eventId}/scores`, label: 'Give Score', sub: 'Interactive +10, +5, -5, -10 buttons', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
+        { href: `/scoreboard/${eventId}`, label: 'Live Scoreboard ↗', sub: 'Projector screen with animated happy/sad reactions', icon: 'M2 3h20v14H2zm6 18h8m-4-4v4' },
+      ]
+    : [
+        { href: `/organizer/events/${eventId}/teams`, label: 'Manage Teams', sub: `${event._count.teams} teams`, icon: IC.teams },
+        { href: `/organizer/events/${eventId}/clues`, label: 'Manage Clues', sub: `${event._count.clues} clues`, icon: IC.clues },
+        { href: `/organizer/events/${eventId}/qr`, label: 'QR Codes', sub: `${event._count.qrCodes} codes`, icon: IC.qr },
+        { href: `/organizer/events/${eventId}/progress`, label: 'Live Progress', sub: 'Real-time dashboard', icon: IC.prog },
+        { href: `/organizer/events/${eventId}/selfies`, label: 'Team Selfies', sub: 'Photos from the hunt', icon: IC.selfie },
+      ]
 
   return (
     <div>

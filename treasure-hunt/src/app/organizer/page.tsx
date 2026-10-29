@@ -63,7 +63,20 @@ export default async function OrganizerPage() {
               }}>
                 <Link href={`/organizer/events/${ev.id}`} style={{ display: 'contents', color: 'inherit', textDecoration: 'none' }}>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{ev.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{ev.name}</span>
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: '2px 7px',
+                        borderRadius: 6,
+                        background: ev.gameType === 'QUIZ' ? '#e0f2fe' : ev.gameType === 'FUNTAKSHARI' ? '#fdf2f8' : '#fff7ed',
+                        color: ev.gameType === 'QUIZ' ? '#0369a1' : ev.gameType === 'FUNTAKSHARI' ? '#be185d' : '#c2410c',
+                        border: `1px solid ${ev.gameType === 'QUIZ' ? '#bae6fd' : ev.gameType === 'FUNTAKSHARI' ? '#fbcfe8' : '#fed7aa'}`,
+                      }}>
+                        {ev.gameType === 'QUIZ' ? '🧠 Quiz' : ev.gameType === 'FUNTAKSHARI' ? '🎵 Funtakshari' : '🏆 Treasure Hunt'}
+                      </span>
+                    </div>
                     {ev.description && <div style={{ color: '#64748b', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.description}</div>}
                   </div>
                   <div>
@@ -77,12 +90,16 @@ export default async function OrganizerPage() {
                     <div style={{ color: '#64748b', fontSize: 11 }}>Teams</div>
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 15 }}>{ev.stagesPerTeam}</div>
-                    <div style={{ color: '#64748b', fontSize: 11 }}>Stages</div>
+                    <div style={{ fontWeight: 600, fontSize: 15 }}>{ev.gameType === 'TREASURE_HUNT' ? ev.stagesPerTeam : `${ev.membersPerTeam || 4}/team`}</div>
+                    <div style={{ color: '#64748b', fontSize: 11 }}>{ev.gameType === 'TREASURE_HUNT' ? 'Stages' : 'Members'}</div>
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 15 }}>{ev._count.clues} / {ev._count.qrCodes}</div>
-                    <div style={{ color: '#64748b', fontSize: 11 }}>Clues / QR</div>
+                    <div style={{ fontWeight: 600, fontSize: 15 }}>
+                      {ev.gameType === 'TREASURE_HUNT' ? `${ev._count.clues} / ${ev._count.qrCodes}` : 'Scoreboard'}
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: 11 }}>
+                      {ev.gameType === 'TREASURE_HUNT' ? 'Clues / QR' : 'Live Score'}
+                    </div>
                   </div>
                 </Link>
                 <EventRowActions eventId={ev.id} name={ev.name} description={ev.description} />

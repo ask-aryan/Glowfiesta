@@ -27,15 +27,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { name, description, teamCount, stagesPerTeam, hasCommonFinalQr, startsAt, endsAt } = parsed.data
+  const { name, description, gameType, teamCount, stagesPerTeam, membersPerTeam, hasCommonFinalQr, startsAt, endsAt } = parsed.data
 
   const event = await prisma.event.create({
     data: {
       name,
       description,
+      gameType: gameType ?? 'TREASURE_HUNT',
       teamCount,
-      stagesPerTeam,
-      hasCommonFinalQr,
+      stagesPerTeam: stagesPerTeam ?? (gameType === 'TREASURE_HUNT' ? 5 : 0),
+      membersPerTeam: membersPerTeam ?? 4,
+      hasCommonFinalQr: gameType === 'TREASURE_HUNT' ? (hasCommonFinalQr ?? true) : false,
       startsAt: startsAt ? new Date(startsAt) : null,
       endsAt: endsAt ? new Date(endsAt) : null,
       createdBy: session!.userId!,

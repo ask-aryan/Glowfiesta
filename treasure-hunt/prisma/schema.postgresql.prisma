@@ -32,8 +32,10 @@ model Event {
   id               Int                 @id @default(autoincrement())
   name             String              @db.VarChar(200)
   description      String?             @db.Text
+  gameType         String              @default("TREASURE_HUNT") @map("game_type") @db.VarChar(50)
   teamCount        Int                 @map("team_count")
-  stagesPerTeam    Int                 @map("stages_per_team")
+  stagesPerTeam    Int                 @default(5) @map("stages_per_team")
+  membersPerTeam   Int                 @default(4) @map("members_per_team")
   hasCommonFinalQr Boolean             @default(true) @map("has_common_final_qr")
   status           EventStatus         @default(DRAFT)
   startsAt         DateTime?           @map("starts_at")
@@ -64,15 +66,18 @@ enum EventStatus {
 model Team {
   id            Int                 @id @default(autoincrement())
   eventId       Int                 @map("event_id")
-  userId        Int                 @map("user_id")
+  userId        Int?                @map("user_id")
   teamName      String              @map("team_name") @db.VarChar(100)
-  plainPassword String              @default("") @map("plain_password") @db.VarChar(200)
+  leaderName    String?             @map("leader_name") @db.VarChar(100)
+  members       String?             @map("members") @db.Text
+  score         Int                 @default(0) @map("score")
+  plainPassword String?             @default("") @map("plain_password") @db.VarChar(200)
   currentStage  Int                 @default(0) @map("current_stage")
   status        TeamStatus          @default(IN_PROGRESS)
   createdAt     DateTime            @default(now()) @map("created_at")
   updatedAt     DateTime            @updatedAt @map("updated_at")
   event         Event               @relation(fields: [eventId], references: [id])
-  user          User                @relation(fields: [userId], references: [id])
+  user          User?               @relation(fields: [userId], references: [id])
   qrCodes       QrCode[]
   stageProgress TeamStageProgress[]
   scanHistory   ScanHistory[]
