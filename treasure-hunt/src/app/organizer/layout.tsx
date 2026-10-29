@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { startNav } from '@/components/NavigationLoader'
 
 const IC = {
   dash: 'M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z',
@@ -110,6 +111,7 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
   }
 
   async function handleLogout() {
+    startNav()
     await fetch('/api/auth/logout', { method: 'POST' })
     router.push('/login')
   }
@@ -639,13 +641,23 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                         transition: 'all 0.15s ease',
                       }}
                     >
-                      <div
+                      <Link
+                        href={targetUrl}
                         onClick={() => {
+                          startNav()
                           setDrawerOpen(false)
-                          router.push(targetUrl)
                         }}
                         title={`Open ${isScore ? 'Scorekeeper' : 'Live Progress'}`}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, cursor: 'pointer' }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          flex: 1,
+                          minWidth: 0,
+                          cursor: 'pointer',
+                          textDecoration: 'none',
+                          color: 'inherit',
+                        }}
                       >
                         <div style={{
                           width: 32,
@@ -685,11 +697,14 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                             </span>
                           </div>
                         </div>
-                      </div>
+                      </Link>
 
                       <Link
                         href={`/organizer/events/${ev.id}`}
-                        onClick={() => setDrawerOpen(false)}
+                        onClick={() => {
+                          startNav()
+                          setDrawerOpen(false)
+                        }}
                         title="Event Settings & Controls"
                         style={{
                           padding: '6px 8px',

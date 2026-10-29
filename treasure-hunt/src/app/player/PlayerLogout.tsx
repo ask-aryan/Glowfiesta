@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { startNav } from '@/components/NavigationLoader'
 
 export default function PlayerLogout({
   teamName,
@@ -20,6 +21,7 @@ export default function PlayerLogout({
     if (!confirmed) return
 
     setLoggingOut(true)
+    startNav()
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
     } finally {
