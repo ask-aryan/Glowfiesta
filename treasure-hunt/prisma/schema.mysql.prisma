@@ -8,17 +8,18 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique @db.VarChar(100)
-  passwordHash String @map("password_hash") @db.VarChar(255)
-  role      UserRole
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  teams     Team[]
-  organizedEvents Event[] @relation("CreatedBy")
-  auditLogs AuditLog[]
-  verifiedStages TeamStageProgress[] @relation("VerifiedBy")
+  id              Int                 @id @default(autoincrement())
+  username        String              @unique @db.VarChar(100)
+  passwordHash    String              @map("password_hash") @db.VarChar(255)
+  role            UserRole
+  isActive        Boolean             @default(true) @map("is_active")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  teams           Team[]
+  organizedEvents Event[]             @relation("CreatedBy")
+  auditLogs       AuditLog[]
+  verifiedStages  TeamStageProgress[] @relation("VerifiedBy")
+
   @@map("users")
 }
 
@@ -28,26 +29,29 @@ enum UserRole {
 }
 
 model Event {
-  id              Int         @id @default(autoincrement())
-  name            String      @db.VarChar(200)
-  description     String?     @db.Text
-  teamCount       Int         @map("team_count")
-  stagesPerTeam   Int         @map("stages_per_team")
-  hasCommonFinalQr Boolean    @default(true) @map("has_common_final_qr")
-  status          EventStatus @default(DRAFT)
-  startsAt        DateTime?   @map("starts_at")
-  endsAt          DateTime?   @map("ends_at")
-  createdBy       Int         @map("created_by")
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
-  creator         User        @relation("CreatedBy", fields: [createdBy], references: [id])
-  teams           Team[]
-  clues           Clue[]
-  qrCodes         QrCode[]
-  stageProgress   TeamStageProgress[]
-  scanHistory     ScanHistory[]
-  auditLogs       AuditLog[]
-  selfies         Selfie[]
+  id               Int                 @id @default(autoincrement())
+  name             String              @db.VarChar(200)
+  description      String?             @db.Text
+  gameType         String              @default("TREASURE_HUNT") @map("game_type") @db.VarChar(50)
+  teamCount        Int                 @map("team_count")
+  stagesPerTeam    Int                 @default(5) @map("stages_per_team")
+  membersPerTeam   Int                 @default(4) @map("members_per_team")
+  hasCommonFinalQr Boolean             @default(true) @map("has_common_final_qr")
+  status           EventStatus         @default(DRAFT)
+  startsAt         DateTime?           @map("starts_at")
+  endsAt           DateTime?           @map("ends_at")
+  createdBy        Int                 @map("created_by")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  creator          User                @relation("CreatedBy", fields: [createdBy], references: [id])
+  teams            Team[]
+  clues            Clue[]
+  qrCodes          QrCode[]
+  stageProgress    TeamStageProgress[]
+  scanHistory      ScanHistory[]
+  auditLogs        AuditLog[]
+  selfies          Selfie[]
+
   @@map("events")
 }
 
@@ -60,22 +64,26 @@ enum EventStatus {
 }
 
 model Team {
-  id           Int      @id @default(autoincrement())
-  eventId      Int      @map("event_id")
-  userId       Int      @map("user_id")
-  teamName     String   @map("team_name") @db.VarChar(100)
-  plainPassword String  @default("") @map("plain_password") @db.VarChar(200)
-  currentStage Int      @default(0) @map("current_stage")
-  status       TeamStatus @default(IN_PROGRESS)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  event        Event    @relation(fields: [eventId], references: [id])
-  user         User     @relation(fields: [userId], references: [id])
-  qrCodes      QrCode[]
+  id            Int                 @id @default(autoincrement())
+  eventId       Int                 @map("event_id")
+  userId        Int?                @map("user_id")
+  teamName      String              @map("team_name") @db.VarChar(100)
+  leaderName    String?             @map("leader_name") @db.VarChar(100)
+  members       String?             @map("members") @db.Text
+  score         Int                 @default(0) @map("score")
+  plainPassword String?             @default("") @map("plain_password") @db.VarChar(200)
+  currentStage  Int                 @default(0) @map("current_stage")
+  status        TeamStatus          @default(IN_PROGRESS)
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  event         Event               @relation(fields: [eventId], references: [id])
+  user          User?               @relation(fields: [userId], references: [id])
+  qrCodes       QrCode[]
   stageProgress TeamStageProgress[]
-  scanHistory  ScanHistory[]
-  selfies      Selfie[]
-  clues        Clue[]
+  scanHistory   ScanHistory[]
+  selfies       Selfie[]
+  clues         Clue[]
+
   @@unique([eventId, teamName])
   @@map("teams")
 }
@@ -98,24 +106,26 @@ model Clue {
   event         Event    @relation(fields: [eventId], references: [id])
   team          Team?    @relation(fields: [teamId], references: [id])
   qrCodes       QrCode[]
+
   @@map("clues")
 }
 
 model QrCode {
-  id             Int        @id @default(autoincrement())
-  eventId        Int        @map("event_id")
-  clueId         Int        @map("clue_id")
-  qrType         QrType     @map("qr_type")
-  assignedTeamId Int?       @map("assigned_team_id")
-  stageNumber    Int?       @map("stage_number")
-  displayNumber  Int        @map("display_number")
-  tokenHash      String     @unique @map("token_hash") @db.VarChar(64)
-  isActive       Boolean    @default(true) @map("is_active")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  event          Event      @relation(fields: [eventId], references: [id])
-  clue           Clue       @relation(fields: [clueId], references: [id])
-  assignedTeam   Team?      @relation(fields: [assignedTeamId], references: [id])
+  id             Int           @id @default(autoincrement())
+  eventId        Int           @map("event_id")
+  clueId         Int           @map("clue_id")
+  qrType         QrType        @map("qr_type")
+  assignedTeamId Int?          @map("assigned_team_id")
+  stageNumber    Int?          @map("stage_number")
+  displayNumber  Int           @map("display_number")
+  tokenHash      String        @unique @map("token_hash") @db.VarChar(64)
+  isActive       Boolean       @default(true) @map("is_active")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  event          Event         @relation(fields: [eventId], references: [id])
+  clue           Clue          @relation(fields: [clueId], references: [id])
+  assignedTeam   Team?         @relation(fields: [assignedTeamId], references: [id])
   scanHistory    ScanHistory[]
+
   @@map("qr_codes")
 }
 
@@ -125,19 +135,20 @@ enum QrType {
 }
 
 model TeamStageProgress {
-  id                 Int        @id @default(autoincrement())
-  eventId            Int        @map("event_id")
-  teamId             Int        @map("team_id")
-  stageNumber        Int        @map("stage_number")
+  id                 Int         @id @default(autoincrement())
+  eventId            Int         @map("event_id")
+  teamId             Int         @map("team_id")
+  stageNumber        Int         @map("stage_number")
   status             StageStatus @default(NOT_STARTED)
-  scanTimestamp      DateTime?  @map("scan_timestamp")
-  verifiedBy         Int?       @map("verified_by")
-  verifiedAt         DateTime?  @map("verified_at")
-  nextClueReleasedAt DateTime?  @map("next_clue_released_at")
-  completedAt        DateTime?  @map("completed_at")
-  event              Event      @relation(fields: [eventId], references: [id])
-  team               Team       @relation(fields: [teamId], references: [id])
-  verifier           User?      @relation("VerifiedBy", fields: [verifiedBy], references: [id])
+  scanTimestamp      DateTime?   @map("scan_timestamp")
+  verifiedBy         Int?        @map("verified_by")
+  verifiedAt         DateTime?   @map("verified_at")
+  nextClueReleasedAt DateTime?   @map("next_clue_released_at")
+  completedAt        DateTime?   @map("completed_at")
+  event              Event       @relation(fields: [eventId], references: [id])
+  team               Team        @relation(fields: [teamId], references: [id])
+  verifier           User?       @relation("VerifiedBy", fields: [verifiedBy], references: [id])
+
   @@unique([teamId, stageNumber])
   @@map("team_stage_progress")
 }
@@ -162,6 +173,7 @@ model ScanHistory {
   event         Event    @relation(fields: [eventId], references: [id])
   team          Team?    @relation(fields: [teamId], references: [id])
   qrCode        QrCode?  @relation(fields: [qrCodeId], references: [id])
+
   @@map("scan_history")
 }
 
@@ -174,19 +186,21 @@ model Selfie {
   takenAt     DateTime @default(now()) @map("taken_at")
   event       Event    @relation(fields: [eventId], references: [id])
   team        Team     @relation(fields: [teamId], references: [id])
+
   @@map("selfies")
 }
 
 model AuditLog {
-  id         Int      @id @default(autoincrement())
-  eventId    Int?     @map("event_id")
-  actorUserId Int     @map("actor_user_id")
-  action     String   @db.VarChar(100)
-  entityType String   @map("entity_type") @db.VarChar(50)
-  entityId   Int?     @map("entity_id")
-  reason     String?  @db.Text
-  createdAt  DateTime @default(now()) @map("created_at")
-  event      Event?   @relation(fields: [eventId], references: [id])
-  actor      User     @relation(fields: [actorUserId], references: [id])
+  id          Int      @id @default(autoincrement())
+  eventId     Int?     @map("event_id")
+  actorUserId Int      @map("actor_user_id")
+  action      String   @db.VarChar(100)
+  entityType  String   @map("entity_type") @db.VarChar(50)
+  entityId    Int?     @map("entity_id")
+  reason      String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  event       Event?   @relation(fields: [eventId], references: [id])
+  actor       User     @relation(fields: [actorUserId], references: [id])
+
   @@map("audit_logs")
 }
