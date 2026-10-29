@@ -1000,11 +1000,14 @@ function TVThreeTeamsGraphView({
           const isLeader = !allZero && team.score === maxScore && maxScore > 0
           const color = isLeader ? '#FFC857' : defaultColor
 
-          // Calculate dynamic pillar height (normalized between 28% and 92%)
-          let heightPct = 35 // default when all zero
+          // Calculate strictly proportional bar pixel height (between 80px and 280px)
+          const minBarHeight = 80
+          const maxBarHeight = 280
+          let barHeightPx = 130 // default baseline when all zero
+
           if (!allZero) {
             const normalized = (team.score - effectiveFloor) / range
-            heightPct = Math.min(92, Math.max(26, 26 + normalized * 62))
+            barHeightPx = Math.round(minBarHeight + Math.max(0, Math.min(1, normalized)) * (maxBarHeight - minBarHeight))
           }
 
           const emoji = isHappy
@@ -1090,15 +1093,15 @@ function TVThreeTeamsGraphView({
                 {/* Mascot Avatar */}
                 <div
                   style={{
-                    width: isLeader ? 68 : 56,
-                    height: isLeader ? 68 : 56,
+                    width: 62,
+                    height: 62,
                     borderRadius: '50%',
                     background: isHappy ? '#15803d' : isCrying ? '#991b1b' : 'rgba(255,255,255,0.08)',
                     border: `3px solid ${isHappy ? '#4ade80' : isCrying ? '#f87171' : color}`,
                     boxShadow: `0 0 22px ${color}66`,
                     display: 'grid',
                     placeItems: 'center',
-                    fontSize: isLeader ? 34 : 26,
+                    fontSize: 30,
                     marginBottom: 6,
                     animation: isHappy ? 'pulse-ring 1s infinite' : isCrying ? 'shake .3s infinite' : 'none',
                     transition: 'all .3s ease',
@@ -1112,7 +1115,7 @@ function TVThreeTeamsGraphView({
                   style={{
                     fontFamily: "'Fredoka', sans-serif",
                     fontWeight: 800,
-                    fontSize: isLeader ? 22 : 19,
+                    fontSize: 21,
                     color: '#fff',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
@@ -1129,7 +1132,7 @@ function TVThreeTeamsGraphView({
                   style={{
                     fontFamily: "'JetBrains Mono', monospace",
                     fontWeight: 900,
-                    fontSize: isLeader ? 32 : 28,
+                    fontSize: 30,
                     color: team.score > 0 ? '#4ade80' : team.score < 0 ? '#f87171' : '#cbd5e1',
                     lineHeight: 1.1,
                     marginTop: 2,
@@ -1146,8 +1149,8 @@ function TVThreeTeamsGraphView({
               <div
                 style={{
                   width: '84%',
-                  height: `${heightPct}%`,
-                  minHeight: 70,
+                  height: barHeightPx,
+                  flexShrink: 0,
                   borderRadius: '16px 16px 0 0',
                   background: isLeader
                     ? 'linear-gradient(180deg, rgba(255,200,87,0.5) 0%, rgba(255,107,53,0.3) 40%, rgba(20,5,35,0.9) 100%)'
