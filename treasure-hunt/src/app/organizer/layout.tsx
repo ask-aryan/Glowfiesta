@@ -622,7 +622,8 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                 allEvents.map(ev => {
                   const isCurrent = eventId ? parseInt(eventId) === ev.id : false
                   const isScore = ev.gameType === 'QUIZ' || ev.gameType === 'FUNTAKSHARI'
-                  const targetUrl = isScore
+                  const targetUrl = `/organizer/events/${ev.id}`
+                  const heroUrl = isScore
                     ? `/organizer/events/${ev.id}/scores`
                     : `/organizer/events/${ev.id}/progress`
 
@@ -647,7 +648,7 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                           startNav()
                           setDrawerOpen(false)
                         }}
-                        title={`Open ${isScore ? 'Scorekeeper' : 'Live Progress'}`}
+                        title={`Open ${ev.name} Dashboard`}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -700,19 +701,20 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                       </Link>
 
                       <Link
-                        href={`/organizer/events/${ev.id}`}
+                        href={heroUrl}
                         onClick={() => {
                           startNav()
                           setDrawerOpen(false)
                         }}
-                        title="Event Settings & Controls"
+                        title={`Jump to ${isScore ? 'Scorekeeper' : 'Live Progress'}`}
                         style={{
-                          padding: '6px 8px',
-                          borderRadius: 6,
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          color: '#94a3b8',
+                          padding: '6px 9px',
+                          borderRadius: 7,
+                          background: 'rgba(255, 107, 53, 0.15)',
+                          border: '1px solid rgba(255, 107, 53, 0.35)',
+                          color: '#FFC857',
                           fontSize: 12,
+                          fontWeight: 700,
                           textDecoration: 'none',
                           display: 'flex',
                           alignItems: 'center',
@@ -720,7 +722,7 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                           flexShrink: 0,
                         }}
                       >
-                        ⚙️
+                        {isScore ? '⭐' : '⚡'}
                       </Link>
                     </div>
                   )

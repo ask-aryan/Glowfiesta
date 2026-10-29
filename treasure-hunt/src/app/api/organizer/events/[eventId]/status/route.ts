@@ -43,6 +43,39 @@ export async function POST(
     )
   }
 
+  // Validate all prerequisite steps before marking event as READY
+  if (event.status === 'DRAFT' && transition.nextStatus === 'READY') {
+    const isScoreGame = event.gameType === 'QUIZ' || event.gameType === 'FUNTAKSHARI'
+    const [teamsCount, cluesCount, qrCodesCount] = await Promise.all([
+      prisma.team.count({ where: { eventId } }),
+      prisma.clue.count({ where: { eventId } }),
+      prisma.qrCode.count({ where: { eventId } }),
+    ])
+
+    const totalExpectedClues = event.stagesPerTeam * event.teamCount + (event.hasCommonFinalQr ? 1 : 0)
+    const missing: string[] = []
+
+    if (teamsCount < event.teamCount) {
+      missing.push(`Register all teams (${teamsCount}/${event.teamCount} added)`)
+    }
+
+    if (!isScoreGame) {
+      if (cluesCount < totalExpectedClues) {
+        missing.push(`Write all clues (${cluesCount}/${totalExpectedClues} written)`)
+      }
+      if (qrCodesCount === 0) {
+        missing.push('Generate QR codes')
+      }
+    }
+
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { error: `Cannot mark event as READY. Please complete all preparation steps: ${missing.join(', ')}` },
+        { status: 400 }
+      )
+    }
+  }
+
   const updated = await prisma.event.update({
     where: { id: eventId },
     data: { status: transition.nextStatus },
