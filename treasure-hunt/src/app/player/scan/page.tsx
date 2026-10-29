@@ -27,11 +27,18 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
   }, [])
 
   function takeShot() {
-    const video = videoRef.current; const canvas = canvasRef.current
+    const video = videoRef.current
+    const canvas = canvasRef.current
     if (!video || !canvas) return
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight
-    canvas.getContext('2d')?.drawImage(video, 0, 0)
-    setPreviewUrl(canvas.toDataURL('image/jpeg', 0.8))
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    // Mirror horizontally so the captured photo matches the live selfie mirror preview
+    ctx.translate(canvas.width, 0)
+    ctx.scale(-1, 1)
+    ctx.drawImage(video, 0, 0)
+    setPreviewUrl(canvas.toDataURL('image/jpeg', 0.85))
     setPreview(true)
   }
 
@@ -150,21 +157,42 @@ function ScanPageInner() {
     import('html5-qrcode').then(({ Html5Qrcode }) => {
       if (!scannerRef.current) return
       html5QrCode = new Html5Qrcode('qr-reader')
+
+      const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
+        const minEdge = Math.min(viewfinderWidth, viewfinderHeight)
+        const qrboxSize = Math.floor(minEdge * 0.75)
+        return { width: qrboxSize, height: qrboxSize }
+      }
+
+      function handleDecoded(decodedText: string) {
+        try { html5QrCode.stop() } catch { /* ignore */ }
+        setScanning(false)
+        let token = decodedText.trim()
+        const match = token.match(/scan\/([a-zA-Z0-9_-]+)/)
+        if (match) {
+          token = match[1]
+        } else {
+          token = token.split(/[?#/]/)[0]
+        }
+        submitToken(token)
+      }
+
       setScanning(true)
-      html5QrCode.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 250, height: 250 } },
-        async (decodedText: string) => {
-          try { await html5QrCode.stop() } catch { /* ignore */ }
-          setScanning(false)
-          let token = decodedText
-          try {
-            const url = new URL(decodedText)
-            const pathParts = url.pathname.split('/')
-            const scanIdx = pathParts.indexOf('scan')
-            if (scanIdx !== -1 && pathParts[scanIdx + 1]) token = pathParts[scanIdx + 1]
-          } catch { /* not a URL */ }
-          await submitToken(token)
-        }, undefined
-      ).catch(() => setScanning(false))
+      html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 15, qrbox: qrboxFunction, aspectRatio: 1.0 },
+        handleDecoded,
+        () => { /* frame scanning in progress */ }
+      ).catch((err: any) => {
+        console.warn('Environment camera failed, falling back to default camera', err)
+        html5QrCode.start(
+          { facingMode: 'user' },
+          { fps: 15, qrbox: qrboxFunction, aspectRatio: 1.0 },
+          handleDecoded,
+          () => {}
+        ).catch(() => setScanning(false))
+      })
+
       scannerInstanceRef.current = html5QrCode
     })
     return () => { if (scannerInstanceRef.current) scannerInstanceRef.current.stop().catch(() => { /* ignore */ }) }
@@ -235,21 +263,49 @@ function ScanPageInner() {
         <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Fredoka, sans-serif', fontSize: 18, marginRight: 40 }}>Scan QR</div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28 }}>
-        <div style={{ position: 'relative', width: 260, height: 260 }}>
-          <div style={{ position: 'absolute', inset: 0, borderRadius: 18, background: 'repeating-linear-gradient(0deg,rgba(255,255,255,.03) 0 2px,transparent 2px 4px)' }} />
-          <div style={{ position: 'absolute', left: 10, right: 10, height: 2, background: 'linear-gradient(90deg,transparent,#FF6B35,transparent)', boxShadow: '0 0 14px #FF6B35', animation: 'sweep 2.2s ease-in-out infinite alternate' }} />
-          <div style={{ position: 'absolute', left: 0, top: 0, width: 44, height: 44, borderLeft: '5px solid #FFC857', borderTop: '5px solid #FFC857', borderRadius: '16px 0 0 0', animation: 'bracket 1.6s ease-in-out infinite', transformOrigin: '0 0' }} />
-          <div style={{ position: 'absolute', right: 0, top: 0, width: 44, height: 44, borderRight: '5px solid #FFC857', borderTop: '5px solid #FFC857', borderRadius: '0 16px 0 0', animation: 'bracket 1.6s ease-in-out infinite', transformOrigin: '100% 0' }} />
-          <div style={{ position: 'absolute', left: 0, bottom: 0, width: 44, height: 44, borderLeft: '5px solid #FFC857', borderBottom: '5px solid #FFC857', borderRadius: '0 0 0 16px', animation: 'bracket 1.6s ease-in-out infinite', transformOrigin: '0 100%' }} />
-          <div style={{ position: 'absolute', right: 0, bottom: 0, width: 44, height: 44, borderRight: '5px solid #FFC857', borderBottom: '5px solid #FFC857', borderRadius: '0 0 16px 0', animation: 'bracket 1.6s ease-in-out infinite', transformOrigin: '100% 100%' }} />
-          <div id="qr-reader" ref={scannerRef} style={{ width: '100%', height: '100%', opacity: 0.01, position: 'absolute', inset: 0 }} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: '0 20px' }}>
+        <div style={{
+          position: 'relative',
+          width: 280,
+          height: 280,
+          borderRadius: 24,
+          overflow: 'hidden',
+          background: '#000',
+          boxShadow: '0 0 35px rgba(255,107,53,.35)',
+          border: '2px solid rgba(255,200,87,.5)',
+        }}>
+          {/* Active Camera Viewfinder */}
+          <div
+            id="qr-reader"
+            ref={scannerRef}
+            style={{ width: '100%', height: '100%', position: 'absolute', inset: 0, zIndex: 1 }}
+          />
+
+          {/* Scanner Overlay (Brackets & Laser) */}
+          <div style={{ position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none' }}>
+            <div style={{
+              position: 'absolute',
+              left: 12,
+              right: 12,
+              height: 2,
+              background: 'linear-gradient(90deg,transparent,#FF6B35,transparent)',
+              boxShadow: '0 0 14px #FF6B35',
+              animation: 'sweep 2.2s ease-in-out infinite alternate',
+            }} />
+            <div style={{ position: 'absolute', left: 8, top: 8, width: 42, height: 42, borderLeft: '5px solid #FFC857', borderTop: '5px solid #FFC857', borderRadius: '14px 0 0 0', animation: 'bracket 1.6s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', right: 8, top: 8, width: 42, height: 42, borderRight: '5px solid #FFC857', borderTop: '5px solid #FFC857', borderRadius: '0 14px 0 0', animation: 'bracket 1.6s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', left: 8, bottom: 8, width: 42, height: 42, borderLeft: '5px solid #FFC857', borderBottom: '5px solid #FFC857', borderRadius: '0 0 0 14px', animation: 'bracket 1.6s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', right: 8, bottom: 8, width: 42, height: 42, borderRight: '5px solid #FFC857', borderBottom: '5px solid #FFC857', borderRadius: '0 0 14px 0', animation: 'bracket 1.6s ease-in-out infinite' }} />
+          </div>
         </div>
+
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 20 }}>
             {scanning ? 'Point at your QR code' : 'Initializing camera…'}
           </div>
-          <div style={{ fontSize: 12, color: '#8b7fa8', marginTop: 6 }}>Make sure your clue matches the QR location</div>
+          <div style={{ fontSize: 13, color: '#ffd9b8', marginTop: 6 }}>
+            Keep the QR code inside the golden brackets
+          </div>
         </div>
       </div>
     </div>

@@ -98,3 +98,32 @@ input::placeholder { color: rgba(255,255,255,.4); }
   transition: background .15s;
 }
 .manage-link:hover { background: #fff7f2; }
+
+/* QR Scanner styling & reset */
+#qr-reader {
+  border: none !important;
+  background: #000 !important;
+}
+#qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 20px !important;
+}
+#qr-reader__scan_region {
+  border: none !important;
+  background: transparent !important;
+}
+#qr-reader__scan_region video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 20px !important;
+}
+#qr-reader__dashboard,
+#qr-reader__dashboard_section,
+#qr-reader__dashboard_section_csr,
+#qr-reader__dashboard_section_swaplink,
+#qr-reader img {
+  display: none !important;
+}
