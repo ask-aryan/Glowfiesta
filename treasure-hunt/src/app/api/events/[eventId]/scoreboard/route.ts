@@ -44,6 +44,10 @@ export async function GET(
     orderBy: { createdAt: 'asc' },
   })
 
+  // Permanent static creation order index for each team (1..N)
+  const teamInitialOrderMap = new Map<number, number>()
+  teams.forEach((t, i) => teamInitialOrderMap.set(t.id, i + 1))
+
   const aliveTeamsList = teams.filter(t => !t.isEliminated)
   const eliminatedTeamsList = teams.filter(t => t.isEliminated)
 
@@ -54,11 +58,13 @@ export async function GET(
   const scoreCounts = new Map<number, number>()
   aliveTeamsList.forEach(t => scoreCounts.set(t.score, (scoreCounts.get(t.score) || 0) + 1))
 
+  // aliveWithRank: In STATIC creation order with permanent initialOrder & dynamic rank
   const aliveWithRank = aliveTeamsList.map((team, idx) => {
+    const initialOrder = teamInitialOrderMap.get(team.id) ?? (idx + 1)
     if (allZero) {
       return {
         ...team,
-        initialOrder: idx + 1,
+        initialOrder,
         rank: null,
         isTied: false,
         isLeader: false,
@@ -69,7 +75,7 @@ export async function GET(
     const isLeader = rank === 1 && team.score > 0
     return {
       ...team,
-      initialOrder: idx + 1,
+      initialOrder,
       rank,
       isTied,
       isLeader,

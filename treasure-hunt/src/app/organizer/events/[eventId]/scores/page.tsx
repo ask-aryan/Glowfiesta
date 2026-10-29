@@ -62,13 +62,16 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
   const [revivingId, setRevivingId] = useState<number | null>(null)
   const [revertingRound, setRevertingRound] = useState(false)
 
-  // Re-compute ranks dynamically in fixed order so tied teams are treated equally
+  // Re-compute ranks dynamically in fixed static order so teams NEVER swap positions
   function computeRanksForTeams(currentTeams: TeamScore[]) {
-    const isAllZero = currentTeams.length === 0 || currentTeams.every(t => t.score === 0)
+    // ALWAYS preserve fixed static order: sorted by permanent initialOrder or id
+    const staticOrdered = [...currentTeams].sort((a, b) => (a.initialOrder ?? a.id) - (b.initialOrder ?? b.id))
+
+    const isAllZero = staticOrdered.length === 0 || staticOrdered.every(t => t.score === 0)
     if (isAllZero) {
       return {
         isAllZero: true,
-        ranked: currentTeams.map((t, i) => ({
+        ranked: staticOrdered.map((t, i) => ({
           ...t,
           initialOrder: t.initialOrder || i + 1,
           rank: null,
@@ -78,13 +81,13 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
       }
     }
 
-    const uniqueScores = Array.from(new Set(currentTeams.map(t => t.score))).sort((a, b) => b - a)
+    const uniqueScores = Array.from(new Set(staticOrdered.map(t => t.score))).sort((a, b) => b - a)
     const counts = new Map<number, number>()
-    currentTeams.forEach(t => counts.set(t.score, (counts.get(t.score) || 0) + 1))
+    staticOrdered.forEach(t => counts.set(t.score, (counts.get(t.score) || 0) + 1))
 
     return {
       isAllZero: false,
-      ranked: currentTeams.map((t, i) => {
+      ranked: staticOrdered.map((t, i) => {
         const rank = uniqueScores.indexOf(t.score) + 1
         const isTied = (counts.get(t.score) || 1) > 1
         const isLeader = rank === 1 && t.score > 0
@@ -105,7 +108,9 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
       if (res.ok) {
         const data = await res.json()
         setEvent(data.event)
-        const baseTeams: TeamScore[] = data.aliveTeams || data.teamsInOrder || data.teams || []
+        // Scorekeeper panel MUST keep teams in fixed static positions (teamsInOrder or sorted by initialOrder/id)
+        const rawTeams: TeamScore[] = data.teamsInOrder || data.aliveTeams || data.teams || []
+        const baseTeams = [...rawTeams].sort((a, b) => (a.initialOrder ?? a.id) - (b.initialOrder ?? b.id))
         const { isAllZero, ranked } = computeRanksForTeams(baseTeams)
         setAllZero(isAllZero)
         setTeams(ranked)
@@ -544,7 +549,8 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
             }}
           >
             {teams.map((team, idx) => {
-              const color = COLORS[idx % COLORS.length]
+              const colorIdx = Math.abs(((team.initialOrder ?? team.id) - 1)) % COLORS.length
+              const color = COLORS[colorIdx]
               const initials = team.teamName.trim().slice(0, 2).toUpperCase()
               const deltaInfo = lastDelta?.teamId === team.id ? lastDelta : null
 
