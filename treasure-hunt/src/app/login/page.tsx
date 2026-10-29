@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { startNav } from '@/components/NavigationLoader'
 
 function LoginForm() {
   const router = useRouter()
@@ -23,6 +24,7 @@ function LoginForm() {
     const data = await res.json()
     setLoading(false)
     if (!res.ok) { setError(data.error ?? 'Login failed'); return }
+    startNav()
     if (redirectTo) router.push(redirectTo)
     else if (data.role === 'ORGANIZER') router.push('/organizer')
     else router.push('/player')

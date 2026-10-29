@@ -88,6 +88,7 @@ export default async function PlayerPage() {
 
   const isLive = team.event.status === 'LIVE'
   const isPaused = team.event.status === 'PAUSED'
+  const isEventCompleted = team.event.status === 'COMPLETED'
   const isCompleted = team.status === 'COMPLETED'
 
   const winners = await getCompletedWinners(team.eventId, team.id)
@@ -167,6 +168,36 @@ export default async function PlayerPage() {
             </div>
             <div style={{ color: '#ffe3cc', marginTop: 8, fontSize: 15 }}>Every stage is complete. Head to the reception desk.</div>
           </div>
+        ) : isEventCompleted ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '20px 0' }}>
+            <div style={{ fontSize: 64, marginBottom: 12 }}>🏁</div>
+            <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 28, background: 'linear-gradient(180deg,#fff0b3,#FFC857 55%,#e8962a)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>
+              Hunt Concluded
+            </div>
+            <div style={{ color: '#ffd9b8', marginTop: 8, fontSize: 15, maxWidth: 320, lineHeight: 1.4 }}>
+              The organizer has marked this event as completed. All stages and clue scanning are closed.
+            </div>
+
+            {/* Winners Standings */}
+            {winners.length > 0 && (
+              <div style={{ marginTop: 22, width: '100%', maxWidth: 340, background: 'rgba(255,200,87,0.1)', border: '1.5px solid rgba(255,200,87,0.3)', borderRadius: 16, padding: '16px', boxSizing: 'border-box' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.12em', color: '#FFC857', textTransform: 'uppercase', marginBottom: 10, textAlign: 'left' }}>
+                  Final Standings 🏆
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {winners.map(w => (
+                    <div key={w.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'rgba(255,255,255,0.06)', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 16 }}>{w.place === 1 ? '🥇' : w.place === 2 ? '🥈' : w.place === 3 ? '🥉' : `#${w.place}`}</span>
+                        <span style={{ fontWeight: 700, color: w.isCurrentTeam ? '#FFC857' : '#fff' }}>{w.teamName}</span>
+                      </div>
+                      <span style={{ fontSize: 11, color: '#86efac', fontWeight: 600 }}>Winner</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <>
             {/* Final Treasure Found Announcement */}
@@ -227,7 +258,7 @@ export default async function PlayerPage() {
                 <>
                   <div style={{ fontSize: 11, color: '#ffd9b8', marginTop: 8 }}>Status:</div>
                   <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 500, fontSize: 17, lineHeight: 1.3, marginTop: 4, color: '#8b7fa8' }}>
-                    Waiting for the hunt to start…
+                    {team.event.status === 'READY' ? 'Starting soon! Get ready at the start line…' : 'Waiting for the hunt to start…'}
                   </div>
                 </>
               ) : isFinalClueStage ? (
@@ -358,7 +389,7 @@ export default async function PlayerPage() {
         )}
       </div>
 
-      {!isCompleted && (
+      {!isCompleted && !isEventCompleted && (
         <div style={{ padding: '8px 20px calc(14px + env(safe-area-inset-bottom, 0px))', flexShrink: 0 }}>
           {awaitingVerification ? (
             <div
@@ -372,7 +403,7 @@ export default async function PlayerPage() {
               ⏳ AT RECEPTION DESK
             </div>
           ) : (
-            <ScanQrButton isLive={isLive} isPaused={isPaused} isFinal={isFinalClueStage} />
+            <ScanQrButton isLive={isLive} isPaused={isPaused} eventStatus={team.event.status} isFinal={isFinalClueStage} />
           )}
         </div>
       )}
