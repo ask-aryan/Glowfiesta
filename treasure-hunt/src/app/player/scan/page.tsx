@@ -108,8 +108,47 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
               </>
             ) : (
               <>
-                <button onClick={confirm} disabled={uploading} style={{ width: '100%', height: 56, border: 0, borderRadius: 18, fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 19, letterSpacing: '.04em', color: '#fff', cursor: uploading ? 'not-allowed' : 'pointer', background: 'linear-gradient(135deg,#FFA23A,#FF6B35 60%,#e8431a)', boxShadow: '0 8px 28px rgba(255,107,53,.5)', opacity: uploading ? 0.7 : 1 }}>
-                  {uploading ? 'Saving selfie…' : 'Use selfie & Scan QR'}
+                <button
+                  onClick={confirm}
+                  disabled={uploading}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 10,
+                    width: '100%',
+                    height: 56,
+                    border: 0,
+                    borderRadius: 18,
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontWeight: 700,
+                    fontSize: 19,
+                    letterSpacing: '.04em',
+                    color: '#fff',
+                    cursor: uploading ? 'not-allowed' : 'pointer',
+                    background: 'linear-gradient(135deg,#FFA23A,#FF6B35 60%,#e8431a)',
+                    boxShadow: '0 8px 28px rgba(255,107,53,.5)',
+                    opacity: uploading ? 0.75 : 1,
+                  }}
+                >
+                  {uploading ? (
+                    <>
+                      <span
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          border: '2.5px solid rgba(255,255,255,.3)',
+                          borderTopColor: '#fff',
+                          animation: 'spin 0.75s linear infinite',
+                          display: 'inline-block',
+                        }}
+                      />
+                      <span>Saving selfie…</span>
+                    </>
+                  ) : (
+                    'Use selfie & Scan QR'
+                  )}
                 </button>
                 <button onClick={retake} disabled={uploading} style={{ background: 'none', border: 0, color: '#ffd9b8', fontSize: 14, cursor: 'pointer', padding: 6 }}>Retake</button>
               </>

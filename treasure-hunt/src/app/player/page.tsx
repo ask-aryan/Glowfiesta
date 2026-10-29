@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSession } from '@/lib/auth'
 import PlayerLogout from './PlayerLogout'
+import ScanQrButton from './ScanQrButton'
 
 async function getTeamInfo(teamId: number) {
   const { prisma } = await import('@/lib/db')
@@ -212,24 +213,7 @@ export default async function PlayerPage() {
               ⏳ AT RECEPTION DESK
             </div>
           ) : (
-            <Link
-              href="/player/scan"
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-                width: '100%', height: 64, border: 'none', borderRadius: 20,
-                fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 21, letterSpacing: '.08em',
-                color: '#fff', textDecoration: 'none',
-                background: isLive ? 'linear-gradient(135deg,#FFA23A,#FF6B35 60%,#e8431a)' : 'rgba(255,255,255,.15)',
-                boxShadow: isLive ? '0 8px 28px rgba(255,107,53,.5)' : 'none',
-                opacity: isPaused ? 0.45 : 1,
-                pointerEvents: (isPaused || !isLive) ? 'none' : 'auto',
-              }}
-            >
-              <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.75} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10" />
-              </svg>
-              {isPaused ? 'PAUSED' : isLive ? 'SCAN QR' : 'HUNT NOT STARTED'}
-            </Link>
+            <ScanQrButton isLive={isLive} isPaused={isPaused} />
           )}
         </div>
       )}

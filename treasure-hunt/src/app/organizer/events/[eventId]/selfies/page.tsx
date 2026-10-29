@@ -76,11 +76,20 @@ export default async function SelfiesPage({ params }: { params: { eventId: strin
                         style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }}
                       />
                       <div style={{ padding: '8px 10px' }}>
-                        <div style={{ fontSize: 11, color: '#64748b' }}>
-                          {s.stageNumber ? `Stage ${s.stageNumber}` : 'Final'}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                          {new Date(s.takenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            borderRadius: 6,
+                            padding: '2px 8px',
+                            background: s.stageNumber ? '#e0f2fe' : '#fef3c7',
+                            color: s.stageNumber ? '#0369a1' : '#b45309',
+                          }}>
+                            {s.stageNumber ? `Stage ${s.stageNumber}` : '🏆 Final'}
+                          </span>
+                          <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                            {new Date(s.takenAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
                       </div>
                     </div>

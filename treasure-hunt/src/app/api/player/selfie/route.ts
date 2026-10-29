@@ -13,14 +13,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid image data' }, { status: 400 })
   }
 
-  const team = await prisma.team.findUnique({ where: { id: session!.teamId } })
+  const team = await prisma.team.findUnique({
+    where: { id: session!.teamId },
+    include: {
+      stageProgress: {
+        orderBy: { stageNumber: 'asc' },
+      },
+    },
+  })
   if (!team) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+
+  // Auto-resolve stage number if not provided by client
+  let resolvedStage = stageNumber ?? null
+  if (!resolvedStage) {
+    const activeStage = team.stageProgress.find(
+      p => p.status !== 'COMPLETED' && p.status !== 'NEXT_CLUE_RELEASED'
+    )
+    resolvedStage = activeStage ? activeStage.stageNumber : null
+  }
 
   const selfie = await prisma.selfie.create({
     data: {
       eventId: team.eventId,
       teamId: team.id,
-      stageNumber: stageNumber ?? null,
+      stageNumber: resolvedStage,
       imageData,
     },
   })
