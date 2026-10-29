@@ -400,32 +400,45 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
               </section>
             )}
 
-            {/* ── All Teams Grid (Fits in remaining space with 0 scroll) ── */}
-            <section
-              style={{
-                flex: 1,
-                minHeight: 0,
-                display: 'grid',
-                gridTemplateColumns: `repeat(${columns}, 1fr)`,
-                gridTemplateRows: `repeat(${rows}, 1fr)`,
-                gap: 8,
-              }}
-            >
-              {teams.map((team, idx) => {
-                const reaction = reactions[team.id]
-                const color = COLORS[idx % COLORS.length]
+            {/* ── Main Competition Viewport ──────────────────────────────── */}
+            {teams.length === 2 ? (
+              <TVDuelBattleView
+                teams={teams}
+                allZero={allZero}
+                reactions={reactions}
+              />
+            ) : teams.length === 1 ? (
+              <TVChampionView
+                team={teams[0]}
+                reaction={reactions[teams[0].id]}
+              />
+            ) : (
+              <section
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${columns}, 1fr)`,
+                  gridTemplateRows: `repeat(${rows}, 1fr)`,
+                  gap: 8,
+                }}
+              >
+                {teams.map((team, idx) => {
+                  const reaction = reactions[team.id]
+                  const color = COLORS[idx % COLORS.length]
 
-                return (
-                  <TVTeamCard
-                    key={team.id}
-                    team={team}
-                    allZero={allZero}
-                    color={color}
-                    reaction={reaction}
-                  />
-                )
-              })}
-            </section>
+                  return (
+                    <TVTeamCard
+                      key={team.id}
+                      team={team}
+                      allZero={allZero}
+                      color={color}
+                      reaction={reaction}
+                    />
+                  )
+                })}
+              </section>
+            )}
 
             {/* ── Compact Eliminated Teams Strip (RIP) ────────────────────── */}
             {eliminatedTeams.length > 0 && (
@@ -851,6 +864,421 @@ function TVTeamCard({
             pts
           </span>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Epic 1v1 Grand Finale Duel Arena Component (For 2 Teams Remaining) ────
+function TVDuelBattleView({
+  teams,
+  allZero,
+  reactions,
+}: {
+  teams: TeamScore[]
+  allZero: boolean
+  reactions: Record<number, { type: 'HAPPY' | 'CRYING'; delta: number; key: number }>
+}) {
+  const team1 = teams[0]
+  const team2 = teams[1]
+  if (!team1 || !team2) return null
+
+  const isTied = team1.score === team2.score
+  const diff = Math.abs(team1.score - team2.score)
+
+  const isTeam1Leading = team1.score > team2.score
+  const isTeam2Leading = team2.score > team1.score
+
+  const rx1 = reactions[team1.id]
+  const rx2 = reactions[team2.id]
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '6px 0',
+        maxWidth: 1180,
+        width: '100%',
+        margin: '0 auto',
+      }}
+    >
+      {/* Duel Banner */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '6px 22px',
+          borderRadius: 999,
+          background: 'linear-gradient(135deg, rgba(255, 107, 53, 0.25), rgba(255, 200, 87, 0.2))',
+          border: '1.5px solid rgba(255, 200, 87, 0.5)',
+          boxShadow: '0 0 24px rgba(255, 200, 87, 0.3)',
+          marginBottom: 14,
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ fontSize: 18 }}>⚔️</span>
+        <span
+          style={{
+            fontFamily: "'Fredoka', sans-serif",
+            fontWeight: 800,
+            fontSize: 15,
+            letterSpacing: '.12em',
+            textTransform: 'uppercase',
+            color: '#FFC857',
+          }}
+        >
+          Grand Finale · 1v1 Championship Showdown
+        </span>
+        <span style={{ fontSize: 18 }}>⚔️</span>
+      </div>
+
+      {/* Battle Cards Arena */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'center',
+          gap: 20,
+          width: '100%',
+          flex: 1,
+          maxHeight: 460,
+          minHeight: 320,
+        }}
+      >
+        {/* Left Duelist (Team 1) */}
+        <TVDuelistCard
+          team={team1}
+          rank={team1.rank ?? 1}
+          isLeader={isTeam1Leading && !allZero}
+          isTied={isTied && !allZero}
+          leadMargin={isTeam1Leading ? diff : undefined}
+          behindMargin={isTeam2Leading ? diff : undefined}
+          allZero={allZero}
+          reaction={rx1}
+          themeColor="#FFC857"
+        />
+
+        {/* Center VS Emblem with Points Difference */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            flexShrink: 0,
+            zIndex: 10,
+            padding: '0 4px',
+          }}
+        >
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #FF6B35 0%, #dc2626 100%)',
+              border: '3.5px solid #FFC857',
+              boxShadow: '0 0 35px rgba(255, 107, 53, 0.7), 0 0 70px rgba(220, 38, 38, 0.4)',
+              display: 'grid',
+              placeItems: 'center',
+              fontFamily: "'Fredoka', sans-serif",
+              fontWeight: 900,
+              fontSize: 24,
+              color: '#fff',
+              letterSpacing: '.06em',
+            }}
+          >
+            VS
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              padding: '4px 12px',
+              borderRadius: 999,
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.18)',
+              color: isTied ? '#FFC857' : '#ffd9b8',
+              whiteSpace: 'nowrap',
+              letterSpacing: '.04em',
+            }}
+          >
+            {allZero ? '0 - 0' : isTied ? '🤝 TIED!' : `±${diff} PTS DIFF`}
+          </div>
+        </div>
+
+        {/* Right Duelist (Team 2) */}
+        <TVDuelistCard
+          team={team2}
+          rank={team2.rank ?? 2}
+          isLeader={isTeam2Leading && !allZero}
+          isTied={isTied && !allZero}
+          leadMargin={isTeam2Leading ? diff : undefined}
+          behindMargin={isTeam1Leading ? diff : undefined}
+          allZero={allZero}
+          reaction={rx2}
+          themeColor={isTied ? '#FFC857' : '#38bdf8'}
+        />
+      </div>
+    </div>
+  )
+}
+
+function TVDuelistCard({
+  team,
+  rank,
+  isLeader,
+  isTied,
+  leadMargin,
+  behindMargin,
+  allZero,
+  reaction,
+  themeColor,
+}: {
+  team: TeamScore
+  rank: number
+  isLeader: boolean
+  isTied: boolean
+  leadMargin?: number
+  behindMargin?: number
+  allZero: boolean
+  reaction?: { type: 'HAPPY' | 'CRYING'; delta: number; key: number }
+  themeColor: string
+}) {
+  const isHappy = reaction?.type === 'HAPPY'
+  const isCrying = reaction?.type === 'CRYING'
+
+  const emoji = isHappy
+    ? '🥳'
+    : isCrying
+    ? '😭'
+    : isLeader
+    ? '🤩'
+    : isTied
+    ? '😄'
+    : '🙂'
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        minWidth: 0,
+        height: '100%',
+        borderRadius: 22,
+        background: isLeader
+          ? 'linear-gradient(180deg, rgba(255, 200, 87, 0.16) 0%, rgba(26, 5, 51, 0.85) 100%)'
+          : 'linear-gradient(180deg, rgba(56, 189, 248, 0.14) 0%, rgba(13, 2, 24, 0.85) 100%)',
+        border: `2.5px solid ${themeColor}`,
+        boxShadow: `0 0 35px ${themeColor}44, 0 10px 40px rgba(0,0,0,0.5)`,
+        padding: '24px 28px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        textAlign: 'center',
+        position: 'relative',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Reaction Float Pill */}
+      {reaction && (
+        <div
+          key={reaction.key}
+          style={{
+            position: 'absolute',
+            top: 14,
+            background: isHappy ? 'linear-gradient(135deg, #16a34a, #22c55e)' : 'linear-gradient(135deg, #b91c1c, #ef4444)',
+            color: '#fff',
+            fontWeight: 900,
+            fontSize: 14,
+            padding: '5px 16px',
+            borderRadius: 999,
+            boxShadow: isHappy ? '0 0 20px rgba(34,197,94,0.8)' : '0 0 20px rgba(239,68,68,0.8)',
+            animation: 'pop .4s both',
+            zIndex: 30,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {isHappy ? `+${reaction.delta} pts! 🥳` : `${reaction.delta} pts! 😭`}
+        </div>
+      )}
+
+      {/* Top Header Row: Crown / Rank Badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 900,
+            padding: '3px 12px',
+            borderRadius: 999,
+            background: isLeader ? 'rgba(255, 200, 87, 0.25)' : 'rgba(56, 189, 248, 0.2)',
+            color: themeColor,
+            border: `1.5px solid ${themeColor}`,
+            letterSpacing: '.06em',
+          }}
+        >
+          {allZero ? `TEAM #${rank}` : isLeader ? '👑 #1 CURRENT LEADER' : isTied ? '🤝 #1 TIED FOR FIRST' : '⚡ #2 CONTENDER'}
+        </span>
+      </div>
+
+      {/* Large Mascot Avatar */}
+      <div
+        style={{
+          width: 86,
+          height: 86,
+          borderRadius: '50%',
+          background: isHappy ? '#15803d' : isCrying ? '#991b1b' : 'rgba(255,255,255,0.08)',
+          border: `3.5px solid ${isHappy ? '#4ade80' : isCrying ? '#f87171' : themeColor}`,
+          boxShadow: `0 0 28px ${themeColor}66`,
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: 44,
+          margin: '10px 0',
+          position: 'relative',
+          animation: isHappy ? 'pulse-ring 1s infinite' : isCrying ? 'shake .3s infinite' : 'none',
+        }}
+      >
+        {emoji}
+      </div>
+
+      {/* Team Name & Details */}
+      <div style={{ minWidth: 0, width: '100%' }}>
+        <h2
+          style={{
+            fontFamily: "'Fredoka', sans-serif",
+            fontWeight: 800,
+            fontSize: 32,
+            lineHeight: 1.15,
+            margin: '0 0 6px 0',
+            color: '#fff',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            textShadow: `0 0 20px ${themeColor}66`,
+          }}
+        >
+          {team.teamName}
+        </h2>
+        {team.leaderName && (
+          <div style={{ color: '#ffd9b8', fontSize: 13, fontWeight: 500 }}>
+            Leader: {team.leaderName}
+          </div>
+        )}
+      </div>
+
+      {/* Massive Score Number Display */}
+      <div style={{ margin: '8px 0' }}>
+        <div
+          style={{
+            fontFamily: "'JetBrains Mono', monospace",
+            fontWeight: 900,
+            fontSize: 58,
+            lineHeight: 1,
+            color: team.score > 0 ? '#4ade80' : team.score < 0 ? '#f87171' : '#fff',
+            letterSpacing: '-.02em',
+            textShadow: `0 0 25px ${team.score > 0 ? 'rgba(74,222,128,0.5)' : 'rgba(255,255,255,0.3)'}`,
+          }}
+        >
+          {team.score > 0 ? `+${team.score}` : team.score}
+          <span style={{ fontSize: 18, fontWeight: 800, marginLeft: 6, color: '#ffd9b8', textTransform: 'uppercase' }}>
+            PTS
+          </span>
+        </div>
+      </div>
+
+      {/* Lead / Chase Status Pill */}
+      <div style={{ flexShrink: 0 }}>
+        {allZero ? (
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#ffd9b8', background: 'rgba(255,255,255,0.06)', padding: '5px 14px', borderRadius: 999 }}>
+            Waiting for first score...
+          </div>
+        ) : isTied ? (
+          <div style={{ fontSize: 12, fontWeight: 800, color: '#FFC857', background: 'rgba(255,200,87,0.15)', border: '1px solid rgba(255,200,87,0.4)', padding: '5px 14px', borderRadius: 999 }}>
+            🔥 TIED AT {team.score} PTS
+          </div>
+        ) : isLeader ? (
+          <div style={{ fontSize: 12, fontWeight: 800, color: '#86efac', background: 'rgba(34,197,94,0.18)', border: '1px solid rgba(34,197,94,0.4)', padding: '5px 14px', borderRadius: 999 }}>
+            🔥 LEADING BY +{leadMargin} PTS
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, fontWeight: 800, color: '#7dd3fc', background: 'rgba(56,189,248,0.18)', border: '1px solid rgba(56,189,248,0.4)', padding: '5px 14px', borderRadius: 999 }}>
+            🎯 {behindMargin} PTS TO TIE
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Champion Victory Screen (For 1 Remaining Winner) ──────────────────────
+function TVChampionView({
+  team,
+  reaction,
+}: {
+  team: TeamScore
+  reaction?: { type: 'HAPPY' | 'CRYING'; delta: number; key: number }
+}) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'center',
+        maxWidth: 720,
+        width: '100%',
+        margin: '0 auto',
+        padding: '20px',
+      }}
+    >
+      <div style={{ fontSize: 64, animation: 'bannerPulse 2s infinite ease-in-out' }}>🏆</div>
+      <div
+        style={{
+          fontFamily: "'Fredoka', sans-serif",
+          fontWeight: 900,
+          fontSize: 32,
+          letterSpacing: '.08em',
+          textTransform: 'uppercase',
+          background: 'linear-gradient(180deg, #fff0b3 0%, #FFC857 50%, #FFA23A 100%)',
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          color: 'transparent',
+          margin: '8px 0',
+        }}
+      >
+        Tournament Champion
+      </div>
+      <div
+        style={{
+          fontFamily: "'Fredoka', sans-serif",
+          fontWeight: 800,
+          fontSize: 42,
+          color: '#fff',
+          marginTop: 6,
+        }}
+      >
+        {team.teamName}
+      </div>
+      <div
+        style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontWeight: 900,
+          fontSize: 48,
+          color: '#4ade80',
+          marginTop: 12,
+        }}
+      >
+        +{team.score} PTS
       </div>
     </div>
   )
