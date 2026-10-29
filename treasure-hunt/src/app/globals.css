@@ -53,6 +53,10 @@ input::placeholder { color: rgba(255,255,255,.4); }
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
 @keyframes pop {
   0% { transform: scale(.6); opacity: 0; }
   70% { transform: scale(1.08); }

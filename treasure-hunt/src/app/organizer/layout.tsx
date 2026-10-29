@@ -15,10 +15,25 @@ const IC = {
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
 }
 
+interface EventSummary {
+  id: number
+  name: string
+  status: string
+  gameType: string
+  _count?: {
+    teams: number
+    clues: number
+    qrCodes: number
+  }
+}
+
 export default function OrganizerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [eventMeta, setEventMeta] = useState<{ id: number; name: string; gameType: string } | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [allEvents, setAllEvents] = useState<EventSummary[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(false)
 
   const eventMatch = pathname.match(/\/organizer\/events\/(\d+)/)
   const eventId = eventMatch?.[1]
@@ -41,6 +56,43 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
       })
       .catch(() => {})
   }, [eventId])
+
+  const fetchAllEvents = () => {
+    setLoadingEvents(true)
+    fetch('/api/organizer/events')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.events) {
+          setAllEvents(data.events)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingEvents(false))
+  }
+
+  // Load events when drawer is opened
+  useEffect(() => {
+    if (drawerOpen && allEvents.length === 0) {
+      fetchAllEvents()
+    }
+  }, [drawerOpen, allEvents.length])
+
+  // Handle Escape key and body lock
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setDrawerOpen(false)
+    }
+    if (drawerOpen) {
+      window.addEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = ''
+    }
+  }, [drawerOpen])
 
   const isScoreGame = eventMeta?.gameType === 'QUIZ' || eventMeta?.gameType === 'FUNTAKSHARI'
 
@@ -83,39 +135,47 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 20px',
-          gap: 16,
+          padding: '0 18px',
+          gap: 14,
           flexShrink: 0,
         }}
       >
-        {/* Left: Brand / Event Pill */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 0 }}>
-          {eventId ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Link
-                href="/organizer"
-                title="Back to All Events"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: '4px 8px',
-                  borderRadius: 6,
-                  color: '#94a3b8',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <span>←</span>
-                <span>Events</span>
-              </Link>
+        {/* Left: Collapsible Hamburger & Brand / Event Pill */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flexShrink: 0 }}>
+          {/* Hamburger Menu Button for Quick Event Switch */}
+          <button
+            type="button"
+            onClick={() => {
+              setDrawerOpen(v => !v)
+              if (!drawerOpen && allEvents.length === 0) fetchAllEvents()
+            }}
+            title="Switch Event (Hamburger)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              background: drawerOpen ? 'rgba(255, 107, 53, 0.25)' : 'rgba(255, 255, 255, 0.06)',
+              color: drawerOpen ? '#FF6B35' : '#e2e8f0',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
 
+          {eventId ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Link
                 href={`/organizer/events/${eventId}`}
+                title="Event Overview & Control Center"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -124,7 +184,8 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                   padding: '4px 10px',
                   borderRadius: 8,
                   background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.07)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  transition: 'background .15s ease',
                 }}
               >
                 <div style={{
@@ -144,7 +205,7 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                   {isScoreGame ? (eventMeta?.gameType === 'QUIZ' ? 'QZ' : 'FK') : 'TH'}
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ color: '#fff', fontWeight: 700, fontSize: 13, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>
+                  <div style={{ color: '#fff', fontWeight: 700, fontSize: 13, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 150 }}>
                     {eventMeta?.name || 'Loading…'}
                   </div>
                   <div style={{ fontSize: 10, color: isScoreGame ? '#38bdf8' : '#FF6B35', fontWeight: 600, marginTop: 1 }}>
@@ -278,7 +339,7 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                 <span>Teams</span>
               </Link>
 
-              {/* Treasure Hunt specific secondary tabs */}
+              {/* Treasure Hunt secondary tabs */}
               {!isScoreGame && (
                 <>
                   <Link
@@ -468,6 +529,223 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
           </button>
         </div>
       </header>
+
+      {/* Collapsible Quick Event Switcher Drawer */}
+      {drawerOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 998,
+            }}
+          />
+
+          {/* Drawer Panel */}
+          <aside
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: 340,
+              maxWidth: '86vw',
+              background: 'linear-gradient(180deg, #0b1220 0%, #060a14 100%)',
+              borderRight: '1px solid rgba(255, 255, 255, 0.12)',
+              boxShadow: '16px 0 48px rgba(0, 0, 0, 0.6)',
+              zIndex: 999,
+              display: 'flex',
+              flexDirection: 'column',
+              boxSizing: 'border-box',
+              animation: 'slideInLeft 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+          >
+            {/* Drawer Header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '16px 18px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 20 }}>🪔</span>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.12em', color: '#FF6B35', textTransform: 'uppercase' }}>
+                    Quick Event Switcher
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>GlowFiesta Events</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 14,
+                  fontWeight: 600,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Events List */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>
+                Available Events ({allEvents.length})
+              </div>
+
+              {loadingEvents && allEvents.length === 0 ? (
+                <div style={{ color: '#94a3b8', fontSize: 12, padding: '30px 0', textAlign: 'center' }}>
+                  Loading events…
+                </div>
+              ) : allEvents.length === 0 ? (
+                <div style={{ color: '#94a3b8', fontSize: 12, padding: '30px 0', textAlign: 'center' }}>
+                  No events found.
+                </div>
+              ) : (
+                allEvents.map(ev => {
+                  const isCurrent = eventId ? parseInt(eventId) === ev.id : false
+                  const isScore = ev.gameType === 'QUIZ' || ev.gameType === 'FUNTAKSHARI'
+                  const targetUrl = isScore
+                    ? `/organizer/events/${ev.id}/scores`
+                    : `/organizer/events/${ev.id}/progress`
+
+                  return (
+                    <div
+                      key={ev.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '10px 11px',
+                        borderRadius: 12,
+                        background: isCurrent ? 'rgba(255, 107, 53, 0.16)' : 'rgba(255, 255, 255, 0.03)',
+                        border: isCurrent ? '1.5px solid #FF6B35' : '1px solid rgba(255, 255, 255, 0.06)',
+                        boxShadow: isCurrent ? '0 0 16px rgba(255, 107, 53, 0.2)' : 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <div
+                        onClick={() => {
+                          setDrawerOpen(false)
+                          router.push(targetUrl)
+                        }}
+                        title={`Open ${isScore ? 'Scorekeeper' : 'Live Progress'}`}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, cursor: 'pointer' }}
+                      >
+                        <div style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          background: isScore
+                            ? (ev.gameType === 'QUIZ' ? '#0284c7' : '#db2777')
+                            : 'linear-gradient(135deg, #FFA23A, #FF6B35)',
+                          color: '#fff',
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontWeight: 800,
+                          fontSize: 11,
+                          flexShrink: 0,
+                        }}>
+                          {isScore ? (ev.gameType === 'QUIZ' ? 'QZ' : 'FK') : 'TH'}
+                        </div>
+
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ color: '#fff', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {ev.name}
+                            </span>
+                            {isCurrent && (
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: '#FF6B35', color: '#fff', letterSpacing: '.04em' }}>
+                                CURRENT
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, fontSize: 11 }}>
+                            <span style={{ color: isScore ? (ev.gameType === 'QUIZ' ? '#38bdf8' : '#f472b6') : '#FF8A57', fontWeight: 600 }}>
+                              {isScore ? (ev.gameType === 'QUIZ' ? 'Quiz' : 'Funtakshari') : 'Treasure Hunt'}
+                            </span>
+                            <span style={{ color: '#64748b' }}>·</span>
+                            <span style={{ color: ev.status === 'LIVE' ? '#22c55e' : '#94a3b8', fontWeight: 600 }}>
+                              {ev.status}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Link
+                        href={`/organizer/events/${ev.id}`}
+                        onClick={() => setDrawerOpen(false)}
+                        title="Event Settings & Controls"
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: 6,
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: '#94a3b8',
+                          fontSize: 12,
+                          textDecoration: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        ⚙️
+                      </Link>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            {/* Drawer Footer */}
+            <div style={{
+              padding: '14px 16px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}>
+              <Link
+                href="/organizer"
+                onClick={() => setDrawerOpen(false)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '9px 14px',
+                  borderRadius: 8,
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  textDecoration: 'none',
+                }}
+              >
+                <span>🎪</span>
+                <span>All Events Dashboard</span>
+              </Link>
+            </div>
+          </aside>
+        </>
+      )}
 
       {/* Main Content Area: Maximum Horizontal Space */}
       <main style={{ flex: 1, minWidth: 0, padding: '24px 32px 60px', boxSizing: 'border-box', maxWidth: 1440, width: '100%', margin: '0 auto' }}>
