@@ -275,6 +275,77 @@ function ScanPageInner() {
     }
   }
 
+  const [cameraList, setCameraList] = useState<Array<{ id: string; label: string }>>([])
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('')
+  const [isSwitching, setIsSwitching] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const html5ModuleRef = useRef<any>(null)
+
+  const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
+    const minEdge = Math.min(viewfinderWidth, viewfinderHeight)
+    const qrboxSize = Math.floor(minEdge * 0.75)
+    return { width: qrboxSize, height: qrboxSize }
+  }
+
+  const handleDecoded = async (decodedText: string) => {
+    if (isHandlingRef.current) return
+    isHandlingRef.current = true
+    setScanning(false)
+
+    const inst = scannerInstanceRef.current
+    scannerInstanceRef.current = null
+    if (inst) {
+      await stopScanner(inst)
+    }
+
+    let token = decodedText.trim()
+    const match = token.match(/scan\/([a-zA-Z0-9_-]+)/)
+    if (match) {
+      token = match[1]
+    } else {
+      token = token.split(/[?#/]/)[0]
+    }
+    await submitToken(token)
+  }
+
+  async function handleSwitchCamera() {
+    if (cameraList.length <= 1 || isSwitching) return
+    setIsSwitching(true)
+
+    const currentIdx = cameraList.findIndex(c => c.id === selectedCameraId)
+    const nextIdx = (currentIdx + 1) % cameraList.length
+    const nextCam = cameraList[nextIdx]
+    setSelectedCameraId(nextCam.id)
+
+    const inst = scannerInstanceRef.current
+    scannerInstanceRef.current = null
+    if (inst) {
+      await stopScanner(inst)
+    }
+
+    const Html5Qrcode = html5ModuleRef.current
+    if (!Html5Qrcode) {
+      setIsSwitching(false)
+      return
+    }
+
+    try {
+      const newScanner = new Html5Qrcode('qr-reader')
+      scannerInstanceRef.current = newScanner
+      setScanning(true)
+      await newScanner.start(
+        nextCam.id,
+        { fps: 15, qrbox: qrboxFunction, aspectRatio: 1.0 },
+        handleDecoded,
+        () => {}
+      )
+    } catch (err) {
+      console.warn('Switching camera failed:', err)
+    } finally {
+      setIsSwitching(false)
+    }
+  }
+
   // If token in URL, skip selfie and submit directly
   useEffect(() => {
     if (tokenFromUrl && !result && !submitting) submitToken(tokenFromUrl)
@@ -289,53 +360,56 @@ function ScanPageInner() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let html5QrCode: any
 
-    import('html5-qrcode').then(({ Html5Qrcode }) => {
+    import('html5-qrcode').then(async ({ Html5Qrcode }) => {
       if (isCancelled) return
+      html5ModuleRef.current = Html5Qrcode
       const elem = document.getElementById('qr-reader')
       if (!elem) return
 
       try {
+        // Enumerate all available cameras to avoid ultra-wide (0.5x) lens
+        let allCams: Array<{ id: string; label: string }> = []
+        try {
+          allCams = await Html5Qrcode.getCameras()
+        } catch {
+          allCams = []
+        }
+
+        if (isCancelled) return
+
+        // Filter rear cameras
+        const backCams = allCams.filter(c => {
+          const l = (c.label || '').toLowerCase()
+          return l.includes('back') || l.includes('rear') || l.includes('environment') || (!l.includes('front') && !l.includes('selfie'))
+        })
+        const candidates = backCams.length > 0 ? backCams : allCams
+
+        // Prioritize standard 1x main camera: filter OUT ultra-wide, 0.5x, macro, telephoto
+        const nonUltra = candidates.filter(c => {
+          const l = (c.label || '').toLowerCase()
+          return !l.includes('ultra') && !l.includes('0.5') && !l.includes('wide-angle') && !l.includes('macro') && !l.includes('tele')
+        })
+
+        const chosenCamera = nonUltra.length > 0 ? nonUltra[0] : candidates[0]
+        setCameraList(candidates)
+        if (chosenCamera) setSelectedCameraId(chosenCamera.id)
+
         html5QrCode = new Html5Qrcode('qr-reader')
         scannerInstanceRef.current = html5QrCode
 
-        const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
-          const minEdge = Math.min(viewfinderWidth, viewfinderHeight)
-          const qrboxSize = Math.floor(minEdge * 0.75)
-          return { width: qrboxSize, height: qrboxSize }
-        }
-
-        const handleDecoded = async (decodedText: string) => {
-          if (isHandlingRef.current || isCancelled) return
-          isHandlingRef.current = true
-          setScanning(false)
-
-          const inst = scannerInstanceRef.current
-          scannerInstanceRef.current = null
-          if (inst) {
-            await stopScanner(inst)
-          }
-
-          let token = decodedText.trim()
-          const match = token.match(/scan\/([a-zA-Z0-9_-]+)/)
-          if (match) {
-            token = match[1]
-          } else {
-            token = token.split(/[?#/]/)[0]
-          }
-          await submitToken(token)
-        }
-
         setScanning(true)
+        const camConfig = chosenCamera ? chosenCamera.id : { facingMode: 'environment' }
+
         html5QrCode.start(
-          { facingMode: 'environment' },
+          camConfig,
           { fps: 15, qrbox: qrboxFunction, aspectRatio: 1.0 },
           handleDecoded,
           () => { /* frame scanning in progress */ }
         ).catch((err: any) => {
           if (isCancelled) return
-          console.warn('Environment camera failed, falling back to default camera', err)
+          console.warn('Primary camera start failed, falling back to environment constraint', err)
           html5QrCode.start(
-            { facingMode: 'user' },
+            { facingMode: 'environment' },
             { fps: 15, qrbox: qrboxFunction, aspectRatio: 1.0 },
             handleDecoded,
             () => {}
@@ -470,6 +544,32 @@ function ScanPageInner() {
           <div style={{ fontSize: 13, color: '#ffd9b8', marginTop: 6 }}>
             Keep the QR code inside the golden brackets
           </div>
+
+          {cameraList.length > 1 && (
+            <button
+              onClick={handleSwitchCamera}
+              disabled={isSwitching}
+              style={{
+                marginTop: 14,
+                padding: '8px 20px',
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.12)',
+                border: '1.5px solid rgba(255,200,87,0.5)',
+                color: '#FFC857',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: isSwitching ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                transition: 'all .15s ease',
+              }}
+            >
+              <span style={{ fontSize: 16 }}>🔄</span>
+              <span>{isSwitching ? 'Switching…' : `Switch Lens (${cameraList.findIndex(c => c.id === selectedCameraId) + 1}/${cameraList.length})`}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
