@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth'
 import PlayerLogout from './PlayerLogout'
 import ScanQrButton from './ScanQrButton'
 import PlayerAutoRefresh from './PlayerAutoRefresh'
+import PlayerRefreshButton from './PlayerRefreshButton'
 
 async function getTeamInfo(teamId: number) {
   const { prisma } = await import('@/lib/db')
@@ -96,7 +97,10 @@ export default async function PlayerPage() {
               {team.event.name} · GlowFiesta
             </div>
           </div>
-          <PlayerLogout />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <PlayerRefreshButton />
+            <PlayerLogout />
+          </div>
         </div>
 
         {isCompleted ? (
