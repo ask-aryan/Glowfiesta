@@ -12,6 +12,8 @@ interface TeamScore {
   rank?: number | null
   isTied?: boolean
   isLeader?: boolean
+  isEliminated?: boolean
+  eliminatedRound?: number | null
 }
 
 interface EventInfo {
@@ -19,6 +21,7 @@ interface EventInfo {
   name: string
   gameType: string
   status: string
+  currentRound?: number
 }
 
 interface HistoryAction {
@@ -39,6 +42,8 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
   const eventId = params.eventId
   const [event, setEvent] = useState<EventInfo | null>(null)
   const [teams, setTeams] = useState<TeamScore[]>([])
+  const [eliminatedTeams, setEliminatedTeams] = useState<TeamScore[]>([])
+  const [totalCount, setTotalCount] = useState<number>(0)
   const [allZero, setAllZero] = useState(true)
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
@@ -48,6 +53,14 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
   const [undoToast, setUndoToast] = useState<string | null>(null)
   const [showManual, setShowManual] = useState<Record<number, boolean>>({})
   const [customScoreInput, setCustomScoreInput] = useState<Record<number, string>>({})
+
+  // Elimination modal state
+  const [eliminateModalOpen, setEliminateModalOpen] = useState(false)
+  const [eliminateCount, setEliminateCount] = useState<number>(1)
+  const [eliminating, setEliminating] = useState(false)
+  const [eliminateError, setEliminateError] = useState('')
+  const [revivingId, setRevivingId] = useState<number | null>(null)
+  const [revertingRound, setRevertingRound] = useState(false)
 
   // Re-compute ranks dynamically in fixed order so tied teams are treated equally
   function computeRanksForTeams(currentTeams: TeamScore[]) {
@@ -92,10 +105,12 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
       if (res.ok) {
         const data = await res.json()
         setEvent(data.event)
-        const baseTeams: TeamScore[] = data.teamsInOrder || data.teams || []
+        const baseTeams: TeamScore[] = data.aliveTeams || data.teamsInOrder || data.teams || []
         const { isAllZero, ranked } = computeRanksForTeams(baseTeams)
         setAllZero(isAllZero)
         setTeams(ranked)
+        setEliminatedTeams(data.eliminatedTeams || [])
+        setTotalCount(data.totalCount || baseTeams.length + (data.eliminatedTeams?.length || 0))
       }
     } finally {
       setLoading(false)
@@ -229,6 +244,94 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
     }
   }
 
+  const maxAllowedToEliminate = Math.max(0, teams.length - 2)
+
+  async function handleConfirmElimination() {
+    if (eliminateCount < 1 || eliminateCount > maxAllowedToEliminate) {
+      setEliminateError(`You can eliminate at most ${maxAllowedToEliminate} team${maxAllowedToEliminate > 1 ? 's' : ''} (< n-1). At least 2 teams must remain alive.`)
+      return
+    }
+
+    setEliminating(true)
+    setEliminateError('')
+    try {
+      const res = await fetch(`/api/organizer/events/${eventId}/eliminate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'eliminate',
+          count: eliminateCount,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setEliminateModalOpen(false)
+        setUndoToast(`☠️ Eliminated bottom ${data.eliminatedCount} team(s)! Round ${data.currentRound} has begun.`)
+        setTimeout(() => setUndoToast(null), 4000)
+        await fetchScoreboard()
+      } else {
+        setEliminateError(data.error || 'Failed to eliminate teams')
+      }
+    } catch {
+      setEliminateError('Network error while eliminating teams')
+    } finally {
+      setEliminating(false)
+    }
+  }
+
+  async function handleReviveTeam(teamId: number) {
+    setRevivingId(teamId)
+    try {
+      const res = await fetch(`/api/organizer/events/${eventId}/eliminate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'revive',
+          teamId,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setUndoToast(`✓ Revived ${data.teamName} back to active competition`)
+        setTimeout(() => setUndoToast(null), 3500)
+        await fetchScoreboard()
+      } else {
+        alert(data.error || 'Failed to revive team')
+      }
+    } catch {
+      alert('Network error while reviving team')
+    } finally {
+      setRevivingId(null)
+    }
+  }
+
+  async function handleRevertRound() {
+    const prevRound = Math.max(1, (event?.currentRound || 1) - 1)
+    if (!confirm(`Revert to Round ${prevRound} and revive all teams eliminated in Round ${prevRound}?`)) return
+    setRevertingRound(true)
+    try {
+      const res = await fetch(`/api/organizer/events/${eventId}/eliminate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'revert_round',
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setUndoToast(`↶ Reverted to Round ${data.currentRound} (restored ${data.restoredCount} team(s))`)
+        setTimeout(() => setUndoToast(null), 4000)
+        await fetchScoreboard()
+      } else {
+        alert(data.error || 'Failed to revert round')
+      }
+    } catch {
+      alert('Network error while reverting round')
+    } finally {
+      setRevertingRound(false)
+    }
+  }
+
   // Calculate grid layout so at least 6 teams (and up to 12) fit on the same screen without scrolling
   const count = teams.length
   let columns = 3
@@ -261,10 +364,11 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
           flexShrink: 0,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: '#0f172a', letterSpacing: '-.02em' }}>
             Scorekeeper Panel
           </h1>
+
           <span
             style={{
               fontSize: 11,
@@ -278,13 +382,33 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
           >
             {event?.gameType === 'FUNTAKSHARI' ? '🎵 Funtakshari' : '🧠 Quiz'}
           </span>
+
+          {/* Current Round Badge */}
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 800,
+              padding: '2px 10px',
+              borderRadius: 999,
+              background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+              color: '#92400e',
+              border: '1px solid #fcd34d',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <span>🎯</span>
+            <span>Round {event?.currentRound || 1}</span>
+          </span>
+
           <span style={{ fontSize: 12, color: '#64748b' }}>
-            ({teams.length} teams in fixed order)
+            ({teams.length} active{eliminatedTeams.length > 0 ? ` · ${eliminatedTeams.length} eliminated` : ''})
           </span>
         </div>
 
-        {/* Action Controls: Undo Button & Live Scoreboard Button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Action Controls: Undo, Eliminate & Live Scoreboard Button */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Undo Notification Pill */}
           {undoToast && (
             <span
@@ -303,6 +427,36 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
             </span>
           )}
 
+          {/* Elimination Action Button */}
+          {teams.length > 2 && (
+            <button
+              onClick={() => {
+                setEliminateCount(1)
+                setEliminateError('')
+                setEliminateModalOpen(true)
+              }}
+              title="Eliminate bottom teams with lowest scores and start next round"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 12px',
+                borderRadius: 8,
+                border: 'none',
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 12.5,
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(220,38,38,0.3)',
+                transition: 'all .15s ease',
+              }}
+            >
+              <span>☠️</span>
+              <span>Eliminate Teams</span>
+            </button>
+          )}
+
           {/* Sequential Undo Button */}
           <button
             onClick={handleUndo}
@@ -312,19 +466,19 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              padding: '7px 14px',
+              padding: '7px 12px',
               borderRadius: 8,
               border: history.length > 0 ? '1.5px solid #cbd5e1' : '1px solid #e2e8f0',
               background: history.length > 0 ? '#ffffff' : '#f8fafc',
               color: history.length > 0 ? '#1e293b' : '#94a3b8',
               fontWeight: 700,
-              fontSize: 13,
+              fontSize: 12.5,
               cursor: history.length > 0 ? 'pointer' : 'not-allowed',
               boxShadow: history.length > 0 ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
               transition: 'all .15s ease',
             }}
           >
-            <span style={{ fontSize: 16 }}>↶</span>
+            <span style={{ fontSize: 15 }}>↶</span>
             <span>Undo {history.length > 0 && `(${history.length})`}</span>
           </button>
 
@@ -336,12 +490,12 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
               display: 'inline-flex',
               alignItems: 'center',
               gap: 6,
-              padding: '7px 14px',
+              padding: '7px 12px',
               borderRadius: 8,
               background: 'linear-gradient(135deg, #FF6B35, #e8541f)',
               color: '#fff',
               fontWeight: 700,
-              fontSize: 13,
+              fontSize: 12.5,
               textDecoration: 'none',
               boxShadow: '0 2px 8px rgba(255,107,53,0.35)',
             }}
@@ -671,7 +825,353 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
             })}
           </div>
         )}
+
+        {/* ── Eliminated Teams Dock (RIP) ────────────────────── */}
+        {eliminatedTeams.length > 0 && (
+          <div
+            style={{
+              marginTop: 10,
+              background: '#0f172a',
+              borderRadius: 12,
+              padding: '8px 14px',
+              color: '#fff',
+              border: '1px solid #334155',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, overflowX: 'auto' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, fontSize: 11, fontWeight: 800, letterSpacing: '.06em', color: '#f87171', textTransform: 'uppercase' }}>
+                <span style={{ fontSize: 14 }}>🪦</span>
+                <span>ELIMINATED ({eliminatedTeams.length}):</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto' }}>
+                {eliminatedTeams.map(t => (
+                  <div
+                    key={t.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      padding: '4px 8px',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span>☠️</span>
+                    <span style={{ fontWeight: 700, textDecoration: 'line-through', color: '#cbd5e1' }}>{t.teamName}</span>
+                    <span style={{ color: '#f87171', fontWeight: 800, fontSize: 11 }}>{t.score} pts</span>
+                    <span style={{ fontSize: 10, color: '#64748b' }}>(R{t.eliminatedRound || 1})</span>
+                    <button
+                      type="button"
+                      onClick={() => handleReviveTeam(t.id)}
+                      disabled={revivingId === t.id}
+                      title="Revive team back to active competition"
+                      style={{
+                        padding: '2px 7px',
+                        borderRadius: 5,
+                        background: '#15803d',
+                        border: 'none',
+                        color: '#fff',
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        cursor: revivingId === t.id ? 'not-allowed' : 'pointer',
+                        opacity: revivingId === t.id ? 0.6 : 1,
+                      }}
+                    >
+                      {revivingId === t.id ? '...' : '↶ Revive'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {(event?.currentRound || 1) > 1 && (
+              <button
+                type="button"
+                onClick={handleRevertRound}
+                disabled={revertingRound}
+                title="Undo last elimination round and revive all teams eliminated in that round"
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: 7,
+                  background: 'rgba(239,68,68,0.15)',
+                  border: '1px solid rgba(239,68,68,0.4)',
+                  color: '#f87171',
+                  fontWeight: 700,
+                  fontSize: 11.5,
+                  cursor: revertingRound ? 'not-allowed' : 'pointer',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {revertingRound ? 'Reverting...' : `↶ Revert Round ${(event?.currentRound || 1) - 1}`}
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ── Elimination Modal ────────────────────────────────────────── */}
+      {eliminateModalOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => !eliminating && setEliminateModalOpen(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#ffffff',
+              borderRadius: 18,
+              width: '100%',
+              maxWidth: 520,
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid #e2e8f0', background: 'linear-gradient(135deg, #fef2f2, #fff)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 22 }}>⚔️</span>
+                  <div>
+                    <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#991b1b' }}>
+                      Elimination Round (Round {event?.currentRound || 1})
+                    </h2>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                      Eliminate bottom teams to advance remaining teams to Round {(event?.currentRound || 1) + 1}.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => !eliminating && setEliminateModalOpen(false)}
+                  style={{ background: 'transparent', border: 0, fontSize: 18, cursor: 'pointer', color: '#94a3b8' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Rule explanation badge */}
+              <div style={{
+                marginTop: 12,
+                padding: '8px 12px',
+                borderRadius: 8,
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                fontSize: 12,
+                color: '#991b1b',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}>
+                <span>⚠️</span>
+                <span>
+                  With <strong>{teams.length} active teams</strong>, you can eliminate at most <strong>{maxAllowedToEliminate} team{maxAllowedToEliminate > 1 ? 's' : ''}</strong> (&lt; n-1). At least 2 teams must remain alive.
+                </span>
+              </div>
+
+              {/* Bottom-up Count Selector */}
+              <div style={{ marginTop: 14, background: '#fff', border: '1.5px solid #fecaca', borderRadius: 12, padding: '12px 16px' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#991b1b', textTransform: 'uppercase', marginBottom: 8 }}>
+                  Select number of bottom teams to eliminate:
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, overflow: 'hidden' }}>
+                    <button
+                      type="button"
+                      onClick={() => setEliminateCount(c => Math.max(1, c - 1))}
+                      disabled={eliminateCount <= 1}
+                      style={{ padding: '6px 12px', border: 0, background: 'transparent', fontSize: 16, fontWeight: 800, cursor: eliminateCount <= 1 ? 'not-allowed' : 'pointer', color: eliminateCount <= 1 ? '#cbd5e1' : '#0f172a' }}
+                    >
+                      −
+                    </button>
+                    <span style={{ minWidth: 42, textAlign: 'center', fontWeight: 800, fontSize: 17, fontFamily: "'JetBrains Mono', monospace", color: '#b91c1c' }}>
+                      {eliminateCount}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setEliminateCount(c => Math.min(maxAllowedToEliminate, c + 1))}
+                      disabled={eliminateCount >= maxAllowedToEliminate}
+                      style={{ padding: '6px 12px', border: 0, background: 'transparent', fontSize: 16, fontWeight: 800, cursor: eliminateCount >= maxAllowedToEliminate ? 'not-allowed' : 'pointer', color: eliminateCount >= maxAllowedToEliminate ? '#cbd5e1' : '#0f172a' }}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Quick Select buttons */}
+                  {Array.from({ length: maxAllowedToEliminate }, (_, i) => i + 1).map(num => {
+                    const isSelected = eliminateCount === num
+                    return (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setEliminateCount(num)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          border: isSelected ? '1.5px solid #dc2626' : '1px solid #cbd5e1',
+                          background: isSelected ? '#fee2e2' : '#ffffff',
+                          color: isSelected ? '#b91c1c' : '#334155',
+                          fontSize: 12.5,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Bottom {num}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Team Breakdown List (Lowest score first) */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '14px 22px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 2 }}>
+                Current Standings (Sorted from lowest to highest score):
+              </div>
+
+              {[...teams].sort((a, b) => a.score - b.score).map((team, idx) => {
+                const isEliminated = idx < eliminateCount
+
+                return (
+                  <div
+                    key={team.id}
+                    onClick={() => {
+                      // Clicking a team sets the eliminateCount to eliminate up to this team
+                      setEliminateCount(Math.min(maxAllowedToEliminate, idx + 1))
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderRadius: 10,
+                      border: isEliminated ? '1.5px solid #ef4444' : '1px solid #bbf7d0',
+                      background: isEliminated ? '#fff1f2' : '#f0fdf4',
+                      cursor: 'pointer',
+                      transition: 'all .15s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: '50%',
+                        background: isEliminated ? '#fee2e2' : '#dcfce7',
+                        color: isEliminated ? '#b91c1c' : '#15803d',
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontWeight: 800,
+                        fontSize: 11,
+                      }}>
+                        {idx + 1}
+                      </span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13.5, color: isEliminated ? '#991b1b' : '#14532d' }}>
+                          {team.teamName}
+                        </div>
+                        {team.leaderName && (
+                          <div style={{ fontSize: 11, color: '#64748b' }}>Leader: {team.leaderName}</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontWeight: 800,
+                        fontSize: 15,
+                        color: isEliminated ? '#b91c1c' : '#15803d',
+                      }}>
+                        {team.score} pts
+                      </span>
+                      <span style={{
+                        fontSize: 10.5,
+                        fontWeight: 800,
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        background: isEliminated ? '#fee2e2' : '#dcfce7',
+                        color: isEliminated ? '#b91c1c' : '#166534',
+                        letterSpacing: '.04em',
+                      }}>
+                        {isEliminated ? '☠️ ELIMINATED' : `✅ ROUND ${(event?.currentRound || 1) + 1}`}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '14px 22px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#b91c1c' }}>
+                  Eliminating bottom {eliminateCount} team{eliminateCount > 1 ? 's' : ''}
+                </span>
+                <div style={{ fontSize: 11, color: '#15803d', fontWeight: 600 }}>
+                  {teams.length - eliminateCount} teams advance to Round {(event?.currentRound || 1) + 1}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setEliminateModalOpen(false)}
+                  disabled={eliminating}
+                  style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmElimination}
+                  disabled={eliminateCount < 1 || eliminateCount > maxAllowedToEliminate || eliminating}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: (eliminateCount < 1 || eliminateCount > maxAllowedToEliminate || eliminating)
+                      ? '#cbd5e1'
+                      : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    color: '#fff',
+                    fontWeight: 800,
+                    fontSize: 13,
+                    cursor: (eliminateCount < 1 || eliminateCount > maxAllowedToEliminate || eliminating) ? 'not-allowed' : 'pointer',
+                    boxShadow: (eliminateCount < 1 || eliminateCount > maxAllowedToEliminate || eliminating) ? 'none' : '0 2px 8px rgba(220,38,38,0.3)',
+                  }}
+                >
+                  {eliminating ? 'Eliminating...' : `Eliminate Bottom ${eliminateCount} & Start Round ${(event?.currentRound || 1) + 1} ☠️`}
+                </button>
+              </div>
+            </div>
+            {eliminateError && (
+              <div style={{ padding: '8px 22px', background: '#fee2e2', color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>
+                {eliminateError}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -11,6 +11,8 @@ interface TeamScore {
   rank?: number | null
   isTied?: boolean
   isLeader?: boolean
+  isEliminated?: boolean
+  eliminatedRound?: number | null
 }
 
 interface EventInfo {
@@ -19,6 +21,7 @@ interface EventInfo {
   description: string | null
   gameType: string
   status: string
+  currentRound?: number
 }
 
 const COLORS = [
@@ -31,6 +34,8 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
   const eventId = params.eventId
   const [event, setEvent] = useState<EventInfo | null>(null)
   const [teams, setTeams] = useState<TeamScore[]>([])
+  const [eliminatedTeams, setEliminatedTeams] = useState<TeamScore[]>([])
+  const [totalCount, setTotalCount] = useState<number>(0)
   const [allZero, setAllZero] = useState(true)
   const [loading, setLoading] = useState(true)
   const [reactions, setReactions] = useState<Record<number, { type: 'HAPPY' | 'CRYING'; delta: number; key: number }>>({})
@@ -44,9 +49,11 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
         const data = await res.json()
         setEvent(data.event)
 
-        const incomingTeams: TeamScore[] = data.teams || []
+        const incomingTeams: TeamScore[] = data.aliveTeams || data.teams || []
         const isAllZero = Boolean(data.allZero ?? (incomingTeams.length === 0 || incomingTeams.every(t => t.score === 0)))
         setAllZero(isAllZero)
+        setEliminatedTeams(data.eliminatedTeams || [])
+        setTotalCount(data.totalCount || incomingTeams.length + (data.eliminatedTeams?.length || 0))
 
         const newReactions: Record<number, { type: 'HAPPY' | 'CRYING'; delta: number; key: number }> = {}
 
@@ -194,6 +201,22 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
               >
                 {event?.gameType === 'FUNTAKSHARI' ? 'FUNTAKSHARI' : 'QUIZ BATTLE'}
               </span>
+
+              {/* Round Badge */}
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 900,
+                  padding: '2px 9px',
+                  borderRadius: 999,
+                  background: 'linear-gradient(135deg, rgba(255,200,87,0.25), rgba(255,107,53,0.2))',
+                  color: '#FFC857',
+                  border: '1px solid rgba(255,200,87,0.5)',
+                  letterSpacing: '.04em',
+                }}
+              >
+                🎯 ROUND {event?.currentRound || 1}
+              </span>
             </div>
             <div style={{ color: '#ffd9b8', fontSize: 13, marginTop: 2 }}>
               GlowFiesta 2026 Championship
@@ -201,7 +224,45 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Active Teams Count */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 999,
+              background: 'rgba(34,197,94,0.12)',
+              border: '1px solid rgba(34,197,94,0.3)',
+              color: '#86efac',
+              fontWeight: 800,
+              fontSize: 11,
+            }}
+          >
+            👥 {teams.length} ALIVE
+          </div>
+
+          {/* Eliminated Teams Count if any */}
+          {eliminatedTeams.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '4px 10px',
+                borderRadius: 999,
+                background: 'rgba(239,68,68,0.15)',
+                border: '1px solid rgba(239,68,68,0.35)',
+                color: '#fca5a5',
+                fontWeight: 800,
+                fontSize: 11,
+              }}
+            >
+              🪦 {eliminatedTeams.length} RIP
+            </div>
+          )}
+
           {/* Live Indicator */}
           <div
             style={{
@@ -365,6 +426,55 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
                 )
               })}
             </section>
+
+            {/* ── Compact Eliminated Teams Strip (RIP) ────────────────────── */}
+            {eliminatedTeams.length > 0 && (
+              <section
+                style={{
+                  flexShrink: 0,
+                  padding: '7px 14px',
+                  borderRadius: 12,
+                  background: 'rgba(15, 23, 42, 0.75)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  overflowX: 'auto',
+                  marginTop: 2,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, fontSize: 11, fontWeight: 900, letterSpacing: '.08em', color: '#f87171', textTransform: 'uppercase' }}>
+                  <span style={{ fontSize: 14 }}>🪦</span>
+                  <span>ELIMINATED (RIP)</span>
+                </div>
+                <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.12)', flexShrink: 0 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto' }}>
+                  {eliminatedTeams.map(t => (
+                    <div
+                      key={t.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '4px 10px',
+                        borderRadius: 7,
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        fontSize: 12,
+                        color: '#cbd5e1',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <span style={{ fontSize: 13 }}>☠️</span>
+                      <span style={{ fontWeight: 700, textDecoration: 'line-through', opacity: 0.85 }}>{t.teamName}</span>
+                      <span style={{ color: '#f87171', fontWeight: 800, fontSize: 11 }}>{t.score} pts</span>
+                      <span style={{ fontSize: 10, color: '#64748b' }}>(R{t.eliminatedRound || 1})</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
       </main>
