@@ -92,7 +92,7 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
   }
 
   // Calculate milestones array: e.g. [Stage 1, Stage 2, Stage 3, Stage 4, Stage 5, Final Treasure]
-  const milestones = []
+  const milestones: Array<{ stage: number; label: string; icon: string }> = []
   for (let i = 1; i <= totalStages; i++) {
     milestones.push({ stage: i, label: `Hurdle ${i}`, icon: '🚧' })
   }
