@@ -412,6 +412,30 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                     </svg>
                     <span>Selfies</span>
                   </Link>
+
+                  {/* Treasure Hunt Audience 3D Race Screen */}
+                  <Link
+                    href={`/race/${eventId}`}
+                    target="_blank"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '5px 12px',
+                      borderRadius: 999,
+                      fontWeight: 700,
+                      fontSize: 12,
+                      textDecoration: 'none',
+                      color: '#FFC857',
+                      background: 'linear-gradient(135deg, rgba(255, 107, 53, 0.25), rgba(255, 200, 87, 0.2))',
+                      border: '1px solid rgba(255, 200, 87, 0.45)',
+                      boxShadow: '0 0 12px rgba(255, 200, 87, 0.25)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span>🏎️</span>
+                    <span>3D Race Track ↗</span>
+                  </Link>
                 </>
               )}
 

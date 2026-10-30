@@ -74,6 +74,7 @@ export default async function EventDetailPage({
       ]
     : [
         { href: `/organizer/events/${eventId}/progress`, label: '⚡ Live Progress', sub: 'Main command center: real-time stages & reception desk verification', icon: IC.prog, isHero: true, badge: 'Main Screen' },
+        { href: `/race/${eventId}`, label: '🏎️ 3D Race Track ↗', sub: 'Audience projector screen: live 3D hurdle race', icon: 'M2 3h20v14H2zm6 18h8m-4-4v4', badge: 'Audience TV' },
         { href: `/organizer/events/${eventId}/teams`, label: 'Manage Teams', sub: `${event._count.teams} of ${event.teamCount} registered`, icon: IC.teams, badge: `${event._count.teams}/${event.teamCount}` },
         { href: `/organizer/events/${eventId}/clues`, label: 'Manage Clues', sub: `${event._count.clues} of ${totalExpectedClues} written`, icon: IC.clues, badge: `${event._count.clues}/${totalExpectedClues}` },
         { href: `/organizer/events/${eventId}/qr`, label: 'QR Codes', sub: `${event._count.qrCodes} printable cards generated`, icon: IC.qr, badge: `${event._count.qrCodes} Codes` },
