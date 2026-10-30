@@ -413,7 +413,7 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                     <span>Selfies</span>
                   </Link>
 
-                  {/* Treasure Hunt Audience 3D Race Screen */}
+                  {/* Treasure Hunt Audience Pirate Voyage Screen */}
                   <Link
                     href={`/race/${eventId}`}
                     target="_blank"
@@ -433,8 +433,8 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    <span>🏎️</span>
-                    <span>3D Race Track ↗</span>
+                    <span>⛵</span>
+                    <span>Pirate Voyage ↗</span>
                   </Link>
                 </>
               )}

@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState, useRef, useCallback } from 'react'
-import Link from 'next/link'
 
 interface RaceTeam {
   id: number
@@ -27,18 +26,19 @@ interface EventData {
   hasCommonFinalQr: boolean
 }
 
-const TEAM_PALETTES = [
-  { main: '#FF6B35', glow: '#FF8A57', avatar: '🏎️', badge: '#ffefe8' },
-  { main: '#3b82f6', glow: '#60a5fa', avatar: '🚀', badge: '#eff6ff' },
-  { main: '#8b5cf6', glow: '#a78bfa', avatar: '⚡', badge: '#f5f3ff' },
-  { main: '#10b981', glow: '#34d399', avatar: '🏍️', badge: '#ecfdf5' },
-  { main: '#ec4899', glow: '#f472b6', avatar: '🛸', badge: '#fdf2f8' },
-  { main: '#f59e0b', glow: '#fbbf24', avatar: '🐆', badge: '#fffbeb' },
-  { main: '#06b6d4', glow: '#22d3ee', avatar: '🦅', badge: '#ecfeff' },
-  { main: '#e11d48', glow: '#fb7185', avatar: '🔥', badge: '#fff1f2' },
+// Pirate Ship Fleet palettes with custom flags & ship designs
+const PIRATE_FLEET = [
+  { main: '#FF6B35', glow: '#FF8A57', boat: '⛵', flag: '🏴‍☠️', name: 'Black Pearl', crest: '💀' },
+  { main: '#38bdf8', glow: '#7dd3fc', boat: '🛶', flag: '🦜', name: 'Sea Serpent', crest: '🌊' },
+  { main: '#a855f7', glow: '#c084fc', boat: '⛵', flag: '🐙', name: 'Flying Dutchman', crest: '⚡' },
+  { main: '#10b981', glow: '#34d399', boat: '⛵', flag: '🐊', name: 'Jolly Roger', crest: '🧭' },
+  { main: '#ec4899', glow: '#f472b6', boat: '⛵', flag: '🧜‍♀️', name: 'Queen Anne', crest: '⭐' },
+  { main: '#f59e0b', glow: '#fbbf24', boat: '🛶', flag: '⚔️', name: 'Golden Hind', crest: '🪙' },
+  { main: '#06b6d4', glow: '#22d3ee', boat: '⛵', flag: '🦈', name: 'Poseidon', crest: '🔱' },
+  { main: '#e11d48', glow: '#fb7185', boat: '⛵', flag: '🔥', name: 'Crimson Tide', crest: '💣' },
 ]
 
-export default function TreasureHuntRacePage({ params }: { params: { eventId: string } }) {
+export default function PirateTreasureHuntPage({ params }: { params: { eventId: string } }) {
   const eventId = params.eventId
   const [event, setEvent] = useState<EventData | null>(null)
   const [teams, setTeams] = useState<RaceTeam[]>([])
@@ -60,12 +60,11 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
 
         const incomingTeams: RaceTeam[] = data.teams || []
 
-        // Detect newly finished teams for celebratory visual burst
         incomingTeams.forEach(t => {
           const prev = prevMilestonesRef.current[t.id]
           if (prev !== undefined && prev < t.currentMilestone && t.isCompleted) {
             setCelebrationTeam(t.teamName)
-            setTimeout(() => setCelebrationTeam(null), 6000)
+            setTimeout(() => setCelebrationTeam(null), 7000)
           }
           prevMilestonesRef.current[t.id] = t.currentMilestone
         })
@@ -91,17 +90,29 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
     }
   }
 
-  // Calculate milestones array: e.g. [Stage 1, Stage 2, Stage 3, Stage 4, Stage 5, Final Treasure]
-  const milestones: Array<{ stage: number; label: string; icon: string }> = []
+  // Checkpoint Islands (Stages) + Final Treasure Island
+  const islands: Array<{ stage: number; label: string; icon: string; name: string }> = []
+  const islandNames = ['Skull Atoll', 'Siren Isle', 'Coral Reef', 'Cannon Rock', 'Smuggler Cove', 'Kraken Deep']
+  
   for (let i = 1; i <= totalStages; i++) {
-    milestones.push({ stage: i, label: `Hurdle ${i}`, icon: '🚧' })
+    islands.push({
+      stage: i,
+      label: `Stage ${i}`,
+      icon: '🏝️',
+      name: islandNames[(i - 1) % islandNames.length],
+    })
   }
   if (hasFinal) {
-    milestones.push({ stage: totalStages + 1, label: 'Final Treasure', icon: '🏆' })
+    islands.push({
+      stage: totalStages + 1,
+      label: 'Final Treasure',
+      icon: '💎',
+      name: 'Treasure Island',
+    })
   }
 
   const finishedTeams = teams.filter(t => t.isCompleted)
-  const racingTeams = [...teams].sort((a, b) => b.progressPercent - a.progressPercent)
+  const sailingTeams = [...teams].sort((a, b) => b.progressPercent - a.progressPercent)
 
   return (
     <div
@@ -110,7 +121,7 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
         maxHeight: '100vh',
         width: '100vw',
         overflow: 'hidden',
-        background: 'radial-gradient(ellipse at 50% 10%, #1c0936 0%, #0d031c 55%, #05010a 100%)',
+        background: 'radial-gradient(ellipse at 50% 15%, #0d2137 0%, #061224 50%, #020712 100%)',
         color: '#fff',
         fontFamily: "'Inter', system-ui, sans-serif",
         display: 'flex',
@@ -120,20 +131,41 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
         userSelect: 'none',
       }}
     >
-      {/* ── Background Cyber Ambient Grids & Lights ────────────────── */}
+      <style jsx global>{`
+        @keyframes float-boat {
+          0% { transform: translateY(0px) rotate(-1.5deg); }
+          50% { transform: translateY(-7px) rotate(2deg); }
+          100% { transform: translateY(0px) rotate(-1.5deg); }
+        }
+        @keyframes ocean-waves {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes water-ripple {
+          0% { transform: scale(0.9); opacity: 0.6; }
+          100% { transform: scale(1.4); opacity: 0; }
+        }
+        @keyframes coin-shine {
+          0%, 100% { filter: drop-shadow(0 0 14px rgba(255, 200, 87, 0.7)); }
+          50% { filter: drop-shadow(0 0 28px rgba(255, 200, 87, 1)); }
+        }
+      `}</style>
+
+      {/* ── Ambient Ocean Waves & Stars Atmosphere ─────────────────── */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'linear-gradient(rgba(255, 107, 53, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 107, 53, 0.04) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
+          backgroundImage: 'radial-gradient(rgba(56, 189, 248, 0.08) 1.5px, transparent 1.5px)',
+          backgroundSize: '36px 36px',
           pointerEvents: 'none',
         }}
       />
-      <div style={{ position: 'absolute', top: -100, left: '20%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255, 107, 53, 0.16) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: -100, right: '15%', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255, 200, 87, 0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: -140, left: '30%', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(14, 165, 233, 0.14) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -120, right: '10%', width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255, 200, 87, 0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-      {/* ── Celebration Toast for Final Treasure Winner ────────────── */}
+      {/* ── Treasure Found Toast Banner ────────────────────────────── */}
       {celebrationTeam && (
         <div
           style={{
@@ -142,36 +174,36 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 100,
-            background: 'linear-gradient(135deg, #FF6B35, #f59e0b)',
-            padding: '12px 28px',
+            background: 'linear-gradient(135deg, #FF6B35 0%, #b45309 60%, #FFC857 100%)',
+            padding: '12px 32px',
             borderRadius: 999,
             color: '#fff',
             fontWeight: 900,
             fontSize: 20,
             display: 'flex',
             alignItems: 'center',
-            gap: 12,
-            boxShadow: '0 0 40px rgba(255, 200, 87, 0.8), 0 8px 30px rgba(0,0,0,0.5)',
-            border: '2px solid #fff',
+            gap: 14,
+            boxShadow: '0 0 50px rgba(255, 200, 87, 0.9), 0 8px 32px rgba(0,0,0,0.6)',
+            border: '2px solid #FFC857',
             animation: 'pop 0.4s both',
           }}
         >
-          <span style={{ fontSize: 28 }}>🏆</span>
-          <span>TREASURE FOUND! {celebrationTeam} CROSSED THE FINISH LINE!</span>
-          <span style={{ fontSize: 28 }}>🎉</span>
+          <span style={{ fontSize: 30 }}>🏴‍☠️</span>
+          <span>TREASURE CLAIMED! Captain {celebrationTeam} reached the Golden Chest!</span>
+          <span style={{ fontSize: 30 }}>💰</span>
         </div>
       )}
 
-      {/* ── Top TV Header Bar ──────────────────────────────────────── */}
+      {/* ── Top TV Header Bar (Pirate Theme) ───────────────────────── */}
       <header
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '12px 28px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          background: 'rgba(13, 3, 28, 0.75)',
-          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
+          background: 'rgba(6, 18, 36, 0.85)',
+          backdropFilter: 'blur(14px)',
           flexShrink: 0,
           position: 'relative',
           zIndex: 20,
@@ -180,18 +212,18 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div
             style={{
-              width: 44,
-              height: 44,
+              width: 46,
+              height: 46,
               borderRadius: 14,
-              background: 'linear-gradient(135deg, #FF6B35 0%, #dc2626 100%)',
-              border: '2px solid #FFC857',
-              boxShadow: '0 0 20px rgba(255, 107, 53, 0.5)',
+              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+              border: '2px solid #38bdf8',
+              boxShadow: '0 0 20px rgba(56, 189, 248, 0.5)',
               display: 'grid',
               placeItems: 'center',
-              fontSize: 24,
+              fontSize: 26,
             }}
           >
-            🏁
+            🧭
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -201,40 +233,39 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                   fontWeight: 900,
                   fontSize: 24,
                   margin: 0,
-                  background: 'linear-gradient(180deg, #fff0b3 0%, #FFC857 50%, #FFA23A 100%)',
+                  background: 'linear-gradient(180deg, #fff0b3 0%, #FFC857 50%, #f59e0b 100%)',
                   WebkitBackgroundClip: 'text',
                   backgroundClip: 'text',
                   color: 'transparent',
-                  letterSpacing: '-.02em',
+                  letterSpacing: '-.01em',
                 }}
               >
-                {event?.name || 'Treasure Hunt Grand Prix'}
+                {event?.name || 'Treasure Voyage'}
               </h1>
               <span
                 style={{
                   fontSize: 11,
                   fontWeight: 900,
-                  padding: '3px 10px',
+                  padding: '3px 12px',
                   borderRadius: 999,
-                  background: 'linear-gradient(135deg, rgba(255,107,53,0.3), rgba(255,200,87,0.2))',
+                  background: 'linear-gradient(135deg, rgba(255,200,87,0.25), rgba(14,165,233,0.25))',
                   color: '#FFC857',
                   border: '1.5px solid rgba(255,200,87,0.5)',
                   letterSpacing: '.08em',
                   textTransform: 'uppercase',
                 }}
               >
-                🏎️ LIVE 3D HURDLE TRACK
+                ⚓ PIRATE TREASURE VOYAGE
               </span>
             </div>
-            <div style={{ color: '#ffd9b8', fontSize: 13, marginTop: 2 }}>
-              GlowFiesta 2026 Championship · Real-Time Stage Progression &amp; Speed Race
+            <div style={{ color: '#bae6fd', fontSize: 13, marginTop: 2 }}>
+              High Seas Championship · Sailing to Treasure Island across {totalStages} Checkpoints
             </div>
           </div>
         </div>
 
-        {/* Right Stats & Controls */}
+        {/* Right Controls & Status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Winner Pill */}
           {finishedTeams.length > 0 && (
             <div
               style={{
@@ -243,37 +274,33 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                 gap: 6,
                 padding: '5px 14px',
                 borderRadius: 999,
-                background: 'rgba(255, 200, 87, 0.18)',
+                background: 'rgba(255, 200, 87, 0.2)',
                 border: '1.5px solid #FFC857',
                 color: '#FFC857',
                 fontWeight: 800,
                 fontSize: 12,
-                boxShadow: '0 0 16px rgba(255, 200, 87, 0.3)',
+                boxShadow: '0 0 18px rgba(255, 200, 87, 0.4)',
               }}
             >
-              <span>🏆</span>
-              <span>
-                {finishedTeams[0].teamName} ({finishedTeams.length} Finished)
-              </span>
+              <span>👑</span>
+              <span>1st: {finishedTeams[0].teamName}</span>
             </div>
           )}
 
-          {/* Active Teams Badge */}
           <div
             style={{
               padding: '5px 12px',
               borderRadius: 999,
-              background: 'rgba(56, 189, 248, 0.12)',
+              background: 'rgba(56, 189, 248, 0.14)',
               border: '1px solid rgba(56, 189, 248, 0.35)',
               color: '#38bdf8',
               fontWeight: 800,
               fontSize: 12,
             }}
           >
-            👥 {teams.length} Racers
+            🏴‍☠️ {teams.length} Ships Sailing
           </div>
 
-          {/* Live TV Pulsing Badge */}
           <div
             style={{
               display: 'flex',
@@ -281,8 +308,8 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
               gap: 6,
               padding: '5px 12px',
               borderRadius: 999,
-              background: 'rgba(34, 197, 94, 0.15)',
-              border: '1px solid rgba(34, 197, 94, 0.4)',
+              background: 'rgba(34, 197, 94, 0.16)',
+              border: '1px solid rgba(34, 197, 94, 0.45)',
               color: '#4ade80',
               fontWeight: 900,
               fontSize: 12,
@@ -299,10 +326,9 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                 animation: 'pulse-ring 1.5s infinite',
               }}
             />
-            LIVE ARENA
+            LIVE OCEAN
           </div>
 
-          {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
             style={{
@@ -324,7 +350,7 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
         </div>
       </header>
 
-      {/* ── Main 3D Race Arena Container ───────────────────────────── */}
+      {/* ── Main Ocean Arena Container ─────────────────────────────── */}
       <main
         style={{
           flex: 1,
@@ -338,14 +364,14 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
         }}
       >
         {loading ? (
-          <div style={{ flex: 1, display: 'grid', placeItems: 'center', fontSize: 18, color: '#ffd9b8' }}>
-            Preparing 3D Hurdle Track…
+          <div style={{ flex: 1, display: 'grid', placeItems: 'center', fontSize: 18, color: '#bae6fd' }}>
+            Unfurling Pirate Charts &amp; Islands…
           </div>
         ) : teams.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ fontSize: 50, marginBottom: 12 }}>🏎️</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#FFC857' }}>No teams registered for this hunt yet</div>
-            <div style={{ color: '#ffd9b8', marginTop: 6, fontSize: 14 }}>Register teams to start the live race track.</div>
+            <div style={{ fontSize: 50, marginBottom: 12 }}>🏴‍☠️</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#FFC857' }}>No pirate crews registered yet</div>
+            <div style={{ color: '#bae6fd', marginTop: 6, fontSize: 14 }}>Register teams to launch the ships onto the ocean voyage!</div>
           </div>
         ) : (
           <div
@@ -358,56 +384,67 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
               gap: 12,
             }}
           >
-            {/* ── Track Header: Hurdle Columns with Distance Gates ── */}
+            {/* ── Map Header: Checkpoint Islands & Final Treasure Island ── */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                paddingLeft: 220, // offset for team name cards on left
-                paddingRight: 60,  // offset for finish line podium
-                marginBottom: 4,
+                paddingLeft: 220, // aligns with ship lanes
+                paddingRight: 60,
+                marginBottom: 2,
                 flexShrink: 0,
               }}
             >
               <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', position: 'relative' }}>
-                {/* Start Gate */}
+                {/* Port of Origin (Start) */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', transform: 'translateX(-50%)' }}>
-                  <span style={{ fontSize: 18 }}>🏁</span>
+                  <span style={{ fontSize: 22 }}>⚓</span>
                   <span style={{ fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: '.06em', textTransform: 'uppercase' }}>
-                    START
+                    PORT
                   </span>
                 </div>
 
-                {/* Hurdle Stage Markers */}
-                {milestones.map((m, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      transform: 'translateX(50%)',
-                    }}
-                  >
-                    <span style={{ fontSize: 18 }}>{m.icon}</span>
-                    <span
+                {/* Checkpoint Islands along the Route */}
+                {islands.map((isle, idx) => {
+                  const isFinalChest = idx === islands.length - 1
+
+                  return (
+                    <div
+                      key={idx}
                       style={{
-                        fontSize: 11,
-                        fontWeight: 900,
-                        color: m.stage === milestones.length ? '#FFC857' : '#ffd9b8',
-                        letterSpacing: '.06em',
-                        textTransform: 'uppercase',
-                        textShadow: m.stage === milestones.length ? '0 0 12px rgba(255,200,87,0.6)' : 'none',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        transform: 'translateX(50%)',
                       }}
                     >
-                      {m.label}
-                    </span>
-                  </div>
-                ))}
+                      <span
+                        style={{
+                          fontSize: isFinalChest ? 26 : 22,
+                          animation: isFinalChest ? 'coin-shine 2s infinite' : 'none',
+                        }}
+                      >
+                        {isFinalChest ? '👑' : isle.icon}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 900,
+                          color: isFinalChest ? '#FFC857' : '#bae6fd',
+                          letterSpacing: '.06em',
+                          textTransform: 'uppercase',
+                          textShadow: isFinalChest ? '0 0 14px rgba(255,200,87,0.8)' : 'none',
+                        }}
+                      >
+                        {isle.name}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
-            {/* ── 3D Perspective Race Track Surface ─────────────────── */}
+            {/* ── Ocean Sea Surface with Wave Currents ──────────────── */}
             <div
               style={{
                 flex: 1,
@@ -416,19 +453,17 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                 flexDirection: 'column',
                 justifyContent: 'space-around',
                 gap: 8,
-                perspective: '1000px',
-                transformStyle: 'preserve-3d',
-                padding: '10px 14px',
-                background: 'linear-gradient(180deg, rgba(20, 5, 35, 0.7) 0%, rgba(35, 10, 60, 0.8) 100%)',
-                borderRadius: 20,
-                border: '1.5px solid rgba(255, 107, 53, 0.3)',
-                boxShadow: 'inset 0 0 60px rgba(0, 0, 0, 0.6), 0 10px 40px rgba(0, 0, 0, 0.5)',
+                padding: '12px 16px',
+                background: 'linear-gradient(180deg, rgba(8, 28, 52, 0.8) 0%, rgba(4, 16, 32, 0.9) 100%)',
+                borderRadius: 22,
+                border: '1.5px solid rgba(56, 189, 248, 0.3)',
+                boxShadow: 'inset 0 0 60px rgba(2, 6, 23, 0.8), 0 12px 40px rgba(0, 0, 0, 0.6)',
                 overflowY: 'auto',
                 boxSizing: 'border-box',
               }}
             >
-              {racingTeams.map((team, idx) => {
-                const palette = TEAM_PALETTES[team.initialOrder % TEAM_PALETTES.length]
+              {sailingTeams.map((team, idx) => {
+                const fleet = PIRATE_FLEET[team.initialOrder % PIRATE_FLEET.length]
                 const isLeader = idx === 0 && team.progressPercent > 0
                 const rankNum = idx + 1
 
@@ -445,7 +480,7 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                       position: 'relative',
                     }}
                   >
-                    {/* Left Team Info Plate */}
+                    {/* Left Pirate Ship Identity Plate */}
                     <div
                       style={{
                         width: 200,
@@ -456,10 +491,10 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                         padding: '6px 12px',
                         borderRadius: 12,
                         background: isLeader
-                          ? 'linear-gradient(135deg, rgba(255,200,87,0.25), rgba(255,107,53,0.2))'
-                          : 'rgba(255, 255, 255, 0.06)',
-                        border: isLeader ? '1.5px solid #FFC857' : '1px solid rgba(255,255,255,0.12)',
-                        boxShadow: isLeader ? '0 0 16px rgba(255,200,87,0.3)' : 'none',
+                          ? 'linear-gradient(135deg, rgba(255,200,87,0.25), rgba(245,158,11,0.2))'
+                          : 'rgba(255, 255, 255, 0.05)',
+                        border: isLeader ? '1.5px solid #FFC857' : '1px solid rgba(56, 189, 248, 0.2)',
+                        boxShadow: isLeader ? '0 0 16px rgba(255,200,87,0.35)' : 'none',
                         transition: 'all 0.4s ease',
                       }}
                     >
@@ -476,10 +511,10 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                         #{rankNum}
                       </span>
 
-                      {/* Team Avatar Icon */}
-                      <span style={{ fontSize: 22 }}>{palette.avatar}</span>
+                      {/* Ship Flag & Crest */}
+                      <span style={{ fontSize: 22 }}>{fleet.flag}</span>
 
-                      {/* Name & Subtitle */}
+                      {/* Team & Vessel Name */}
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div
                           style={{
@@ -493,17 +528,17 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                         >
                           {team.teamName}
                         </div>
-                        <div style={{ fontSize: 11, color: palette.glow, fontWeight: 600 }}>
+                        <div style={{ fontSize: 11, color: fleet.glow, fontWeight: 600 }}>
                           {team.isCompleted
-                            ? '🏆 Winner!'
+                            ? '💰 Treasure Claimed!'
                             : team.awaitingVerification
-                            ? '⏳ At Reception'
-                            : `Stage ${team.currentMilestone} of ${totalStages}`}
+                            ? '⚓ Docked at Port'
+                            : `Island ${team.currentMilestone} of ${totalStages}`}
                         </div>
                       </div>
                     </div>
 
-                    {/* ── 3D Lane Track with Hurdles ────────────────────── */}
+                    {/* ── Ocean Water Sea Lane ──────────────────────── */}
                     <div
                       style={{
                         flex: 1,
@@ -511,33 +546,29 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                         position: 'relative',
                         display: 'flex',
                         alignItems: 'center',
-                        background: 'linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.06) 100%)',
-                        borderRadius: 10,
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.5)',
+                        background: 'linear-gradient(90deg, rgba(14, 165, 233, 0.06) 0%, rgba(6, 182, 212, 0.1) 100%)',
+                        borderRadius: 12,
+                        border: '1px solid rgba(56, 189, 248, 0.15)',
+                        boxShadow: 'inset 0 2px 6px rgba(0, 0, 0, 0.6)',
                         marginRight: 20,
                         overflow: 'hidden',
                       }}
                     >
-                      {/* Road Center Dotted Striping */}
+                      {/* Water Wave Current Effect */}
                       <div
                         style={{
                           position: 'absolute',
-                          left: 0,
-                          right: 0,
-                          top: '50%',
-                          height: 2,
-                          backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,0.2) 50%, transparent 50%)',
-                          backgroundSize: '24px 2px',
-                          transform: 'translateY(-50%)',
+                          inset: 0,
+                          backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 15px, rgba(56, 189, 248, 0.04) 15px, rgba(56, 189, 248, 0.04) 30px)',
                           pointerEvents: 'none',
                         }}
                       />
 
-                      {/* Hurdle Gate Visuals along the Track */}
-                      {milestones.map((m, mIdx) => {
-                        const stepPct = (m.stage / milestones.length) * 100
-                        const isCleared = team.currentMilestone >= m.stage
+                      {/* Checkpoint Islands along the Channel */}
+                      {islands.map((isle, mIdx) => {
+                        const stepPct = (isle.stage / islands.length) * 100
+                        const isReached = team.currentMilestone >= isle.stage
+                        const isFinalIsland = mIdx === islands.length - 1
 
                         return (
                           <div
@@ -548,8 +579,8 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                               top: 0,
                               bottom: 0,
                               width: 3,
-                              background: isCleared ? '#22c55e' : 'rgba(255, 107, 53, 0.4)',
-                              boxShadow: isCleared ? '0 0 10px #22c55e' : 'none',
+                              background: isReached ? '#22c55e' : 'rgba(56, 189, 248, 0.3)',
+                              boxShadow: isReached ? '0 0 10px #22c55e' : 'none',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -557,28 +588,31 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                               transition: 'background 0.4s ease',
                             }}
                           >
-                            {/* Hurdle icon bar */}
+                            {/* Island Anchor Badge */}
                             <div
                               style={{
-                                width: 14,
-                                height: 24,
-                                borderRadius: 4,
-                                background: isCleared ? '#15803d' : '#991b1b',
-                                border: `1.5px solid ${isCleared ? '#86efac' : '#f87171'}`,
+                                width: 20,
+                                height: 26,
+                                borderRadius: 6,
+                                background: isReached
+                                  ? (isFinalIsland ? '#eab308' : '#15803d')
+                                  : 'rgba(15, 23, 42, 0.85)',
+                                border: `1.5px solid ${isReached ? (isFinalIsland ? '#fef08a' : '#86efac') : '#38bdf8'}`,
                                 display: 'grid',
                                 placeItems: 'center',
-                                fontSize: 9,
+                                fontSize: isFinalIsland ? 12 : 10,
                                 color: '#fff',
                                 fontWeight: 900,
+                                boxShadow: isReached ? '0 0 12px rgba(34,197,94,0.6)' : 'none',
                               }}
                             >
-                              {isCleared ? '✓' : '!'}
+                              {isReached ? (isFinalIsland ? '💎' : '✓') : '⚓'}
                             </div>
                           </div>
                         )
                       })}
 
-                      {/* Progress Filled Glow Ribbon */}
+                      {/* Floating Water Wake behind the Boat */}
                       <div
                         style={{
                           position: 'absolute',
@@ -586,51 +620,47 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                           top: 0,
                           bottom: 0,
                           width: `${team.progressPercent}%`,
-                          background: `linear-gradient(90deg, ${palette.main}33 0%, ${palette.main}99 100%)`,
-                          borderRight: `3px solid ${palette.glow}`,
-                          boxShadow: `0 0 20px ${palette.main}`,
-                          transition: 'width 1.2s cubic-bezier(0.34, 1.35, 0.64, 1)',
+                          background: `linear-gradient(90deg, rgba(6, 182, 212, 0.15) 0%, ${fleet.main}66 100%)`,
+                          borderRight: `3px solid ${fleet.glow}`,
+                          boxShadow: `0 0 24px ${fleet.main}`,
+                          transition: 'width 1.4s cubic-bezier(0.34, 1.35, 0.64, 1)',
                           zIndex: 2,
                         }}
                       />
 
-                      {/* ── 3D Moving Racer / Vehicle on Lane ────────────── */}
+                      {/* ── 3D Floating Pirate Ship / Boat on Water ──────── */}
                       <div
                         style={{
                           position: 'absolute',
-                          left: `calc(${team.progressPercent}% - 22px)`,
+                          left: `calc(${team.progressPercent}% - 24px)`,
                           top: '50%',
                           transform: 'translateY(-50%)',
                           zIndex: 10,
-                          transition: 'left 1.2s cubic-bezier(0.34, 1.35, 0.64, 1)',
+                          transition: 'left 1.4s cubic-bezier(0.34, 1.35, 0.64, 1)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: 6,
                         }}
                       >
-                        {/* 3D Vehicle Pod */}
+                        {/* Floating Boat Vessel */}
                         <div
                           style={{
-                            width: 44,
-                            height: 34,
-                            borderRadius: 10,
-                            background: `linear-gradient(135deg, ${palette.main}, ${palette.glow})`,
+                            width: 48,
+                            height: 38,
+                            borderRadius: 12,
+                            background: `linear-gradient(135deg, ${fleet.main}, ${fleet.glow})`,
                             border: '2px solid #fff',
-                            boxShadow: `0 0 20px ${palette.glow}, 0 4px 12px rgba(0,0,0,0.5)`,
+                            boxShadow: `0 0 22px ${fleet.glow}, 0 6px 14px rgba(0,0,0,0.6)`,
                             display: 'grid',
                             placeItems: 'center',
-                            fontSize: 18,
-                            animation: team.isCompleted
-                              ? 'bounce 0.6s infinite alternate'
-                              : team.awaitingVerification
-                              ? 'pulse-ring 1s infinite'
-                              : 'none',
+                            fontSize: 22,
+                            animation: 'float-boat 2.2s infinite ease-in-out',
                           }}
                         >
-                          {palette.avatar}
+                          {fleet.boat}
                         </div>
 
-                        {/* Status Float Indicator */}
+                        {/* Ship Docking / Chest Indicator */}
                         {team.awaitingVerification ? (
                           <span
                             style={{
@@ -641,48 +671,51 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                               padding: '2px 8px',
                               borderRadius: 6,
                               whiteSpace: 'nowrap',
-                              boxShadow: '0 0 10px rgba(245, 158, 11, 0.6)',
+                              boxShadow: '0 0 12px rgba(245, 158, 11, 0.7)',
                             }}
                           >
-                            ⏳ AT DESK
+                            ⚓ AT RECEPTION
                           </span>
                         ) : team.isCompleted ? (
                           <span
                             style={{
-                              background: '#22c55e',
-                              color: '#fff',
+                              background: '#eab308',
+                              color: '#422006',
                               fontSize: 10,
                               fontWeight: 900,
                               padding: '2px 8px',
                               borderRadius: 6,
                               whiteSpace: 'nowrap',
-                              boxShadow: '0 0 12px rgba(34, 197, 94, 0.8)',
+                              boxShadow: '0 0 16px rgba(234, 179, 8, 0.9)',
                             }}
                           >
-                            👑 FINISHED!
+                            💰 TREASURE FOUND!
                           </span>
                         ) : null}
                       </div>
 
-                      {/* Finish Line Checkered Banner */}
+                      {/* Final Treasure Chest Island on the Right */}
                       <div
                         style={{
                           position: 'absolute',
                           right: 0,
                           top: 0,
                           bottom: 0,
-                          width: 16,
-                          backgroundImage: 'repeating-conic-gradient(#000 0% 25%, #fff 0% 50%)',
-                          backgroundPosition: '0 0, 8px 8px',
-                          backgroundSize: '16px 16px',
-                          borderLeft: '2px solid #FFC857',
-                          boxShadow: '0 0 15px rgba(255, 200, 87, 0.5)',
+                          width: 22,
+                          background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.3) 0%, rgba(202, 138, 4, 0.6) 100%)',
+                          borderLeft: '2.5px solid #FFC857',
+                          boxShadow: '0 0 25px rgba(255, 200, 87, 0.8)',
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontSize: 13,
                           zIndex: 6,
                         }}
-                      />
+                      >
+                        🪙
+                      </div>
                     </div>
 
-                    {/* Right Progress Percentage Display */}
+                    {/* Right Voyage Completion Percentage */}
                     <div
                       style={{
                         width: 50,
@@ -690,7 +723,7 @@ export default function TreasureHuntRacePage({ params }: { params: { eventId: st
                         fontFamily: "'JetBrains Mono', monospace",
                         fontWeight: 900,
                         fontSize: 16,
-                        color: team.isCompleted ? '#4ade80' : '#ffd9b8',
+                        color: team.isCompleted ? '#facc15' : '#bae6fd',
                         flexShrink: 0,
                       }}
                     >
