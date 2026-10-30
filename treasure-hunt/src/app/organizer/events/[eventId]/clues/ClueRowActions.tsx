@@ -92,10 +92,11 @@ export default function ClueRowActions({ clueId, eventId, clueText, resultNumber
           <div style={{ fontWeight: 600, marginBottom: 12 }}>Edit Clue</div>
           {err && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{err}</div>}
           <div style={{ marginBottom: 10 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>CLUE TEXT</label>
+            <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>CLUE TEXT / VIDEO LINK</label>
             <textarea
               value={form.clueText}
               onChange={e => setForm(f => ({ ...f, clueText: e.target.value }))}
+              placeholder="Riddle text or Google Drive / YouTube video URL…"
               rows={3}
               style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: 6, padding: '7px 10px', fontSize: 13, resize: 'vertical' }}
             />

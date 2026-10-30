@@ -96,10 +96,33 @@ export default function ClueCell({ clue, eventId, teamId, stageNumber, isCommonF
   return (
     <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, background: '#fff', position: 'relative', minHeight: 72 }}>
       <div style={{ fontSize: 13, color: '#0f172a', lineHeight: 1.4, marginBottom: 8, paddingRight: 48 }}>
-        {clue.clueText
-          ? <span style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{clue.clueText}</span>
-          : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No text — click to add</span>
-        }
+        {clue.clueText ? (
+          <div>
+            <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {clue.clueText}
+            </span>
+            {/drive\.google\.com|youtube\.com|youtu\.be|\.(mp4|webm|mov|png|jpg|jpeg)/i.test(clue.clueText) && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  marginTop: 4,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  color: '#FF6B35',
+                  background: '#fff1ea',
+                  padding: '1px 6px',
+                  borderRadius: 4,
+                }}
+              >
+                🎬 Video / Media Clue
+              </span>
+            )}
+          </div>
+        ) : (
+          <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No text — click to add</span>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, letterSpacing: '.12em', color: '#FF6B35', background: '#fff1ea', borderRadius: 6, padding: '2px 8px' }}>

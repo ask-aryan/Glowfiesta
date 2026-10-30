@@ -5,6 +5,7 @@ import PlayerMenu from './PlayerMenu'
 import ScanQrButton from './ScanQrButton'
 import PlayerAutoRefresh from './PlayerAutoRefresh'
 import PlayerRefreshButton from './PlayerRefreshButton'
+import RichClueDisplay from '@/components/RichClueDisplay'
 
 async function getTeamInfo(teamId: number) {
   const { prisma } = await import('@/lib/db')
@@ -265,8 +266,11 @@ export default async function PlayerPage() {
                 <>
                   <div style={{ fontSize: 11, color: '#ffd9b8', marginTop: 8 }}>Your final clue:</div>
                   <div style={{ background: 'rgba(255,200,87,.12)', borderRadius: 12, padding: '12px 14px', borderLeft: '3px solid #FFC857', marginTop: 6 }}>
-                    <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 500, fontSize: 17, lineHeight: 1.35, color: '#fff' }}>
-                      {finalClue?.clueText || 'Find the common final QR code to complete the hunt and claim victory!'}
+                    <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 500, fontSize: 16, lineHeight: 1.35, color: '#fff' }}>
+                      <RichClueDisplay
+                        text={finalClue?.clueText}
+                        fallbackText="Find the common final QR code to complete the hunt and claim victory!"
+                      />
                     </div>
                   </div>
                   {otherWinners.length > 0 && (
@@ -317,8 +321,11 @@ export default async function PlayerPage() {
                 <>
                   <div style={{ fontSize: 11, color: '#ffd9b8', marginTop: 8 }}>Your clue:</div>
                   <div style={{ background: 'rgba(255,255,255,.07)', borderRadius: 12, padding: '10px 14px', borderLeft: '3px solid #FFC857', marginTop: 6 }}>
-                    <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 500, fontSize: 17, lineHeight: 1.35, color: '#fff' }}>
-                      {currentClue.clueText || <span style={{ color: '#8b7fa8', fontStyle: 'italic' }}>No clue text — ask the organizer</span>}
+                    <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 500, fontSize: 16, lineHeight: 1.35, color: '#fff' }}>
+                      <RichClueDisplay
+                        text={currentClue.clueText}
+                        fallbackText="No clue text — ask the organizer"
+                      />
                     </div>
                   </div>
                 </>

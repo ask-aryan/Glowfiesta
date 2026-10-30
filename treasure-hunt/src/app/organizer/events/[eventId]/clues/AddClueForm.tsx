@@ -57,8 +57,17 @@ export default function AddCluePanel({ eventId }: { eventId: number }) {
                 </div>
               )}
               <div>
-                <label style={{ fontWeight: 600, marginBottom: 6, display: 'block' }}>Clue Text</label>
-                <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={4} value={clueText} onChange={e => setClueText(e.target.value)} placeholder="Enter riddle or hint…" />
+                <label style={{ fontWeight: 600, marginBottom: 6, display: 'block' }}>Clue Text / Video URL</label>
+                <textarea
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                  rows={4}
+                  value={clueText}
+                  onChange={e => setClueText(e.target.value)}
+                  placeholder="Enter riddle, hint, or paste a Google Drive/YouTube video link…"
+                />
+                <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 4 }}>
+                  💡 Paste any Google Drive video link (or YouTube / image URL) to automatically embed a video player for players.
+                </div>
               </div>
               <div>
                 <label style={{ fontWeight: 600, marginBottom: 6, display: 'block' }}>Result Number (1–9999) <span style={{ color: '#FF6B35' }}>*</span></label>
