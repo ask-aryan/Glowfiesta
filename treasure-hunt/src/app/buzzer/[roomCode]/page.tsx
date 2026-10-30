@@ -57,7 +57,10 @@ export default function ParticipantBuzzerPage() {
     }
   }, [roomCode])
 
-  // Poll room every 300ms
+  // Stopwatch timer logic with clock offset compensation
+  const serverOffsetRef = useRef<number>(0)
+
+  // Poll room every 250ms
   useEffect(() => {
     if (!roomCode || !hasJoined) return
     let active = true
@@ -72,6 +75,9 @@ export default function ParticipantBuzzerPage() {
         }
         const data: RoomData = await res.json()
         if (active) {
+          if (data.serverTime) {
+            serverOffsetRef.current = Date.now() - data.serverTime
+          }
           setRoom(data)
           setLoading(false)
 
@@ -90,14 +96,14 @@ export default function ParticipantBuzzerPage() {
     }
 
     poll()
-    const timer = setInterval(poll, 300)
+    const timer = setInterval(poll, 250)
     return () => {
       active = false
       clearInterval(timer)
     }
   }, [roomCode, hasJoined, teamName])
 
-  // Stopwatch timer logic
+  // Stopwatch timer logic: starts from firstBuzzAt (or liveAt) until Host resets
   useEffect(() => {
     const timerStartBase = room?.firstBuzzAt || (room?.status === 'LIVE' ? room.liveAt : null)
     if (!timerStartBase) {
@@ -106,7 +112,8 @@ export default function ParticipantBuzzerPage() {
     }
 
     const interval = setInterval(() => {
-      setElapsedMs(Math.max(0, Date.now() - timerStartBase))
+      const nowSynced = Date.now() - serverOffsetRef.current
+      setElapsedMs(Math.max(0, nowSynced - timerStartBase))
     }, 40)
 
     return () => clearInterval(interval)
@@ -369,33 +376,60 @@ export default function ParticipantBuzzerPage() {
           boxSizing: 'border-box',
         }}
       >
-        {/* TOP STOPWATCH TIMER */}
-        <div
+        {/* TOP DIGITAL STOPWATCH TIMER */}
+        <section
           style={{
             width: '100%',
-            background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-            border: '1.5px solid rgba(255,158,44,0.3)',
-            borderRadius: 18,
-            padding: '14px 20px',
+            background: 'linear-gradient(145deg, rgba(20,5,35,0.9), rgba(10,2,18,0.9))',
+            border: '2px solid rgba(255,158,44,0.35)',
+            borderRadius: 22,
+            padding: '18px 20px',
             textAlign: 'center',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            boxShadow: '0 12px 36px rgba(0,0,0,0.5)',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.1em', color: '#ffd9b8', textTransform: 'uppercase' }}>
-            ⏱️ ROUND TIMER
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: '.12em',
+              textTransform: 'uppercase',
+              color: '#ffd9b8',
+              marginBottom: 4,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}
+          >
+            <span>⏱️ ROUND STOPWATCH TIMER</span>
+            {room?.firstBuzzAt && (
+              <span style={{ color: '#22c55e', fontSize: 11, background: 'rgba(34,197,94,0.2)', padding: '2px 8px', borderRadius: 999 }}>
+                1ST BUZZ RECORDED
+              </span>
+            )}
           </div>
           <div
             style={{
               fontFamily: 'Fredoka, monospace, sans-serif',
-              fontSize: 38,
+              fontSize: 'clamp(46px, 11vw, 68px)',
               fontWeight: 800,
-              color: elapsedMs > 0 ? '#FFC857' : '#736885',
-              letterSpacing: '.05em',
+              color: elapsedMs > 0 ? '#FFC857' : '#887d9c',
+              letterSpacing: '.04em',
+              textShadow: elapsedMs > 0 ? '0 0 24px rgba(255,200,87,0.45)' : 'none',
+              lineHeight: 1.1,
             }}
           >
             {formatStopwatch(elapsedMs)}
           </div>
-        </div>
+          <div style={{ fontSize: 12, color: '#a394bb', marginTop: 4 }}>
+            {elapsedMs > 0
+              ? 'Elapsed time until host resets for next question'
+              : 'Timer triggers on first buzzer press'}
+          </div>
+        </section>
 
         {/* STAGE STATUS BANNER */}
         <div style={{ textAlign: 'center', margin: '20px 0 10px' }}>
