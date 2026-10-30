@@ -6,6 +6,7 @@ interface HintCardProps {
   stageNumber: number
   isEligibleStage: boolean
   usedHintOnThisStage: boolean
+  hintResolvedAt?: string | null
   hintsUsedTotal: number
   maxHints: number
   hintDelayMinutes: number
@@ -17,6 +18,7 @@ export default function HintCard({
   stageNumber,
   isEligibleStage,
   usedHintOnThisStage,
+  hintResolvedAt,
   hintsUsedTotal,
   maxHints,
   hintDelayMinutes,
@@ -55,6 +57,36 @@ export default function HintCard({
 
   // If a hint was already requested for this stage
   if (usedHintOnThisStage) {
+    if (hintResolvedAt) {
+      return (
+        <div
+          style={{
+            marginTop: 10,
+            background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.18) 0%, rgba(21, 128, 61, 0.22) 100%)',
+            border: '1.5px solid #22c55e',
+            borderRadius: 14,
+            padding: '12px 14px',
+            boxShadow: '0 0 16px rgba(34, 197, 94, 0.2)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 24, lineHeight: 1 }}>✅</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 800, color: '#86efac', fontSize: 13, letterSpacing: '.04em', textTransform: 'uppercase' }}>
+                Hint Provided by Organizer
+              </div>
+              <div style={{ color: '#fff', fontSize: 13, marginTop: 2 }}>
+                Your Stage {stageNumber} hint was provided at reception. Best of luck on the hunt!
+              </div>
+              <div style={{ color: '#bbf7d0', fontSize: 11, fontWeight: 700, marginTop: 3 }}>
+                Hints remaining for your team: {hintsRemaining} of {maxHints}
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div
         style={{

@@ -93,7 +93,7 @@ export default async function CluesPage({ params }: { params: { eventId: string 
                     return (
                       <td key={t.id} style={{ padding: '8px', verticalAlign: 'top' }}>
                         <ClueCell
-                          clue={clue ? { id: clue.id, clueText: clue.clueText, resultCode: clue.resultCode } : null}
+                          clue={clue ? { id: clue.id, clueText: clue.clueText, hintText: clue.hintText, resultCode: clue.resultCode } : null}
                           eventId={eventId}
                           teamId={t.id}
                           stageNumber={stage}
@@ -112,7 +112,7 @@ export default async function CluesPage({ params }: { params: { eventId: string 
                   </td>
                   <td colSpan={teams.length} style={{ padding: '8px' }}>
                     <ClueCell
-                      clue={finalClue ? { id: finalClue.id, clueText: finalClue.clueText, resultCode: finalClue.resultCode } : null}
+                      clue={finalClue ? { id: finalClue.id, clueText: finalClue.clueText, hintText: finalClue.hintText, resultCode: finalClue.resultCode } : null}
                       eventId={eventId}
                       teamId={null}
                       stageNumber={null}

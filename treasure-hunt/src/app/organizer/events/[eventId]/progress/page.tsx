@@ -5,7 +5,7 @@ interface ActiveHintStage {
   stageNumber: number
   hintRequestedAt: string | null
   clueText: string | null
-  resultCode: string | null
+  hintText: string | null
 }
 
 interface TeamProgress {
@@ -297,6 +297,26 @@ export default function ProgressPage({ params }: { params: { eventId: string } }
   const [countdown, setCountdown] = useState(5)
   const [statusLoading, setStatusLoading] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<TeamProgress | null>(null)
+  const [resolvingHint, setResolvingHint] = useState<string | null>(null)
+
+  const handleMarkHintDone = async (teamId: number, stageNumber: number) => {
+    const key = `${teamId}_${stageNumber}`
+    setResolvingHint(key)
+    try {
+      const res = await fetch(`/api/organizer/events/${eventId}/teams/${teamId}/resolve-hint`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stageNumber }),
+      })
+      if (res.ok) {
+        await fetchProgress()
+      }
+    } catch (err) {
+      console.error('Failed to resolve hint:', err)
+    } finally {
+      setResolvingHint(null)
+    }
+  }
 
   const fetchProgress = useCallback(async () => {
     try {
@@ -694,8 +714,11 @@ export default function ProgressPage({ params }: { params: { eventId: string } }
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>{t.teamName}</span>
+                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                          Leader: <strong style={{ color: '#0f172a' }}>{t.leaderName || '—'}</strong>
+                        </span>
                         <span style={{ background: '#fef08a', color: '#854d0e', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999 }}>
                           Stage {t.activeHintStages?.map(h => h.stageNumber).join(', ')}
                         </span>
@@ -705,22 +728,63 @@ export default function ProgressPage({ params }: { params: { eventId: string } }
                       </span>
                     </div>
 
-                    {t.activeHintStages?.map(hint => (
-                      <div key={hint.stageNumber} style={{ fontSize: 13, color: '#334155', background: '#f8fafc', padding: '8px 12px', borderRadius: 8, marginTop: 4 }}>
-                        <div>
-                          <strong style={{ color: '#475569' }}>Clue: </strong>
-                          <span>{hint.clueText || 'No clue text written'}</span>
-                        </div>
-                        {hint.resultCode && (
-                          <div style={{ marginTop: 4 }}>
-                            <strong style={{ color: '#475569' }}>Target Result Code: </strong>
-                            <code style={{ background: '#e2e8f0', padding: '2px 6px', borderRadius: 4, fontWeight: 700, color: '#0f172a' }}>
-                              {hint.resultCode}
-                            </code>
+                    {t.activeHintStages?.map(hint => {
+                      const isResolving = resolvingHint === `${t.teamId}_${hint.stageNumber}`
+
+                      return (
+                        <div
+                          key={hint.stageNumber}
+                          style={{
+                            fontSize: 13,
+                            color: '#334155',
+                            background: '#f8fafc',
+                            border: '1px solid #f1f5f9',
+                            padding: '10px 14px',
+                            borderRadius: 10,
+                            marginTop: 4,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            gap: 16,
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div>
+                              <strong style={{ color: '#475569', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em' }}>Original Clue: </strong>
+                              <span style={{ color: '#1e293b', fontWeight: 500 }}>{hint.clueText || 'No clue text written'}</span>
+                            </div>
+                            <div style={{ background: '#fffbeb', border: '1px solid #fef08a', borderRadius: 8, padding: '6px 10px' }}>
+                              <strong style={{ color: '#854d0e', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em' }}>💡 Hint to Provide: </strong>
+                              <span style={{ color: '#713f12', fontWeight: 600 }}>{hint.hintText || 'No specific hint configured — please guide team verbally'}</span>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
+
+                          <button
+                            type="button"
+                            onClick={() => handleMarkHintDone(t.teamId, hint.stageNumber)}
+                            disabled={isResolving}
+                            style={{
+                              padding: '8px 14px',
+                              borderRadius: 8,
+                              border: 0,
+                              background: isResolving ? '#94a3b8' : 'linear-gradient(135deg, #16a34a, #15803d)',
+                              color: '#fff',
+                              fontWeight: 700,
+                              fontSize: 12,
+                              cursor: isResolving ? 'not-allowed' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              boxShadow: '0 2px 8px rgba(22,163,74,0.3)',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <span>✓</span>
+                            <span>{isResolving ? 'Marking…' : 'Mark as Done'}</span>
+                          </button>
+                        </div>
+                      )
+                    })}
                   </div>
                 ))}
               </div>

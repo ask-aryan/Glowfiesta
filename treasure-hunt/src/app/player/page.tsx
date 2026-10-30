@@ -370,6 +370,7 @@ export default async function PlayerPage() {
                       stageNumber={currentStageProgress.stageNumber}
                       isEligibleStage={isEligibleStage}
                       usedHintOnThisStage={Boolean(currentStageProgress.usedHint)}
+                      hintResolvedAt={currentStageProgress.hintResolvedAt ? new Date(currentStageProgress.hintResolvedAt).toISOString() : null}
                       hintsUsedTotal={totalHintsUsed}
                       maxHints={team.event.maxHintsPerTeam ?? 2}
                       hintDelayMinutes={team.event.hintDelayMinutes ?? 5}

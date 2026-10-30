@@ -38,7 +38,7 @@ export async function GET(
         teamId: true,
         stageNumber: true,
         clueText: true,
-        resultCode: true,
+        hintText: true,
       },
     }),
   ])
@@ -59,14 +59,14 @@ export async function GET(
 
     const hintsUsed = team.stageProgress.filter(p => p.usedHint).length
     const activeHintStages = team.stageProgress
-      .filter(p => p.usedHint && p.status !== 'COMPLETED' && p.status !== 'NEXT_CLUE_RELEASED')
+      .filter(p => p.usedHint && !p.hintResolvedAt && p.status !== 'COMPLETED' && p.status !== 'NEXT_CLUE_RELEASED')
       .map(p => {
         const clue = clues.find(c => (c.teamId === team.id || c.teamId === null) && c.stageNumber === p.stageNumber)
         return {
           stageNumber: p.stageNumber,
           hintRequestedAt: p.hintRequestedAt,
           clueText: clue?.clueText ?? null,
-          resultCode: clue?.resultCode ?? null,
+          hintText: clue?.hintText ?? null,
         }
       })
 

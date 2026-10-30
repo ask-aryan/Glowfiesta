@@ -13,11 +13,14 @@ export async function PATCH(
   if (isNaN(clueId)) return NextResponse.json({ error: 'Invalid clue ID' }, { status: 400 })
 
   const body = await req.json()
-  const { clueText } = body as { clueText?: string }
+  const { clueText, hintText } = body as { clueText?: string; hintText?: string }
 
   const updated = await prisma.clue.update({
     where: { id: clueId },
-    data: { ...(clueText !== undefined && { clueText }) },
+    data: {
+      ...(clueText !== undefined && { clueText }),
+      ...(hintText !== undefined && { hintText }),
+    },
     include: { team: { select: { id: true, teamName: true } } },
   })
 

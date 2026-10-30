@@ -54,7 +54,7 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { teamId, stageNumber, clueText, isCommonFinal } = parsed.data
+  const { teamId, stageNumber, clueText, hintText, isCommonFinal } = parsed.data
 
   if (isCommonFinal) {
     const existing = await prisma.clue.findFirst({ where: { eventId, isCommonFinal: true } })
@@ -74,6 +74,7 @@ export async function POST(
       teamId: isCommonFinal ? null : (teamId ?? null),
       stageNumber: isCommonFinal ? null : stageNumber,
       clueText,
+      hintText,
       resultCode,
       isCommonFinal,
     },

@@ -44,6 +44,7 @@ export const createClueSchema = z.object({
   teamId: z.number().int().optional(),
   stageNumber: z.number().int().min(1).optional(),
   clueText: z.string().optional(),
+  hintText: z.string().optional(),
   isCommonFinal: z.boolean().default(false),
 })
 

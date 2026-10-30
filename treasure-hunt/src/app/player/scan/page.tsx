@@ -374,12 +374,6 @@ function ScanPageInner() {
     }
   }
 
-  // If token in URL, skip selfie and submit directly
-  useEffect(() => {
-    if (tokenFromUrl && !result && !submitting) submitToken(tokenFromUrl)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tokenFromUrl])
-
   // Start QR scanner after selfie done
   useEffect(() => {
     if (!selfieDone || result || tokenFromUrl) return
@@ -465,9 +459,18 @@ function ScanPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selfieDone, result, tokenFromUrl])
 
-  // Show selfie screen first (skip if token in URL)
-  if (!selfieDone && !tokenFromUrl) {
-    return <SelfieScreen onConfirm={() => setSelfieDone(true)} />
+  // Mandatory selfie screen first (even if token is passed via external QR scan)
+  if (!selfieDone) {
+    return (
+      <SelfieScreen
+        onConfirm={() => {
+          setSelfieDone(true)
+          if (tokenFromUrl) {
+            submitToken(tokenFromUrl)
+          }
+        }}
+      />
+    )
   }
 
   if (submitting) return (

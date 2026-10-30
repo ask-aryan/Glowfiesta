@@ -104,6 +104,7 @@ model Clue {
   teamId        Int?     @map("team_id")
   stageNumber   Int?     @map("stage_number")
   clueText      String?  @map("clue_text") @db.Text
+  hintText      String?  @map("hint_text") @db.Text
   resultCode    String   @map("result_code") @db.VarChar(4)
   isCommonFinal Boolean  @default(false) @map("is_common_final")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -147,6 +148,8 @@ model TeamStageProgress {
   status             StageStatus @default(NOT_STARTED)
   usedHint           Boolean     @default(false) @map("used_hint")
   hintRequestedAt    DateTime?   @map("hint_requested_at")
+  hintResolvedAt     DateTime?   @map("hint_resolved_at")
+  hintResolvedBy     Int?        @map("hint_resolved_by")
   stageStartedAt     DateTime?   @map("stage_started_at")
   scanTimestamp      DateTime?   @map("scan_timestamp")
   verifiedBy         Int?        @map("verified_by")
