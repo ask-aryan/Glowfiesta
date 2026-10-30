@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: glowfiesta-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-RootPass2026!}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-treasure_hunt}
+      MYSQL_USER: ${MYSQL_USER:-glowuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-GlowUserPass2026!}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:3306:3306"
+    networks:
+      - glowfiesta-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-RootPass2026!}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: glowfiesta-app
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: mysql://${MYSQL_USER:-glowuser}:${MYSQL_PASSWORD:-GlowUserPass2026!}@mysql:3306/${MYSQL_DATABASE:-treasure_hunt}
+      SESSION_PASSWORD: ${SESSION_PASSWORD:-glowfiesta-super-secret-session-key-min-32-chars!}
+      NEXT_PUBLIC_APP_URL: https://glowfiesta2026.e-connectsolutions.com
+      ORGANIZER_PASSWORD: ${ORGANIZER_PASSWORD:-admin123}
+      PORT: 3000
+    networks:
+      - glowfiesta-net
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:alpine
+    container_name: glowfiesta-nginx
+    restart: always
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    networks:
+      - glowfiesta-net
+
+networks:
+  glowfiesta-net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
