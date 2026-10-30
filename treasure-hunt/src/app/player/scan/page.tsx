@@ -298,18 +298,13 @@ function ScanPageInner() {
   async function stopScanner(instance: any) {
     if (!instance) return
     try {
-      if (typeof instance.isScanning === 'boolean' ? instance.isScanning : true) {
-        await instance.stop().catch(() => {})
+      const state = typeof instance.getState === 'function' ? instance.getState() : null
+      // Html5QrcodeScannerState: 2 = SCANNING, 3 = PAUSED
+      if (state === 2 || state === 3 || typeof state !== 'number') {
+        await instance.stop()
       }
     } catch {
       // ignore stop errors
-    }
-    try {
-      if (typeof document !== 'undefined' && document.getElementById('qr-reader')) {
-        instance.clear()
-      }
-    } catch {
-      // ignore clear error
     }
   }
 
@@ -351,6 +346,9 @@ function ScanPageInner() {
     scannerInstanceRef.current = null
     if (inst) {
       await stopScanner(inst)
+      try {
+        inst.clear()
+      } catch {}
     }
 
     let token = decodedText.trim()
@@ -370,35 +368,100 @@ function ScanPageInner() {
     const currentIdx = cameraList.findIndex(c => c.id === selectedCameraId)
     const nextIdx = (currentIdx + 1) % cameraList.length
     const nextCam = cameraList[nextIdx]
-    setSelectedCameraId(nextCam.id)
+    const prevCamId = selectedCameraId
 
-    const inst = scannerInstanceRef.current
-    scannerInstanceRef.current = null
-    if (inst) {
-      await stopScanner(inst)
+    let inst = scannerInstanceRef.current
+    const Html5Qrcode = html5ModuleRef.current
+
+    try {
+      if (inst) {
+        await stopScanner(inst)
+      }
+    } catch (e) {
+      console.warn('Error stopping scanner during switch:', e)
     }
 
-    const Html5Qrcode = html5ModuleRef.current
-    if (!Html5Qrcode) {
+    // Crucial hardware cooldown: allow mobile camera pipeline (Android/iOS) to release previous lens
+    await new Promise(r => setTimeout(r, 250))
+
+    // Re-verify instance
+    if (!inst && Html5Qrcode) {
+      try {
+        const qrElem = document.getElementById('qr-reader')
+        if (qrElem) qrElem.innerHTML = ''
+        inst = new Html5Qrcode('qr-reader')
+        scannerInstanceRef.current = inst
+      } catch (e) {
+        console.warn('Could not create Html5Qrcode instance:', e)
+      }
+    }
+
+    if (!inst) {
       setIsSwitching(false)
       return
     }
 
-    try {
-      const newScanner = new Html5Qrcode('qr-reader')
-      scannerInstanceRef.current = newScanner
-      setScanning(true)
-      await newScanner.start(
-        nextCam.id,
+    const startWithConfig = async (camConfig: any) => {
+      await inst.start(
+        camConfig,
         { fps: 15, qrbox: qrboxFunction, aspectRatio: 1.0 },
         handleDecoded,
         () => {}
       )
-    } catch (err) {
-      console.warn('Switching camera failed:', err)
-    } finally {
-      setIsSwitching(false)
     }
+
+    let started = false
+
+    // Attempt 1: Next camera ID directly
+    try {
+      await startWithConfig(nextCam.id)
+      setSelectedCameraId(nextCam.id)
+      setScanning(true)
+      started = true
+    } catch (err1) {
+      console.warn(`Camera ID ${nextCam.id} direct start failed, trying exact constraint:`, err1)
+    }
+
+    // Attempt 2: Next camera with exact deviceId constraint
+    if (!started) {
+      try {
+        await new Promise(r => setTimeout(r, 200))
+        await startWithConfig({ deviceId: { exact: nextCam.id } })
+        setSelectedCameraId(nextCam.id)
+        setScanning(true)
+        started = true
+      } catch (err2) {
+        console.warn(`Exact constraint for ${nextCam.id} failed:`, err2)
+      }
+    }
+
+    // Attempt 3: Restore previous working camera ID
+    if (!started && prevCamId && prevCamId !== nextCam.id) {
+      try {
+        await new Promise(r => setTimeout(r, 200))
+        await startWithConfig(prevCamId)
+        setSelectedCameraId(prevCamId)
+        setScanning(true)
+        started = true
+      } catch (err3) {
+        console.warn(`Reverting to previous camera ${prevCamId} failed:`, err3)
+      }
+    }
+
+    // Attempt 4: Fall back to standard environment facingMode
+    if (!started) {
+      try {
+        await new Promise(r => setTimeout(r, 250))
+        await startWithConfig({ facingMode: 'environment' })
+        setScanning(true)
+        started = true
+      } catch (err4) {
+        console.error('All camera attempts failed during switch:', err4)
+        setScanning(false)
+      }
+    }
+
+    setIsSwitching(false)
   }
 
   // Start QR scanner after selfie done
