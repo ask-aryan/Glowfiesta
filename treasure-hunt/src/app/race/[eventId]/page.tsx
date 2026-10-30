@@ -105,7 +105,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
   if (hasFinal) {
     islands.push({
       stage: totalStages + 1,
-      label: 'Final Treasure',
+      label: 'Treasure',
       icon: '👑',
       name: 'Treasure Island',
     })
@@ -113,6 +113,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
 
   const finishedTeams = teams.filter(t => t.isCompleted)
   const sailingTeams = [...teams].sort((a, b) => b.progressPercent - a.progressPercent)
+  const leaderTeam = sailingTeams[0]
 
   return (
     <div
@@ -121,7 +122,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
         maxHeight: '100vh',
         width: '100vw',
         overflow: 'hidden',
-        background: 'radial-gradient(ellipse at 50% 15%, #0d2137 0%, #061224 50%, #020712 100%)',
+        background: 'radial-gradient(ellipse at 50% 15%, #0c2035 0%, #061122 55%, #020710 100%)',
         color: '#fff',
         fontFamily: "'Inter', system-ui, sans-serif",
         display: 'flex',
@@ -134,20 +135,24 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
       <style jsx global>{`
         @keyframes float-boat {
           0% { transform: translateY(0px) rotate(-1.5deg); }
-          50% { transform: translateY(-6px) rotate(2deg); }
+          50% { transform: translateY(-5px) rotate(2deg); }
           100% { transform: translateY(0px) rotate(-1.5deg); }
         }
-        @keyframes water-ripple {
-          0% { transform: scale(0.9); opacity: 0.6; }
-          100% { transform: scale(1.4); opacity: 0; }
+        @keyframes pulse-soft {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.04); opacity: 0.85; }
         }
-        @keyframes coin-shine {
-          0%, 100% { filter: drop-shadow(0 0 14px rgba(255, 200, 87, 0.7)); }
-          50% { filter: drop-shadow(0 0 28px rgba(255, 200, 87, 1)); }
+        @keyframes chest-glow {
+          0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 200, 87, 0.7)); }
+          50% { filter: drop-shadow(0 0 24px rgba(255, 200, 87, 1)); }
+        }
+        @keyframes water-stripes {
+          0% { background-position: 0 0; }
+          100% { background-position: 40px 0; }
         }
       `}</style>
 
-      {/* ── Ambient Ocean Waves & Stars Atmosphere ─────────────────── */}
+      {/* ── Ambient Nautical Grid Background ────────────────────────── */}
       <div
         style={{
           position: 'absolute',
@@ -157,10 +162,10 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
           pointerEvents: 'none',
         }}
       />
-      <div style={{ position: 'absolute', top: -140, left: '30%', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(14, 165, 233, 0.14) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: -120, right: '10%', width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255, 200, 87, 0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: -140, left: '30%', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(14, 165, 233, 0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: -120, right: '10%', width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255, 200, 87, 0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-      {/* ── Treasure Found Toast Banner ────────────────────────────── */}
+      {/* ── Celebration Toast Banner ───────────────────────────────── */}
       {celebrationTeam && (
         <div
           style={{
@@ -180,7 +185,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
             gap: 14,
             boxShadow: '0 0 50px rgba(255, 200, 87, 0.9), 0 8px 32px rgba(0,0,0,0.6)',
             border: '2px solid #FFC857',
-            animation: 'pop 0.4s both',
+            animation: 'pulse-soft 1s infinite alternate',
           }}
         >
           <span style={{ fontSize: 30 }}>🏴‍☠️</span>
@@ -189,7 +194,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
         </div>
       )}
 
-      {/* ── Top TV Header Bar (Pirate Theme) ───────────────────────── */}
+      {/* ── Top Header Navigation Bar ──────────────────────────────── */}
       <header
         style={{
           display: 'flex',
@@ -197,7 +202,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
           alignItems: 'center',
           padding: '12px 28px',
           borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
-          background: 'rgba(6, 18, 36, 0.85)',
+          background: 'rgba(6, 17, 34, 0.9)',
           backdropFilter: 'blur(14px)',
           flexShrink: 0,
           position: 'relative',
@@ -207,15 +212,15 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div
             style={{
-              width: 46,
-              height: 46,
-              borderRadius: 14,
+              width: 44,
+              height: 44,
+              borderRadius: 12,
               background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
               border: '2px solid #38bdf8',
               boxShadow: '0 0 20px rgba(56, 189, 248, 0.5)',
               display: 'grid',
               placeItems: 'center',
-              fontSize: 26,
+              fontSize: 24,
             }}
           >
             🧭
@@ -226,7 +231,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                 style={{
                   fontFamily: "'Fredoka', sans-serif",
                   fontWeight: 900,
-                  fontSize: 24,
+                  fontSize: 22,
                   margin: 0,
                   background: 'linear-gradient(180deg, #fff0b3 0%, #FFC857 50%, #f59e0b 100%)',
                   WebkitBackgroundClip: 'text',
@@ -235,7 +240,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                   letterSpacing: '-.01em',
                 }}
               >
-                {event?.name || 'Treasure Voyage'}
+                {event?.name || 'Treasure Hunt'}
               </h1>
               <span
                 style={{
@@ -243,7 +248,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                   fontWeight: 900,
                   padding: '3px 12px',
                   borderRadius: 999,
-                  background: 'linear-gradient(135deg, rgba(255,200,87,0.25), rgba(14,165,233,0.25))',
+                  background: 'linear-gradient(135deg, rgba(255,200,87,0.2), rgba(14,165,233,0.2))',
                   color: '#FFC857',
                   border: '1.5px solid rgba(255,200,87,0.5)',
                   letterSpacing: '.08em',
@@ -253,13 +258,13 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                 ⚓ PIRATE TREASURE VOYAGE
               </span>
             </div>
-            <div style={{ color: '#bae6fd', fontSize: 13, marginTop: 2 }}>
+            <div style={{ color: '#bae6fd', fontSize: 12, marginTop: 2 }}>
               High Seas Championship · Sailing to Treasure Island across {totalStages} Checkpoints
             </div>
           </div>
         </div>
 
-        {/* Right Controls & Status */}
+        {/* Right Status Badges */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {finishedTeams.length > 0 && (
             <div
@@ -318,7 +323,6 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                 borderRadius: '50%',
                 background: '#22c55e',
                 boxShadow: '0 0 8px #22c55e',
-                animation: 'pulse-ring 1.5s infinite',
               }}
             />
             LIVE OCEAN
@@ -345,17 +349,18 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
         </div>
       </header>
 
-      {/* ── Main Ocean Arena Container ─────────────────────────────── */}
+      {/* ── Main Arena Surface ───────────────────────────────────────── */}
       <main
         style={{
           flex: 1,
           minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
-          padding: '14px 28px',
+          padding: '16px 28px 20px',
           boxSizing: 'border-box',
           position: 'relative',
           overflow: 'hidden',
+          gap: 12,
         }}
       >
         {loading ? (
@@ -375,93 +380,155 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
               minHeight: 0,
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'space-between',
-              gap: 12,
+              background: 'linear-gradient(180deg, rgba(8, 26, 48, 0.85) 0%, rgba(4, 14, 28, 0.95) 100%)',
+              borderRadius: 22,
+              border: '1.5px solid rgba(56, 189, 248, 0.3)',
+              boxShadow: 'inset 0 0 60px rgba(2, 6, 23, 0.8), 0 12px 40px rgba(0, 0, 0, 0.6)',
+              padding: '16px 20px',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
             }}
           >
-            {/* ── Ocean Sea Surface with Wave Currents ──────────────── */}
+            {/* ── Clean Unified Checkpoints Header on Top (Exact pixel grid alignment!) ── */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+                paddingBottom: 14,
+                marginBottom: 10,
+                borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
+                flexShrink: 0,
+              }}
+            >
+              {/* Left Column matching Team Plate width */}
+              <div
+                style={{
+                  width: 208,
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 10px',
+                  color: '#94a3b8',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: '.06em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                <span>🏴‍☠️ FLEET CREW</span>
+              </div>
+
+              {/* Middle Column matching Sea Lane width exactly */}
+              <div
+                style={{
+                  flex: 1,
+                  position: 'relative',
+                  height: 44,
+                  marginRight: 10,
+                }}
+              >
+                {/* Port Marker (Start 0%) */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    transform: 'translateX(-50%)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>⚓</span>
+                  <span
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 800,
+                      color: '#94a3b8',
+                      letterSpacing: '.06em',
+                      textTransform: 'uppercase',
+                      marginTop: 2,
+                    }}
+                  >
+                    PORT
+                  </span>
+                </div>
+
+                {/* Island Milestones (Each stage exactly aligned!) */}
+                {islands.map((isle, idx) => {
+                  const stepPct = (isle.stage / islands.length) * 100
+                  const isFinalChest = idx === islands.length - 1
+
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        position: 'absolute',
+                        left: `${stepPct}%`,
+                        transform: 'translateX(-50%)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        zIndex: 2,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: isFinalChest ? 22 : 18,
+                          animation: isFinalChest ? 'chest-glow 2s infinite' : 'none',
+                        }}
+                      >
+                        {isFinalChest ? '👑' : isle.icon}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 900,
+                          color: isFinalChest ? '#FFC857' : '#bae6fd',
+                          letterSpacing: '.05em',
+                          textTransform: 'uppercase',
+                          whiteSpace: 'nowrap',
+                          marginTop: 2,
+                          textShadow: isFinalChest ? '0 0 12px rgba(255,200,87,0.8)' : 'none',
+                        }}
+                      >
+                        {isle.name}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Right Column matching Percentage width */}
+              <div
+                style={{
+                  width: 50,
+                  flexShrink: 0,
+                  textAlign: 'right',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  color: '#94a3b8',
+                  letterSpacing: '.06em',
+                }}
+              >
+                PROGRESS
+              </div>
+            </div>
+
+            {/* ── Scrollable Ocean Sea Lanes Container ─────────────── */}
             <div
               style={{
                 flex: 1,
                 minHeight: 0,
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'center',
-                gap: 16,
-                padding: '16px 20px',
-                background: 'linear-gradient(180deg, rgba(8, 28, 52, 0.8) 0%, rgba(4, 16, 32, 0.9) 100%)',
-                borderRadius: 22,
-                border: '1.5px solid rgba(56, 189, 248, 0.3)',
-                boxShadow: 'inset 0 0 60px rgba(2, 6, 23, 0.8), 0 12px 40px rgba(0, 0, 0, 0.6)',
+                justifyContent: 'flex-start',
+                gap: 14,
                 overflowY: 'auto',
-                boxSizing: 'border-box',
+                paddingRight: 4,
               }}
             >
-              {/* Checkpoint Islands Header placed inside track box, aligned with water lanes */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  paddingLeft: 224, // aligns with water channel start
-                  paddingRight: 64,  // aligns with water channel end
-                  marginBottom: 10,
-                  flexShrink: 0,
-                }}
-              >
-                <div style={{ display: 'flex', width: '100%', position: 'relative' }}>
-                  {/* Port Marker */}
-                  <div style={{ position: 'absolute', left: 0, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <span style={{ fontSize: 20 }}>⚓</span>
-                    <span style={{ fontSize: 10.5, fontWeight: 800, color: '#94a3b8', letterSpacing: '.06em', textTransform: 'uppercase' }}>
-                      PORT
-                    </span>
-                  </div>
-
-                  {/* Checkpoint Islands along the channel */}
-                  {islands.map((isle, idx) => {
-                    const stepPct = (isle.stage / islands.length) * 100
-                    const isFinalChest = idx === islands.length - 1
-
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          position: 'absolute',
-                          left: `${stepPct}%`,
-                          transform: 'translateX(-50%)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: isFinalChest ? 24 : 20,
-                            animation: isFinalChest ? 'coin-shine 2s infinite' : 'none',
-                          }}
-                        >
-                          {isFinalChest ? '👑' : isle.icon}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: 10.5,
-                            fontWeight: 900,
-                            color: isFinalChest ? '#FFC857' : '#bae6fd',
-                            letterSpacing: '.06em',
-                            textTransform: 'uppercase',
-                            whiteSpace: 'nowrap',
-                            textShadow: isFinalChest ? '0 0 14px rgba(255,200,87,0.8)' : 'none',
-                          }}
-                        >
-                          {isle.name}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Sailing Ship Lanes */}
               {sailingTeams.map((team, idx) => {
                 const fleet = PIRATE_FLEET[team.initialOrder % PIRATE_FLEET.length]
                 const isLeader = idx === 0 && team.progressPercent > 0
@@ -475,7 +542,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                       alignItems: 'center',
                       gap: 16,
                       height: 72,
-                      minHeight: 64,
+                      minHeight: 72,
                       position: 'relative',
                     }}
                   >
@@ -487,14 +554,14 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                         display: 'flex',
                         alignItems: 'center',
                         gap: 10,
-                        padding: '8px 12px',
+                        padding: '10px 14px',
                         borderRadius: 14,
                         background: isLeader
-                          ? 'linear-gradient(135deg, rgba(255,200,87,0.25), rgba(245,158,11,0.2))'
+                          ? 'linear-gradient(135deg, rgba(255,200,87,0.22), rgba(245,158,11,0.18))'
                           : 'rgba(255, 255, 255, 0.05)',
-                        border: isLeader ? '1.5px solid #FFC857' : '1px solid rgba(56, 189, 248, 0.2)',
+                        border: isLeader ? '1.5px solid #FFC857' : '1px solid rgba(56, 189, 248, 0.25)',
                         boxShadow: isLeader ? '0 0 16px rgba(255,200,87,0.35)' : 'none',
-                        transition: 'all 0.4s ease',
+                        transition: 'all 0.3s ease',
                       }}
                     >
                       {/* Rank Number */}
@@ -502,9 +569,9 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                         style={{
                           fontFamily: "'Fredoka', sans-serif",
                           fontWeight: 900,
-                          fontSize: 16,
+                          fontSize: 17,
                           color: isLeader ? '#FFC857' : '#94a3b8',
-                          width: 22,
+                          width: 24,
                         }}
                       >
                         #{rankNum}
@@ -527,7 +594,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                         >
                           {team.teamName}
                         </div>
-                        <div style={{ fontSize: 11, color: fleet.glow, fontWeight: 600 }}>
+                        <div style={{ fontSize: 11, color: fleet.glow, fontWeight: 700, marginTop: 1 }}>
                           {team.isCompleted
                             ? '💰 Treasure Claimed!'
                             : team.awaitingVerification
@@ -537,22 +604,23 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                       </div>
                     </div>
 
-                    {/* ── Ocean Water Sea Lane (Clipped boundaries avoided!) ── */}
+                    {/* ── Ocean Water Sea Lane (No clipping!) ─────────── */}
                     <div
                       style={{
                         flex: 1,
-                        height: 52,
+                        height: 54,
                         position: 'relative',
                         display: 'flex',
                         alignItems: 'center',
-                        background: 'linear-gradient(90deg, rgba(14, 165, 233, 0.08) 0%, rgba(6, 182, 212, 0.12) 100%)',
+                        background: 'linear-gradient(90deg, rgba(14, 165, 233, 0.09) 0%, rgba(6, 182, 212, 0.15) 100%)',
                         borderRadius: 14,
-                        border: '1px solid rgba(56, 189, 248, 0.2)',
-                        boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.6)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        boxShadow: 'inset 0 2px 10px rgba(0, 0, 0, 0.6)',
                         marginRight: 10,
+                        overflow: 'visible',
                       }}
                     >
-                      {/* Water Wave Current Effect */}
+                      {/* Water Wave Current Pattern */}
                       <div
                         style={{
                           position: 'absolute',
@@ -563,7 +631,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                         }}
                       />
 
-                      {/* Checkpoint Islands along the Channel */}
+                      {/* Checkpoint Island Gates along the Channel */}
                       {islands.map((isle, mIdx) => {
                         const stepPct = (isle.stage / islands.length) * 100
                         const isReached = team.currentMilestone >= isle.stage
@@ -577,9 +645,9 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                               left: `${stepPct}%`,
                               top: 0,
                               bottom: 0,
-                              width: 3,
+                              width: 2,
                               transform: 'translateX(-50%)',
-                              background: isReached ? '#22c55e' : 'rgba(56, 189, 248, 0.3)',
+                              background: isReached ? '#22c55e' : 'rgba(56, 189, 248, 0.35)',
                               boxShadow: isReached ? '0 0 10px #22c55e' : 'none',
                               display: 'flex',
                               alignItems: 'center',
@@ -596,7 +664,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                                 borderRadius: 6,
                                 background: isReached
                                   ? (isFinalIsland ? '#eab308' : '#15803d')
-                                  : 'rgba(15, 23, 42, 0.85)',
+                                  : 'rgba(15, 23, 42, 0.9)',
                                 border: `1.5px solid ${isReached ? (isFinalIsland ? '#fef08a' : '#86efac') : '#38bdf8'}`,
                                 display: 'grid',
                                 placeItems: 'center',
@@ -612,7 +680,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                         )
                       })}
 
-                      {/* Floating Water Wake behind the Boat */}
+                      {/* Water Wake / Trail behind Boat */}
                       <div
                         style={{
                           position: 'absolute',
@@ -623,13 +691,13 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                           width: `${team.progressPercent}%`,
                           background: `linear-gradient(90deg, rgba(6, 182, 212, 0.2) 0%, ${fleet.main}66 100%)`,
                           borderRight: `3px solid ${fleet.glow}`,
-                          boxShadow: `0 0 24px ${fleet.main}`,
-                          transition: 'width 1.4s cubic-bezier(0.34, 1.35, 0.64, 1)',
+                          boxShadow: `0 0 20px ${fleet.main}`,
+                          transition: 'width 1.2s cubic-bezier(0.34, 1.35, 0.64, 1)',
                           zIndex: 2,
                         }}
                       />
 
-                      {/* ── Floating Pirate Ship / Boat on Water (No clipping!) ── */}
+                      {/* ── Floating Pirate Ship on Ocean Channel ──────── */}
                       <div
                         style={{
                           position: 'absolute',
@@ -637,10 +705,11 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                           top: '50%',
                           transform: 'translateY(-50%)',
                           zIndex: 15,
-                          transition: 'left 1.4s cubic-bezier(0.34, 1.35, 0.64, 1)',
+                          transition: 'left 1.2s cubic-bezier(0.34, 1.35, 0.64, 1)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: 6,
+                          overflow: 'visible',
                         }}
                       >
                         {/* Floating Boat Vessel */}
@@ -661,7 +730,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                           {fleet.boat}
                         </div>
 
-                        {/* Ship Docking / Chest Indicator */}
+                        {/* Status Float Indicator */}
                         {team.awaitingVerification ? (
                           <span
                             style={{
@@ -695,7 +764,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                         ) : null}
                       </div>
 
-                      {/* Final Treasure Chest Island on the Right */}
+                      {/* Final Treasure Chest Island Goal */}
                       <div
                         style={{
                           position: 'absolute',
@@ -717,7 +786,7 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                       </div>
                     </div>
 
-                    {/* Right Voyage Completion Percentage */}
+                    {/* Right Voyage Progress Percentage */}
                     <div
                       style={{
                         width: 50,
@@ -734,6 +803,48 @@ export default function PirateTreasureHuntPage({ params }: { params: { eventId: 
                   </div>
                 )
               })}
+
+              {/* Bottom Quick Ocean Stats if few teams (fills empty space elegantly) */}
+              {sailingTeams.length <= 2 && leaderTeam && (
+                <div
+                  style={{
+                    marginTop: 20,
+                    padding: '16px 20px',
+                    borderRadius: 16,
+                    background: 'rgba(56, 189, 248, 0.05)',
+                    border: '1px dashed rgba(56, 189, 248, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-around',
+                    color: '#94a3b8',
+                    fontSize: 13,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 24 }}>🧭</span>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#38bdf8' }}>Current Fleet Leader</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{leaderTeam.teamName}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 24 }}>🏝️</span>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#38bdf8' }}>Current Location</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>
+                        {leaderTeam.isCompleted ? 'Treasure Island' : `Island ${leaderTeam.currentMilestone} of ${totalStages}`}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 24 }}>👑</span>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#FFC857' }}>Voyage Goal</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: '#FFC857' }}>Golden Treasure Chest</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
