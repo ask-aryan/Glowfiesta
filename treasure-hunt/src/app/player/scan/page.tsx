@@ -53,36 +53,40 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
   const [uploading, setUploading] = useState(false)
   const streamRef = useRef<MediaStream | null>(null)
 
-  useEffect(() => {
-    let mounted = true
-
+  const startCamera = async () => {
     if (typeof window === 'undefined' || !navigator?.mediaDevices?.getUserMedia) {
       setCamError('Camera access is not supported by this browser or connection. Please use Chrome/Safari over HTTPS.')
       return
     }
 
     try {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-        .then(stream => {
-          if (!mounted) {
-            stream.getTracks().forEach(t => t.stop())
-            return
-          }
-          streamRef.current = stream
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream
-            videoRef.current.play().catch(() => {})
-          }
-        })
-        .catch(err => {
-          if (!mounted) return
-          console.warn('Camera error:', err)
-          setCamError('Camera access denied or unavailable. Please allow camera permission and try again.')
-        })
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: false,
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        try {
+          await videoRef.current.play()
+        } catch {
+          // ignore play rejection
+        }
+      }
+      setCamError('')
     } catch (err) {
-      console.warn('getUserMedia synchronous error:', err)
-      setCamError('Camera could not be started.')
+      console.warn('Camera error:', err)
+      setCamError('Camera access denied or unavailable. Please allow camera permission and try again.')
     }
+  }
+
+  useEffect(() => {
+    let mounted = true
+    startCamera()
 
     return () => {
       mounted = false
@@ -115,7 +119,18 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
     }
   }
 
-  function retake() { setPreview(false); setPreviewUrl('') }
+  function retake() {
+    setPreview(false)
+    setPreviewUrl('')
+    if (videoRef.current && streamRef.current && streamRef.current.active) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current
+      }
+      videoRef.current.play().catch(() => {})
+    } else {
+      startCamera()
+    }
+  }
 
   async function confirm() {
     setUploading(true)
@@ -127,6 +142,7 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
       })
     } catch { /* non-blocking — proceed even if upload fails */ }
     streamRef.current?.getTracks().forEach(t => t.stop())
+    streamRef.current = null
     setUploading(false)
     onConfirm(previewUrl)
   }
@@ -178,9 +194,20 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
         <>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div style={{ position: 'relative', width: 260, height: 320, borderRadius: '50% / 46%', overflow: 'hidden', border: `3px solid ${preview ? '#22c55e' : '#FF6B35'}`, background: 'rgba(10,4,20,.6)', boxShadow: '0 0 30px rgba(255,107,53,.35)', display: 'grid', placeItems: 'center' }}>
-              {!preview ? (
-                <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} muted playsInline />
-              ) : (
+              <video
+                ref={videoRef}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  transform: 'scaleX(-1)',
+                  display: preview ? 'none' : 'block',
+                }}
+                muted
+                playsInline
+                autoPlay
+              />
+              {preview && (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={previewUrl} alt="selfie" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

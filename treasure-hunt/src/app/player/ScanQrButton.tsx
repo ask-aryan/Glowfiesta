@@ -28,8 +28,8 @@ export default function ScanQrButton({
     ? 'PAUSED'
     : isLive
     ? isFinal
-      ? '🏆 SCAN FINAL QR'
-      : 'SCAN QR'
+      ? '🏆 TAKE SELFIE & FINAL QR'
+      : 'TAKE SELFIE THEN SCAN QR'
     : eventStatus === 'COMPLETED'
     ? '🏁 HUNT HAS ENDED'
     : eventStatus === 'READY'
@@ -47,12 +47,13 @@ export default function ScanQrButton({
         gap: 10,
         width: '100%',
         height: 52,
+        padding: '0 16px',
         border: isFinal ? '2px solid #FFC857' : 'none',
         borderRadius: 16,
         fontFamily: 'Fredoka, sans-serif',
         fontWeight: 700,
-        fontSize: 18,
-        letterSpacing: '.06em',
+        fontSize: 16,
+        letterSpacing: '.03em',
         color: '#fff',
         cursor: disabled ? 'not-allowed' : 'pointer',
         background: isLive
@@ -84,18 +85,36 @@ export default function ScanQrButton({
         </>
       ) : (
         <>
-          <svg
-            width={24}
-            height={24}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.75}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10" />
-          </svg>
+          {isLive ? (
+            <svg
+              width={22}
+              height={22}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ flexShrink: 0 }}
+            >
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+          ) : (
+            <svg
+              width={22}
+              height={22}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ flexShrink: 0 }}
+            >
+              <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10" />
+            </svg>
+          )}
           <span>{buttonLabel}</span>
         </>
       )}
