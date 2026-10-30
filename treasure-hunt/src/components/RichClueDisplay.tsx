@@ -10,14 +10,14 @@ interface MediaItem {
   type: 'gdrive' | 'youtube' | 'video' | 'image'
   embedUrl: string
   originalUrl: string
+  fileId?: string
 }
 
-function parseClueMedia(text: string): { displayText: string; media: MediaItem[]; isExplicitHorizontal: boolean } {
-  if (!text) return { displayText: '', media: [], isExplicitHorizontal: false }
+function parseClueMedia(text: string): { displayText: string; media: MediaItem[] } {
+  if (!text) return { displayText: '', media: [] }
 
-  const isExplicitHorizontal = /#(?:horizontal|landscape|16:9|widescreen)/i.test(text)
   const media: MediaItem[] = []
-  let workingText = text.replace(/#(?:horizontal|landscape|vertical|16:9|widescreen)/gi, '').trim()
+  let workingText = text
 
   // 1. Detect Google Drive links (file/d/<id> or open?id=<id>)
   const gdriveRegex = /https?:\/\/drive\.google\.com\/(?:file\/d\/([a-zA-Z0-9_-]+)(?:\/[^\s]*)?|open\?id=([a-zA-Z0-9_-]+)[^\s]*)/gi
@@ -27,6 +27,7 @@ function parseClueMedia(text: string): { displayText: string; media: MediaItem[]
     if (fileId) {
       media.push({
         type: 'gdrive',
+        fileId,
         embedUrl: `https://drive.google.com/file/d/${fileId}/preview`,
         originalUrl: match[0],
       })
@@ -70,124 +71,110 @@ function parseClueMedia(text: string): { displayText: string; media: MediaItem[]
     workingText = workingText.replace(match[0], '').trim()
   }
 
-  return { displayText: workingText, media, isExplicitHorizontal }
+  return { displayText: workingText, media }
 }
 
-function VideoEmbedCard({ item, defaultVertical, idx }: { item: MediaItem; defaultVertical: boolean; idx: number }) {
-  // Default to vertical (portrait) for phone videos unless horizontal is explicitly chosen
-  const [aspect, setAspect] = useState<'vertical' | 'horizontal'>(defaultVertical ? 'vertical' : 'horizontal')
-  const isVert = aspect === 'vertical'
+function GDriveVideoPlayer({ item }: { item: MediaItem }) {
+  // Use native HTML5 video first to avoid Google's clunky iframe overlay controls on mobile
+  const [useIframe, setUseIframe] = useState(false)
+  const directStreamUrl = item.fileId
+    ? `https://drive.google.com/uc?id=${item.fileId}&export=download`
+    : item.originalUrl
 
   return (
     <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* Aspect Ratio Toggle Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          maxWidth: isVert ? 260 : 480,
-          marginBottom: 6,
-          transition: 'max-width 0.25s ease',
-        }}
-      >
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#ffd9b8', letterSpacing: '.06em', textTransform: 'uppercase' }}>
-          🎬 Video Clue
-        </span>
-
-        {/* 1-Tap Toggle between Vertical and Landscape */}
+      {!useIframe ? (
+        // Native HTML5 Video Player: Sleek, non-intrusive controls, respects natural aspect ratio
         <div
           style={{
-            display: 'flex',
-            gap: 2,
-            background: 'rgba(0, 0, 0, 0.4)',
-            padding: 2,
-            borderRadius: 8,
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            position: 'relative',
+            width: '100%',
+            maxWidth: 420,
+            borderRadius: 14,
+            overflow: 'hidden',
+            background: '#000',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+            border: '2px solid rgba(255, 200, 87, 0.45)',
           }}
         >
-          <button
-            type="button"
-            onClick={() => setAspect('vertical')}
-            title="Vertical Phone / Reel (9:16)"
+          <video
+            src={directStreamUrl}
+            controls
+            playsInline
+            preload="metadata"
+            onError={() => setUseIframe(true)}
             style={{
-              padding: '3px 8px',
-              borderRadius: 6,
-              fontSize: 10.5,
-              fontWeight: 700,
-              border: 'none',
-              cursor: 'pointer',
-              background: isVert ? '#FFC857' : 'transparent',
-              color: isVert ? '#260c3c' : '#ffd9b8',
-              transition: 'all .15s ease',
+              width: '100%',
+              maxHeight: 'min(360px, 45vh)',
+              display: 'block',
+              borderRadius: 12,
+              background: '#000',
+              objectFit: 'contain',
             }}
-          >
-            📱 Vertical
-          </button>
-          <button
-            type="button"
-            onClick={() => setAspect('horizontal')}
-            title="Landscape / Widescreen (16:9)"
-            style={{
-              padding: '3px 8px',
-              borderRadius: 6,
-              fontSize: 10.5,
-              fontWeight: 700,
-              border: 'none',
-              cursor: 'pointer',
-              background: !isVert ? '#FFC857' : 'transparent',
-              color: !isVert ? '#260c3c' : '#ffd9b8',
-              transition: 'all .15s ease',
-            }}
-          >
-            🖥️ 16:9
-          </button>
+          />
         </div>
-      </div>
-
-      {/* Frame Container */}
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          maxWidth: isVert ? 260 : 480,
-          aspectRatio: isVert ? '9/16' : '16/9',
-          maxHeight: isVert ? 'min(360px, 45vh)' : 'min(240px, 32vh)',
-          borderRadius: 14,
-          overflow: 'hidden',
-          background: '#000',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-          border: '2px solid rgba(255, 200, 87, 0.45)',
-          transition: 'all 0.25s ease',
-        }}
-      >
-        <iframe
-          src={item.embedUrl}
-          title={`Clue Video ${idx + 1}`}
+      ) : (
+        // Fallback Iframe Player in clean 16:9 widescreen so controls don't bunch up
+        <div
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
+            position: 'relative',
             width: '100%',
-            height: '100%',
-            border: 0,
+            maxWidth: 460,
+            aspectRatio: '16/9',
+            maxHeight: 'min(280px, 38vh)',
+            borderRadius: 14,
+            overflow: 'hidden',
+            background: '#000',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+            border: '2px solid rgba(255, 200, 87, 0.45)',
           }}
-          allow="autoplay; encrypted-media; fullscreen"
-          allowFullScreen
-        />
-      </div>
+        >
+          <iframe
+            src={item.embedUrl}
+            title="Clue Video"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              border: 0,
+            }}
+            allow="autoplay; encrypted-media; fullscreen"
+            allowFullScreen
+          />
+        </div>
+      )}
 
-      {/* Direct Open Link */}
+      {/* Helpful control links */}
       <div
         style={{
           display: 'flex',
-          justifyContent: 'center',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           width: '100%',
-          maxWidth: isVert ? 260 : 480,
+          maxWidth: 420,
           marginTop: 6,
+          padding: '0 2px',
         }}
       >
+        <button
+          type="button"
+          onClick={() => setUseIframe(v => !v)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#ffd9b8',
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: 'pointer',
+            padding: 0,
+            textDecoration: 'underline',
+          }}
+        >
+          {useIframe ? '↶ Use Native Player' : 'Having trouble? Use Drive player'}
+        </button>
+
         <a
           href={item.originalUrl}
           target="_blank"
@@ -206,7 +193,7 @@ function VideoEmbedCard({ item, defaultVertical, idx }: { item: MediaItem; defau
             border: '1px solid rgba(255, 200, 87, 0.25)',
           }}
         >
-          <span>{item.type === 'gdrive' ? '📁 Open in Google Drive' : '▶ Open in YouTube'}</span>
+          <span>📁 Open in Drive App</span>
           <span>↗</span>
         </a>
       </div>
@@ -223,7 +210,7 @@ export default function RichClueDisplay({ text, fallbackText }: RichClueDisplayP
     )
   }
 
-  const { displayText, media, isExplicitHorizontal } = parseClueMedia(text)
+  const { displayText, media } = parseClueMedia(text)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
@@ -237,23 +224,76 @@ export default function RichClueDisplay({ text, fallbackText }: RichClueDisplayP
       {/* Embedded Media Players */}
       {media.map((item, idx) => (
         <div key={idx} style={{ width: '100%', marginTop: displayText ? 4 : 0 }}>
-          {item.type === 'gdrive' || item.type === 'youtube' ? (
-            <VideoEmbedCard
-              item={item}
-              defaultVertical={!isExplicitHorizontal}
-              idx={idx}
-            />
+          {item.type === 'gdrive' ? (
+            <GDriveVideoPlayer item={item} />
+          ) : item.type === 'youtube' ? (
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div
+                style={{
+                  position: 'relative',
+                  width: '100%',
+                  maxWidth: 460,
+                  aspectRatio: '16/9',
+                  maxHeight: 'min(280px, 38vh)',
+                  borderRadius: 14,
+                  overflow: 'hidden',
+                  background: '#000',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+                  border: '2px solid rgba(255, 200, 87, 0.45)',
+                }}
+              >
+                <iframe
+                  src={item.embedUrl}
+                  title={`YouTube Clue ${idx + 1}`}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    border: 0,
+                  }}
+                  allow="autoplay; encrypted-media; fullscreen"
+                  allowFullScreen
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', maxWidth: 460, marginTop: 6 }}>
+                <a
+                  href={item.originalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: '#FFC857',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '3px 9px',
+                    borderRadius: 7,
+                    background: 'rgba(255, 200, 87, 0.1)',
+                    border: '1px solid rgba(255, 200, 87, 0.25)',
+                  }}
+                >
+                  <span>▶ Open in YouTube</span>
+                  <span>↗</span>
+                </a>
+              </div>
+            </div>
           ) : item.type === 'video' ? (
             <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
               <video
                 controls
+                playsInline
                 src={item.embedUrl}
                 style={{
                   width: '100%',
-                  maxWidth: 260,
+                  maxWidth: 400,
                   maxHeight: 'min(360px, 45vh)',
                   borderRadius: 14,
                   background: '#000',
+                  objectFit: 'contain',
                   border: '2px solid rgba(255, 200, 87, 0.45)',
                 }}
               />
