@@ -265,7 +265,7 @@ export default async function PlayerPage() {
               ) : isFinalClueStage ? (
                 <>
                   <div style={{ fontSize: 11, color: '#ffd9b8', marginTop: 8 }}>Your final clue:</div>
-                  <div style={{ background: 'rgba(255,200,87,.12)', borderRadius: 12, padding: '12px 14px', borderLeft: '3px solid #FFC857', marginTop: 6 }}>
+                  <div style={{ background: 'rgba(255,200,87,.12)', borderRadius: 12, padding: '12px 14px', borderLeft: '3px solid #FFC857', marginTop: 6, maxHeight: 'min(440px, 48vh)', overflowY: 'auto' }}>
                     <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 500, fontSize: 16, lineHeight: 1.35, color: '#fff' }}>
                       <RichClueDisplay
                         text={finalClue?.clueText}
@@ -320,7 +320,7 @@ export default async function PlayerPage() {
               ) : currentClue ? (
                 <>
                   <div style={{ fontSize: 11, color: '#ffd9b8', marginTop: 8 }}>Your clue:</div>
-                  <div style={{ background: 'rgba(255,255,255,.07)', borderRadius: 12, padding: '10px 14px', borderLeft: '3px solid #FFC857', marginTop: 6 }}>
+                  <div style={{ background: 'rgba(255,255,255,.07)', borderRadius: 12, padding: '10px 14px', borderLeft: '3px solid #FFC857', marginTop: 6, maxHeight: 'min(440px, 48vh)', overflowY: 'auto' }}>
                     <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 500, fontSize: 16, lineHeight: 1.35, color: '#fff' }}>
                       <RichClueDisplay
                         text={currentClue.clueText}
