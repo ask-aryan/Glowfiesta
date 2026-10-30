@@ -43,9 +43,33 @@ export default function HostBuzzerRoomPage() {
   const [copied, setCopied] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
+  // QR Code state
+  const [qrDataUrl, setQrDataUrl] = useState('')
+  const [showQrModal, setShowQrModal] = useState(false)
+
   // Timer state
   const [elapsedMs, setElapsedMs] = useState(0)
   const prevBuzzesCountRef = useRef(0)
+
+  // Generate QR Code for the shared link
+  useEffect(() => {
+    if (typeof window === 'undefined' || !roomCode) return
+    const shareUrl = `${window.location.origin}/buzzer/${roomCode}`
+    import('qrcode')
+      .then(QRCode => {
+        QRCode.toDataURL(shareUrl, {
+          width: 360,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#ffffff',
+          },
+        })
+          .then(url => setQrDataUrl(url))
+          .catch(() => {})
+      })
+      .catch(() => {})
+  }, [roomCode])
 
   // Initialize host key from URL query or localStorage
   useEffect(() => {
@@ -331,6 +355,28 @@ export default function HostBuzzerRoomPage() {
             }}
           >
             <span>{copied ? '✓ LINK COPIED!' : '📋 COPY PARTICIPANT LINK'}</span>
+          </button>
+
+          {/* QR Code button */}
+          <button
+            onClick={() => setShowQrModal(true)}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 12,
+              background: 'rgba(255,200,87,0.14)',
+              border: '1.5px solid rgba(255,200,87,0.45)',
+              color: '#FFC857',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              transition: 'all .15s ease',
+            }}
+          >
+            <span>📱</span>
+            <span>SHOW QR CODE</span>
           </button>
 
           {/* Stage badge */}
@@ -702,6 +748,110 @@ export default function HostBuzzerRoomPage() {
           )}
         </section>
 
+        {/* SHARE & QR CODE SECTION */}
+        <section
+          style={{
+            background: 'linear-gradient(145deg, rgba(255,200,87,0.06), rgba(255,107,53,0.03))',
+            border: '1.5px solid rgba(255,200,87,0.3)',
+            borderRadius: 20,
+            padding: '20px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 16,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            {qrDataUrl && (
+              <div
+                onClick={() => setShowQrModal(true)}
+                title="Click to enlarge QR code"
+                style={{
+                  width: 100,
+                  height: 100,
+                  borderRadius: 14,
+                  background: '#fff',
+                  padding: 6,
+                  display: 'grid',
+                  placeItems: 'center',
+                  cursor: 'pointer',
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+                  flexShrink: 0,
+                  transition: 'transform .15s ease',
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrDataUrl}
+                  alt="Join Party QR Code"
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              </div>
+            )}
+            <div>
+              <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 18, fontWeight: 700, color: '#FFC857' }}>
+                Share with Participants
+              </div>
+              <div style={{ fontSize: 13, color: '#e5d9f2', margin: '4px 0 8px' }}>
+                Players can scan the QR code with their camera or open the party link:
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span
+                  style={{
+                    fontFamily: 'Fredoka, monospace',
+                    fontSize: 14,
+                    color: '#fff',
+                    background: 'rgba(0,0,0,0.4)',
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(255,255,255,0.1)',
+                  }}
+                >
+                  {typeof window !== 'undefined' ? `${window.location.origin}/buzzer/${roomCode}` : ''}
+                </span>
+                <button
+                  onClick={handleCopyShareLink}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    background: copied ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    color: copied ? '#4ade80' : '#fff',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {copied ? '✓ COPIED' : 'COPY'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowQrModal(true)}
+            style={{
+              padding: '10px 20px',
+              borderRadius: 14,
+              border: 0,
+              background: 'linear-gradient(135deg, #FFC857, #FFA23A)',
+              color: '#000',
+              fontFamily: 'Fredoka, sans-serif',
+              fontWeight: 800,
+              fontSize: 14,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              boxShadow: '0 6px 18px rgba(255,200,87,0.35)',
+            }}
+          >
+            <span>📱</span>
+            <span>PROJECT QR CODE FULLSCREEN</span>
+          </button>
+        </section>
+
         {/* CONNECTED TEAMS DRAWER */}
         <section
           style={{
@@ -749,6 +899,162 @@ export default function HostBuzzerRoomPage() {
           )}
         </section>
       </main>
+
+      {/* FULLSCREEN QR CODE MODAL FOR AUDIENCE / PROJECTOR */}
+      {showQrModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5,1,10,0.92)',
+            backdropFilter: 'blur(16px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            zIndex: 1000,
+            animation: 'pop .25s ease-out',
+          }}
+          onClick={e => {
+            if (e.target === e.currentTarget) setShowQrModal(false)
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 440,
+              background: 'linear-gradient(145deg, #240a38 0%, #110220 100%)',
+              border: '2px solid rgba(255,200,87,0.5)',
+              borderRadius: 28,
+              padding: '32px 28px',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.8), 0 0 40px rgba(255,200,87,0.2)',
+              color: '#fff',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              position: 'relative',
+            }}
+          >
+            <button
+              onClick={() => setShowQrModal(false)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                background: 'rgba(255,255,255,0.1)',
+                border: 0,
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                color: '#fff',
+                fontSize: 18,
+                cursor: 'pointer',
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              ✕
+            </button>
+
+            <div style={{ fontSize: 32, marginBottom: 6 }}>📱</div>
+            <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 24, fontWeight: 800, margin: '0 0 6px', color: '#FFC857' }}>
+              Scan to Join Party!
+            </h3>
+            <div style={{ fontSize: 14, color: '#ffd9b8', marginBottom: 20 }}>
+              Point your phone camera at the screen to slam the buzzer
+            </div>
+
+            {qrDataUrl && (
+              <div
+                style={{
+                  background: '#fff',
+                  padding: 14,
+                  borderRadius: 20,
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.6)',
+                  marginBottom: 20,
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrDataUrl}
+                  alt="Join Party QR"
+                  style={{ width: 280, height: 280, display: 'block', borderRadius: 8 }}
+                />
+              </div>
+            )}
+
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,200,87,0.3)',
+                borderRadius: 14,
+                padding: '10px 18px',
+                width: '100%',
+                boxSizing: 'border-box',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#ffd9b8', letterSpacing: '.08em' }}>
+                ROOM CODE
+              </div>
+              <div
+                style={{
+                  fontFamily: 'Fredoka, monospace',
+                  fontSize: 28,
+                  fontWeight: 800,
+                  color: '#FFC857',
+                  letterSpacing: '.12em',
+                }}
+              >
+                {roomCode}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+              <button
+                onClick={handleCopyShareLink}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 14,
+                  border: '1.5px solid rgba(255,255,255,0.2)',
+                  background: copied ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.1)',
+                  color: copied ? '#4ade80' : '#fff',
+                  fontFamily: 'Fredoka, sans-serif',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <span>{copied ? '✓ COPIED' : '📋 COPY LINK'}</span>
+              </button>
+
+              <button
+                onClick={() => setShowQrModal(false)}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 14,
+                  border: 0,
+                  background: 'linear-gradient(135deg, #FF9E2C, #FF6B35)',
+                  color: '#fff',
+                  fontFamily: 'Fredoka, sans-serif',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

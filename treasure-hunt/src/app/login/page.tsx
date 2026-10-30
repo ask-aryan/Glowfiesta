@@ -15,6 +15,57 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [kb, setKb] = useState(false)
 
+  // Modals for Join & Host Party
+  const [showJoinModal, setShowJoinModal] = useState(false)
+  const [showHostModal, setShowHostModal] = useState(false)
+  const [partyCode, setPartyCode] = useState('')
+  const [partyTeam, setPartyTeam] = useState('')
+  const [hostTitle, setHostTitle] = useState('')
+  const [partyActionLoading, setPartyActionLoading] = useState(false)
+  const [partyModalError, setPartyModalError] = useState('')
+
+  function handleJoinPartySubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const code = partyCode.trim().toUpperCase()
+    const team = partyTeam.trim()
+    if (!code) {
+      setPartyModalError('Please enter a party code')
+      return
+    }
+    if (!team) {
+      setPartyModalError('Please enter your team name')
+      return
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`buzzer_team_${code}`, team)
+    }
+    router.push(`/buzzer/${code}`)
+  }
+
+  async function handleHostPartySubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setPartyActionLoading(true)
+    setPartyModalError('')
+    try {
+      const res = await fetch('/api/buzzer/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: hostTitle.trim() }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to create party')
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`buzzer_host_${data.roomCode}`, data.hostKey)
+      }
+      router.push(`/buzzer/${data.roomCode}/host?key=${encodeURIComponent(data.hostKey)}`)
+    } catch (err: any) {
+      setPartyModalError(err.message || 'Failed to create party')
+      setPartyActionLoading(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -51,8 +102,75 @@ function LoginForm() {
         boxSizing: 'border-box',
         background: 'linear-gradient(135deg, #1a0533 0%, #3d1a00 50%, #FF6B35 150%)',
         fontFamily: 'Inter, system-ui, sans-serif',
+        position: 'relative',
       }}
     >
+      {/* Top Right Party Actions */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          zIndex: 40,
+        }}
+      >
+        <button
+          onClick={() => {
+            setPartyModalError('')
+            setShowJoinModal(true)
+          }}
+          style={{
+            padding: '8px 16px',
+            borderRadius: 999,
+            background: 'rgba(239,68,68,0.22)',
+            border: '1.5px solid rgba(239,68,68,0.5)',
+            color: '#fca5a5',
+            fontFamily: 'Fredoka, sans-serif',
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+            transition: 'all .15s ease',
+          }}
+        >
+          <span>🎮</span>
+          <span>Join a Party</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setPartyModalError('')
+            setShowHostModal(true)
+          }}
+          style={{
+            padding: '8px 16px',
+            borderRadius: 999,
+            background: 'rgba(255,158,44,0.22)',
+            border: '1.5px solid rgba(255,158,44,0.5)',
+            color: '#FFB854',
+            fontFamily: 'Fredoka, sans-serif',
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+            transition: 'all .15s ease',
+          }}
+        >
+          <span>👑</span>
+          <span>Host a Party</span>
+        </button>
+      </div>
       <div
         style={{
           display: 'flex',
@@ -318,6 +436,305 @@ function LoginForm() {
           </div>
         </div>
       </div>
+
+      {/* JOIN PARTY MODAL */}
+      {showJoinModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5,1,10,0.85)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            zIndex: 100,
+            animation: 'pop .2s ease-out',
+          }}
+          onClick={e => {
+            if (e.target === e.currentTarget) setShowJoinModal(false)
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              background: 'linear-gradient(145deg, #240a38 0%, #110220 100%)',
+              border: '1.5px solid rgba(239,68,68,0.4)',
+              borderRadius: 24,
+              padding: '28px 24px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
+              color: '#fff',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 26 }}>🎮</span>
+                <div>
+                  <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 20, fontWeight: 700, margin: 0 }}>
+                    Join a Party
+                  </h3>
+                  <div style={{ fontSize: 12, color: '#ffd9b8' }}>Slam the buzzer with your team</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowJoinModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 0,
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  color: '#fff',
+                  fontSize: 16,
+                  cursor: 'pointer',
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {partyModalError && (
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#fca5a5', fontSize: 13, marginBottom: 14 }}>
+                {partyModalError}
+              </div>
+            )}
+
+            <form onSubmit={handleJoinPartySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#e5d9f2', marginBottom: 6 }}>
+                  PARTY / ROOM CODE
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 8K2M9P"
+                  value={partyCode}
+                  onChange={e => setPartyCode(e.target.value.toUpperCase())}
+                  maxLength={10}
+                  autoFocus
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    border: '1.5px solid rgba(255,255,255,0.2)',
+                    background: 'rgba(10,3,20,0.6)',
+                    color: '#FFC857',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 18,
+                    fontWeight: 700,
+                    letterSpacing: '.08em',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    textTransform: 'uppercase',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#e5d9f2', marginBottom: 6 }}>
+                  TEAM / PLAYER NAME
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Thunderbolts"
+                  value={partyTeam}
+                  onChange={e => setPartyTeam(e.target.value)}
+                  maxLength={40}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    border: '1.5px solid rgba(255,255,255,0.2)',
+                    background: 'rgba(10,3,20,0.6)',
+                    color: '#fff',
+                    fontSize: 15,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowJoinModal(false)}
+                  style={{
+                    flex: 1,
+                    height: 46,
+                    borderRadius: 12,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    background: 'transparent',
+                    color: '#ccc',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 15,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 2,
+                    height: 46,
+                    borderRadius: 12,
+                    border: 0,
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    color: '#fff',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 6px 20px rgba(239,68,68,0.4)',
+                  }}
+                >
+                  Join Party 🚨
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* HOST PARTY MODAL */}
+      {showHostModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(5,1,10,0.85)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+            zIndex: 100,
+            animation: 'pop .2s ease-out',
+          }}
+          onClick={e => {
+            if (e.target === e.currentTarget) setShowHostModal(false)
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 400,
+              background: 'linear-gradient(145deg, #240a38 0%, #110220 100%)',
+              border: '1.5px solid rgba(255,158,44,0.4)',
+              borderRadius: 24,
+              padding: '28px 24px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
+              color: '#fff',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 26 }}>👑</span>
+                <div>
+                  <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 20, fontWeight: 700, margin: 0 }}>
+                    Host a Party
+                  </h3>
+                  <div style={{ fontSize: 12, color: '#ffd9b8' }}>Create your live trivia room</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowHostModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 0,
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  color: '#fff',
+                  fontSize: 16,
+                  cursor: 'pointer',
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {partyModalError && (
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#fca5a5', fontSize: 13, marginBottom: 14 }}>
+                {partyModalError}
+              </div>
+            )}
+
+            <form onSubmit={handleHostPartySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#e5d9f2', marginBottom: 6 }}>
+                  PARTY TITLE (OPTIONAL)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Diwali Quiz Finals"
+                  value={hostTitle}
+                  onChange={e => setHostTitle(e.target.value)}
+                  maxLength={60}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    border: '1.5px solid rgba(255,255,255,0.2)',
+                    background: 'rgba(10,3,20,0.6)',
+                    color: '#fff',
+                    fontSize: 15,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowHostModal(false)}
+                  style={{
+                    flex: 1,
+                    height: 46,
+                    borderRadius: 12,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    background: 'transparent',
+                    color: '#ccc',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 15,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={partyActionLoading}
+                  style={{
+                    flex: 2,
+                    height: 46,
+                    borderRadius: 12,
+                    border: 0,
+                    background: 'linear-gradient(135deg, #FF9E2C, #FF6B35)',
+                    color: '#fff',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    cursor: partyActionLoading ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 6px 20px rgba(255,107,53,0.4)',
+                  }}
+                >
+                  {partyActionLoading ? 'Creating…' : 'Create Party 🚀'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
