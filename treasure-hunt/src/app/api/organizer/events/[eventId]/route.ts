@@ -49,11 +49,13 @@ export async function PATCH(
   })
   if (!event) return NextResponse.json({ error: 'Event not found' }, { status: 404 })
 
-  const { name, description, teamCount, stagesPerTeam, membersPerTeam, hasCommonFinalQr, startsAt, endsAt } = parsed.data
+  const { name, description, teamCount, stagesPerTeam, membersPerTeam, hasCommonFinalQr, maxHintsPerTeam, hintDelayMinutes, startsAt, endsAt } = parsed.data
 
   const updateData: Record<string, unknown> = {}
   if (name !== undefined) updateData.name = name.trim()
   if (description !== undefined) updateData.description = description ? description.trim() : null
+  if (maxHintsPerTeam !== undefined) updateData.maxHintsPerTeam = maxHintsPerTeam
+  if (hintDelayMinutes !== undefined) updateData.hintDelayMinutes = hintDelayMinutes
   if (startsAt !== undefined) updateData.startsAt = startsAt ? new Date(startsAt) : null
   if (endsAt !== undefined) updateData.endsAt = endsAt ? new Date(endsAt) : null
 

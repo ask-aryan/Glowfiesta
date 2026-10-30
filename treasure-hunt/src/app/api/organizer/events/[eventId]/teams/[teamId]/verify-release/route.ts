@@ -44,13 +44,27 @@ export async function POST(
     return NextResponse.json({ error: 'Code does not match — check again' }, { status: 400 })
   }
 
+  const now = new Date()
+
   await prisma.teamStageProgress.update({
     where: { id: progress.id },
     data: {
       status: 'NEXT_CLUE_RELEASED',
       verifiedBy: session!.userId!,
-      verifiedAt: new Date(),
-      nextClueReleasedAt: new Date(),
+      verifiedAt: now,
+      nextClueReleasedAt: now,
+    },
+  })
+
+  // Stamp start time for the newly unlocked stage so hint timer begins
+  await prisma.teamStageProgress.updateMany({
+    where: {
+      teamId,
+      stageNumber: stageNumber + 1,
+      stageStartedAt: null,
+    },
+    data: {
+      stageStartedAt: now,
     },
   })
 

@@ -13,6 +13,8 @@ interface Props {
     stagesPerTeam: number
     membersPerTeam?: number | null
     hasCommonFinalQr?: boolean
+    maxHintsPerTeam?: number
+    hintDelayMinutes?: number
   }
   triggerLabel?: string
   isIconOnly?: boolean
@@ -36,6 +38,8 @@ export default function EditEventModal({
     stagesPerTeam: initialData.stagesPerTeam,
     membersPerTeam: initialData.membersPerTeam || 4,
     hasCommonFinalQr: initialData.hasCommonFinalQr ?? true,
+    maxHintsPerTeam: initialData.maxHintsPerTeam ?? 2,
+    hintDelayMinutes: initialData.hintDelayMinutes ?? 5,
   })
 
   const [saving, setSaving] = useState(false)
@@ -65,6 +69,8 @@ export default function EditEventModal({
       stagesPerTeam: initialData.stagesPerTeam,
       membersPerTeam: initialData.membersPerTeam || 4,
       hasCommonFinalQr: initialData.hasCommonFinalQr ?? true,
+      maxHintsPerTeam: initialData.maxHintsPerTeam ?? 2,
+      hintDelayMinutes: initialData.hintDelayMinutes ?? 5,
     })
     setErr('')
     setOpen(true)
@@ -83,6 +89,11 @@ export default function EditEventModal({
     const payload: Record<string, unknown> = {
       name: form.name.trim(),
       description: form.description.trim() || null,
+    }
+
+    if (!isScoreGame) {
+      payload.maxHintsPerTeam = Number(form.maxHintsPerTeam)
+      payload.hintDelayMinutes = Number(form.hintDelayMinutes)
     }
 
     if (isDraft) {
@@ -398,15 +409,46 @@ export default function EditEventModal({
                   </div>
 
                   {!isScoreGame && (
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#334155', cursor: 'pointer', marginTop: 6 }}>
-                      <input
-                        type="checkbox"
-                        checked={form.hasCommonFinalQr}
-                        onChange={e => setForm(f => ({ ...f, hasCommonFinalQr: e.target.checked }))}
-                        style={{ width: 16, height: 16, accentColor: '#FF6B35' }}
-                      />
-                      <span>Include a <strong>Common Final QR Code</strong> for all teams</span>
-                    </label>
+                    <>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: '#334155', cursor: 'pointer', marginTop: 6 }}>
+                        <input
+                          type="checkbox"
+                          checked={form.hasCommonFinalQr}
+                          onChange={e => setForm(f => ({ ...f, hasCommonFinalQr: e.target.checked }))}
+                          style={{ width: 16, height: 16, accentColor: '#FF6B35' }}
+                        />
+                        <span>Include a <strong>Common Final QR Code</strong> for all teams</span>
+                      </label>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                            MAX HINTS / TEAM
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={10}
+                            value={form.maxHintsPerTeam}
+                            onChange={e => setForm(f => ({ ...f, maxHintsPerTeam: parseInt(e.target.value) || 0 }))}
+                            style={{ width: '100%', borderRadius: 8, border: '1px solid #cbd5e1', padding: '7px 10px', fontSize: 13, boxSizing: 'border-box' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                            HINT DELAY (MINUTES)
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={120}
+                            value={form.hintDelayMinutes}
+                            onChange={e => setForm(f => ({ ...f, hintDelayMinutes: parseInt(e.target.value) || 0 }))}
+                            style={{ width: '100%', borderRadius: 8, border: '1px solid #cbd5e1', padding: '7px 10px', fontSize: 13, boxSizing: 'border-box' }}
+                          />
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               )}

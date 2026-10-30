@@ -129,6 +129,8 @@ export default async function EventDetailPage({
                 <span><strong>{event.stagesPerTeam}</strong> Stages/Team</span>
                 <span>·</span>
                 <span>{event.hasCommonFinalQr ? '🎯 Common Final QR Included' : 'Team-Only QR'}</span>
+                <span>·</span>
+                <span>💡 {event.maxHintsPerTeam ?? 2} Hints/Team ({event.hintDelayMinutes ?? 5}m delay)</span>
               </>
             ) : (
               <span><strong>{event.membersPerTeam || 4}</strong> Members/Team</span>
@@ -148,6 +150,8 @@ export default async function EventDetailPage({
             stagesPerTeam: event.stagesPerTeam,
             membersPerTeam: event.membersPerTeam,
             hasCommonFinalQr: event.hasCommonFinalQr,
+            maxHintsPerTeam: event.maxHintsPerTeam ?? 2,
+            hintDelayMinutes: event.hintDelayMinutes ?? 5,
           }}
           triggerLabel="⚙️ Manage Settings"
         />

@@ -8,6 +8,8 @@ export const createEventSchema = z.object({
   stagesPerTeam: z.number().int().min(0).max(20).default(5),
   membersPerTeam: z.number().int().min(1).max(50).default(4),
   hasCommonFinalQr: z.boolean().default(true),
+  maxHintsPerTeam: z.number().int().min(0).max(20).default(2),
+  hintDelayMinutes: z.number().int().min(0).max(180).default(5),
   startsAt: z.string().datetime().optional(),
   endsAt: z.string().datetime().optional(),
 })
@@ -19,6 +21,8 @@ export const updateEventSchema = z.object({
   stagesPerTeam: z.number().int().min(0).max(20).optional(),
   membersPerTeam: z.number().int().min(1).max(50).optional(),
   hasCommonFinalQr: z.boolean().optional(),
+  maxHintsPerTeam: z.number().int().min(0).max(20).optional(),
+  hintDelayMinutes: z.number().int().min(0).max(180).optional(),
   startsAt: z.string().datetime().optional().nullable(),
   endsAt: z.string().datetime().optional().nullable(),
 })
@@ -46,4 +50,8 @@ export const createClueSchema = z.object({
 export const verifyReleaseSchema = z.object({
   reportedCode: z.string().length(4),
   stageNumber: z.number().int(),
+})
+
+export const requestHintSchema = z.object({
+  stageNumber: z.number().int().min(1),
 })

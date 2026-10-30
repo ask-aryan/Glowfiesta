@@ -12,6 +12,8 @@ export default function CreateEventPanel() {
   const [membersPerTeam, setMembersPerTeam] = useState(4)
   const [stagesPerTeam, setStagesPerTeam] = useState(5)
   const [hasCommonFinalQr, setHasCommonFinalQr] = useState(true)
+  const [maxHintsPerTeam, setMaxHintsPerTeam] = useState(2)
+  const [hintDelayMinutes, setHintDelayMinutes] = useState(5)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -27,6 +29,8 @@ export default function CreateEventPanel() {
       membersPerTeam,
       stagesPerTeam: gameType === 'TREASURE_HUNT' ? stagesPerTeam : 0,
       hasCommonFinalQr: gameType === 'TREASURE_HUNT' ? hasCommonFinalQr : false,
+      maxHintsPerTeam: gameType === 'TREASURE_HUNT' ? maxHintsPerTeam : 0,
+      hintDelayMinutes: gameType === 'TREASURE_HUNT' ? hintDelayMinutes : 0,
     }
 
     try {
@@ -248,6 +252,32 @@ export default function CreateEventPanel() {
                     />
                     <span style={{ fontWeight: 500, fontSize: 13 }}>Has common final QR code</span>
                   </label>
+
+                  {/* Hint Settings */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 10 }}>
+                    <div>
+                      <label style={labelStyle}>Max Hints / Team</label>
+                      <input
+                        type="number"
+                        style={inputStyle}
+                        min={0}
+                        max={10}
+                        value={maxHintsPerTeam}
+                        onChange={e => setMaxHintsPerTeam(parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Hint Delay (Minutes)</label>
+                      <input
+                        type="number"
+                        style={inputStyle}
+                        min={0}
+                        max={120}
+                        value={hintDelayMinutes}
+                        onChange={e => setHintDelayMinutes(parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+                  </div>
                 </>
               )}
             </form>

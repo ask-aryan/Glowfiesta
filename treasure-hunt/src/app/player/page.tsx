@@ -6,13 +6,24 @@ import ScanQrButton from './ScanQrButton'
 import PlayerAutoRefresh from './PlayerAutoRefresh'
 import PlayerRefreshButton from './PlayerRefreshButton'
 import RichClueDisplay from '@/components/RichClueDisplay'
+import HintCard from './HintCard'
 
 async function getTeamInfo(teamId: number) {
   const { prisma } = await import('@/lib/db')
   return prisma.team.findUnique({
     where: { id: teamId },
     include: {
-      event: { select: { name: true, status: true, stagesPerTeam: true, hasCommonFinalQr: true } },
+      event: {
+        select: {
+          name: true,
+          status: true,
+          stagesPerTeam: true,
+          hasCommonFinalQr: true,
+          maxHintsPerTeam: true,
+          hintDelayMinutes: true,
+          startsAt: true,
+        },
+      },
       stageProgress: { orderBy: { stageNumber: 'asc' } },
     },
   })
@@ -132,6 +143,27 @@ export default async function PlayerPage() {
     : null
 
   const finalClue = isFinalClueStage ? await getCommonFinalClue(team.eventId) : null
+
+  // Hints eligibility: final and final-1 stages do not get hints
+  const isEligibleStage = Boolean(
+    !isFinalClueStage &&
+    currentStageProgress &&
+    (team.event.hasCommonFinalQr
+      ? currentStageProgress.stageNumber <= totalStages - 1
+      : currentStageProgress.stageNumber <= totalStages - 2)
+  )
+
+  const prevStageProgress = currentStageProgress
+    ? team.stageProgress.find(p => p.stageNumber === currentStageProgress.stageNumber - 1)
+    : null
+
+  const stageStartTime =
+    currentStageProgress?.stageStartedAt ??
+    (currentStageProgress?.stageNumber === 1
+      ? (team.event.startsAt ?? team.createdAt)
+      : prevStageProgress?.nextClueReleasedAt ?? team.createdAt)
+
+  const totalHintsUsed = team.stageProgress.filter(p => p.usedHint).length
 
   return (
     <div style={{ height: '100dvh', maxHeight: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'linear-gradient(135deg,#1a0533,#3d1a00,#FF6B35 200%)', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
@@ -328,6 +360,19 @@ export default async function PlayerPage() {
                       />
                     </div>
                   </div>
+
+                  {isEligibleStage && currentStageProgress && (
+                    <HintCard
+                      stageNumber={currentStageProgress.stageNumber}
+                      isEligibleStage={isEligibleStage}
+                      usedHintOnThisStage={Boolean(currentStageProgress.usedHint)}
+                      hintsUsedTotal={totalHintsUsed}
+                      maxHints={team.event.maxHintsPerTeam ?? 2}
+                      hintDelayMinutes={team.event.hintDelayMinutes ?? 5}
+                      stageStartTimeIso={new Date(stageStartTime).toISOString()}
+                      teamName={team.teamName}
+                    />
+                  )}
                 </>
               ) : (
                 <>

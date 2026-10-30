@@ -112,6 +112,8 @@ export default async function OrganizerPage() {
                   stagesPerTeam={ev.stagesPerTeam}
                   membersPerTeam={ev.membersPerTeam}
                   hasCommonFinalQr={ev.hasCommonFinalQr}
+                  maxHintsPerTeam={ev.maxHintsPerTeam}
+                  hintDelayMinutes={ev.hintDelayMinutes}
                 />
               </div>
             )

@@ -1,5 +1,5 @@
 import { loginSchema } from '@/lib/validation/auth'
-import { createEventSchema, createTeamSchema, createClueSchema } from '@/lib/validation/event'
+import { createEventSchema, createTeamSchema, createClueSchema, requestHintSchema } from '@/lib/validation/event'
 
 describe('loginSchema', () => {
   test('accepts valid credentials', () => {
@@ -11,7 +11,7 @@ describe('loginSchema', () => {
 })
 
 describe('createEventSchema', () => {
-  const valid = { name: 'Hunt', teamCount: 5, stagesPerTeam: 5, hasCommonFinalQr: true }
+  const valid = { name: 'Hunt', teamCount: 5, stagesPerTeam: 5, hasCommonFinalQr: true, maxHintsPerTeam: 2, hintDelayMinutes: 5 }
   test('accepts valid event', () => {
     expect(createEventSchema.safeParse(valid).success).toBe(true)
   })
@@ -20,6 +20,15 @@ describe('createEventSchema', () => {
   })
   test('rejects stagesPerTeam > 20', () => {
     expect(createEventSchema.safeParse({ ...valid, stagesPerTeam: 21 }).success).toBe(false)
+  })
+})
+
+describe('requestHintSchema', () => {
+  test('accepts valid stage number', () => {
+    expect(requestHintSchema.safeParse({ stageNumber: 2 }).success).toBe(true)
+  })
+  test('rejects stage number <= 0', () => {
+    expect(requestHintSchema.safeParse({ stageNumber: 0 }).success).toBe(false)
   })
 })
 

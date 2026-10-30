@@ -76,10 +76,30 @@ export async function POST(
     }
   }
 
+  const isGoingLive = transition.nextStatus === 'LIVE'
+  const now = new Date()
+
   const updated = await prisma.event.update({
     where: { id: eventId },
-    data: { status: transition.nextStatus },
+    data: {
+      status: transition.nextStatus,
+      ...(isGoingLive && !event.startsAt ? { startsAt: now } : {}),
+    },
   })
+
+  if (isGoingLive) {
+    // Stamp stage 1 start time for all teams so hint countdown begins
+    await prisma.teamStageProgress.updateMany({
+      where: {
+        eventId,
+        stageNumber: 1,
+        stageStartedAt: null,
+      },
+      data: {
+        stageStartedAt: now,
+      },
+    })
+  }
 
   await writeAudit({
     eventId,

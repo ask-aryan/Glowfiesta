@@ -19,6 +19,8 @@ interface Props {
   stagesPerTeam?: number
   membersPerTeam?: number | null
   hasCommonFinalQr?: boolean
+  maxHintsPerTeam?: number
+  hintDelayMinutes?: number
 }
 
 export default function EventRowActions({
@@ -31,6 +33,8 @@ export default function EventRowActions({
   stagesPerTeam = 5,
   membersPerTeam = 4,
   hasCommonFinalQr = true,
+  maxHintsPerTeam = 2,
+  hintDelayMinutes = 5,
 }: Props) {
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
@@ -62,6 +66,8 @@ export default function EventRowActions({
           stagesPerTeam,
           membersPerTeam,
           hasCommonFinalQr,
+          maxHintsPerTeam,
+          hintDelayMinutes,
         }}
       />
       <button

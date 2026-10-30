@@ -12,10 +12,17 @@ export async function GET(
   const eventId = parseInt(params.eventId)
   if (isNaN(eventId)) return NextResponse.json({ error: 'Invalid event ID' }, { status: 400 })
 
-  const [event, teams] = await Promise.all([
+  const [event, teams, clues] = await Promise.all([
     prisma.event.findUnique({
       where: { id: eventId },
-      select: { id: true, name: true, status: true, stagesPerTeam: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        stagesPerTeam: true,
+        maxHintsPerTeam: true,
+        hintDelayMinutes: true,
+      },
     }),
     prisma.team.findMany({
       where: { eventId },
@@ -24,6 +31,15 @@ export async function GET(
         scanHistory: { orderBy: { scannedAt: 'desc' }, take: 1 },
       },
       orderBy: { createdAt: 'asc' },
+    }),
+    prisma.clue.findMany({
+      where: { eventId },
+      select: {
+        teamId: true,
+        stageNumber: true,
+        clueText: true,
+        resultCode: true,
+      },
     }),
   ])
 
@@ -41,6 +57,19 @@ export async function GET(
       .filter(p => p.status === 'COMPLETED' && p.completedAt)
       .sort((a, b) => (b.completedAt!.getTime() - a.completedAt!.getTime()))[0]?.completedAt ?? null
 
+    const hintsUsed = team.stageProgress.filter(p => p.usedHint).length
+    const activeHintStages = team.stageProgress
+      .filter(p => p.usedHint && p.status !== 'COMPLETED' && p.status !== 'NEXT_CLUE_RELEASED')
+      .map(p => {
+        const clue = clues.find(c => (c.teamId === team.id || c.teamId === null) && c.stageNumber === p.stageNumber)
+        return {
+          stageNumber: p.stageNumber,
+          hintRequestedAt: p.hintRequestedAt,
+          clueText: clue?.clueText ?? null,
+          resultCode: clue?.resultCode ?? null,
+        }
+      })
+
     return {
       teamId: team.id,
       teamName: team.teamName,
@@ -52,11 +81,19 @@ export async function GET(
       awaitingVerification,
       pendingStages: pendingStages.map(p => p.stageNumber),
       completedAt,
+      hintsUsed,
+      activeHintStages,
     }
   })
 
   return NextResponse.json({
-    event: event ? { id: event.id, name: event.name, status: event.status } : null,
+    event: event ? {
+      id: event.id,
+      name: event.name,
+      status: event.status,
+      maxHintsPerTeam: event.maxHintsPerTeam,
+      hintDelayMinutes: event.hintDelayMinutes,
+    } : null,
     teams: result,
     stagesPerTeam: event?.stagesPerTeam ?? 5,
   })

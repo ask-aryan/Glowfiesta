@@ -1,6 +1,13 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 
+interface ActiveHintStage {
+  stageNumber: number
+  hintRequestedAt: string | null
+  clueText: string | null
+  resultCode: string | null
+}
+
 interface TeamProgress {
   teamId: number
   teamName: string
@@ -12,12 +19,16 @@ interface TeamProgress {
   awaitingVerification: boolean
   pendingStages: number[]
   completedAt: string | null
+  hintsUsed?: number
+  activeHintStages?: ActiveHintStage[]
 }
 
 interface EventData {
   id: number
   name: string
   status: 'DRAFT' | 'READY' | 'LIVE' | 'PAUSED' | 'COMPLETED' | string
+  maxHintsPerTeam?: number
+  hintDelayMinutes?: number
 }
 
 const COLORS = ['#FF6B35', '#3b82f6', '#8b5cf6', '#10b981', '#ec4899', '#f59e0b']
@@ -620,6 +631,12 @@ export default function ProgressPage({ params }: { params: { eventId: string } }
             <div style={{ color: '#64748b', fontSize: 11, fontWeight: 700, letterSpacing: '.05em' }}>COMPLETED</div>
             <div style={{ fontWeight: 700, fontSize: 16, marginTop: 2, color: '#16a34a' }}>{teams.filter(t => t.status === 'COMPLETED').length}</div>
           </div>
+          <div>
+            <div style={{ color: '#64748b', fontSize: 11, fontWeight: 700, letterSpacing: '.05em' }}>HINTS CONFIG</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginTop: 2, color: '#ca8a04' }}>
+              {eventData?.maxHintsPerTeam ?? 2} / team ({eventData?.hintDelayMinutes ?? 5}m delay)
+            </div>
+          </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 16, alignItems: 'center', color: '#64748b', fontSize: 12, flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#22c55e' }} />Completed</span>
             <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#FF6B35' }} />Current</span>
@@ -638,6 +655,78 @@ export default function ProgressPage({ params }: { params: { eventId: string } }
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Active Clue Hint Requests Banner for Reception */}
+          {teams.filter(t => t.activeHintStages && t.activeHintStages.length > 0).length > 0 && (
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)',
+                border: '2px solid #facc15',
+                borderRadius: 16,
+                padding: '16px 20px',
+                marginBottom: 6,
+                boxShadow: '0 4px 18px rgba(234, 179, 8, 0.16)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 24 }}>💡</span>
+                <div>
+                  <div style={{ fontWeight: 800, color: '#854d0e', fontSize: 16 }}>
+                    Reception Clue Hints Desk ({teams.filter(t => t.activeHintStages && t.activeHintStages.length > 0).length} Active Request)
+                  </div>
+                  <div style={{ fontSize: 12, color: '#a16207' }}>
+                    Teams who requested a hint and need verbal assistance at the reception desk.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {teams.filter(t => t.activeHintStages && t.activeHintStages.length > 0).map(t => (
+                  <div
+                    key={t.teamId}
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: 12,
+                      border: '1.5px solid #fde047',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>{t.teamName}</span>
+                        <span style={{ background: '#fef08a', color: '#854d0e', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999 }}>
+                          Stage {t.activeHintStages?.map(h => h.stageNumber).join(', ')}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#b45309' }}>
+                        Hints used: {t.hintsUsed ?? 0} of {eventData?.maxHintsPerTeam ?? 2}
+                      </span>
+                    </div>
+
+                    {t.activeHintStages?.map(hint => (
+                      <div key={hint.stageNumber} style={{ fontSize: 13, color: '#334155', background: '#f8fafc', padding: '8px 12px', borderRadius: 8, marginTop: 4 }}>
+                        <div>
+                          <strong style={{ color: '#475569' }}>Clue: </strong>
+                          <span>{hint.clueText || 'No clue text written'}</span>
+                        </div>
+                        {hint.resultCode && (
+                          <div style={{ marginTop: 4 }}>
+                            <strong style={{ color: '#475569' }}>Target Result Code: </strong>
+                            <code style={{ background: '#e2e8f0', padding: '2px 6px', borderRadius: 4, fontWeight: 700, color: '#0f172a' }}>
+                              {hint.resultCode}
+                            </code>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {sorted.map((team, idx) => {
             const isLead = idx === 0 && team.currentStage > (sorted[1]?.currentStage ?? -1)
             const color = COLORS[idx % COLORS.length]
@@ -707,8 +796,8 @@ export default function ProgressPage({ params }: { params: { eventId: string } }
                     <StageBar team={team} stagesPerTeam={stagesPerTeam} />
                   </div>
 
-                  {/* Column 4: Status Indicator */}
-                  <div style={{ textAlign: 'right' }}>
+                  {/* Column 4: Status Indicator & Hints */}
+                  <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                     {awaiting ? (
                       <span
                         style={{
@@ -735,6 +824,12 @@ export default function ProgressPage({ params }: { params: { eventId: string } }
                         Stage {team.currentStage} of {stagesPerTeam}
                       </span>
                     )}
+
+                    {/* Hint status badge */}
+                    <div style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span>💡</span>
+                      <span>{team.hintsUsed ?? 0}/{eventData?.maxHintsPerTeam ?? 2} hints</span>
+                    </div>
                   </div>
                 </div>
 
