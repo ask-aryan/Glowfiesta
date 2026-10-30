@@ -293,6 +293,29 @@ function LoginForm() {
           >
             {loading ? 'Signing in…' : 'Enter the Hunt'}
           </button>
+
+          <div style={{ marginTop: 16, textAlign: 'center' }}>
+            <a
+              href="/buzzer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 16px',
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,200,87,0.3)',
+                color: '#FFC857',
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: 'none',
+                transition: 'all .15s ease',
+              }}
+            >
+              <span>⚡</span>
+              <span>Live Game Buzzer (No Login)</span>
+            </a>
+          </div>
         </div>
       </div>
     </div>
