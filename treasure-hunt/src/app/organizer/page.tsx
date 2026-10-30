@@ -4,6 +4,10 @@ import { getSession } from '@/lib/auth'
 import CreateEventPanel from './CreateEventForm'
 import EventRowActions from './EventRowActions'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+
 const STATUS_STYLE: Record<string, { bg: string; fg: string; dot: string }> = {
   DRAFT:     { bg: '#f1f5f9', fg: '#475569', dot: '#94a3b8' },
   READY:     { bg: '#dbeafe', fg: '#1d4ed8', dot: '#3b82f6' },

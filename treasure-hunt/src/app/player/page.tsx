@@ -8,6 +8,10 @@ import PlayerRefreshButton from './PlayerRefreshButton'
 import RichClueDisplay from '@/components/RichClueDisplay'
 import HintCard from './HintCard'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+
 async function getTeamInfo(teamId: number) {
   const { prisma } = await import('@/lib/db')
   return prisma.team.findUnique({
