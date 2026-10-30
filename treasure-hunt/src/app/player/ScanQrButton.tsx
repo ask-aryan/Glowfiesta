@@ -28,8 +28,8 @@ export default function ScanQrButton({
     ? 'PAUSED'
     : isLive
     ? isFinal
-      ? '🏆 TAKE SELFIE & FINAL QR'
-      : 'TAKE SELFIE THEN SCAN QR'
+      ? '🏆 TEAM SELFIE & FINAL QR'
+      : 'TEAM SELFIE & SCAN QR'
     : eventStatus === 'COMPLETED'
     ? '🏁 HUNT HAS ENDED'
     : eventStatus === 'READY'
