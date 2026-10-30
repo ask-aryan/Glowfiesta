@@ -10,7 +10,8 @@
     "test": "jest",
     "db:use-supabase": "node scripts/switch-db.mjs supabase",
     "db:use-mysql": "node scripts/switch-db.mjs mysql",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
