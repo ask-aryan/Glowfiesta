@@ -15,6 +15,7 @@
 
 # production
 /build
+/publish_iis/
 
 # misc
 .DS_Store
