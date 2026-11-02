@@ -170,6 +170,30 @@ function LoginForm() {
           <span>👑</span>
           <span>Host a Party</span>
         </button>
+
+        <a
+          href="/poll"
+          style={{
+            padding: '8px 16px',
+            borderRadius: 999,
+            background: 'rgba(168,85,247,0.22)',
+            border: '1.5px solid rgba(168,85,247,0.5)',
+            color: '#d8b4fe',
+            fontFamily: 'Fredoka, sans-serif',
+            fontSize: 14,
+            fontWeight: 700,
+            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+            transition: 'all .15s ease',
+          }}
+        >
+          <span>📊</span>
+          <span>Live Polls</span>
+        </a>
       </div>
       <div
         style={{
@@ -412,14 +436,14 @@ function LoginForm() {
             {loading ? 'Signing in…' : 'Enter the Hunt'}
           </button>
 
-          <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
             <a
               href="/buzzer"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                padding: '8px 16px',
+                padding: '8px 14px',
                 borderRadius: 999,
                 background: 'rgba(255,255,255,0.08)',
                 border: '1px solid rgba(255,200,87,0.3)',
@@ -431,7 +455,28 @@ function LoginForm() {
               }}
             >
               <span>⚡</span>
-              <span>Live Game Buzzer (No Login)</span>
+              <span>Game Buzzer</span>
+            </a>
+
+            <a
+              href="/poll"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 14px',
+                borderRadius: 999,
+                background: 'rgba(168,85,247,0.14)',
+                border: '1px solid rgba(168,85,247,0.4)',
+                color: '#d8b4fe',
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: 'none',
+                transition: 'all .15s ease',
+              }}
+            >
+              <span>📊</span>
+              <span>Live Polls & Awards</span>
             </a>
           </div>
         </div>
