@@ -38,6 +38,11 @@ class ScannerErrorBoundary extends Component<{ children: ReactNode }, { hasError
 interface ScanResult {
   success: boolean
   message: string
+  title?: string
+  hint?: string
+  reason?: 'WRONG_TEAM' | 'WRONG_SEQUENCE' | 'ALREADY_SCANNED' | 'INVALID_QR' | 'EVENT_NOT_LIVE' | 'FUN_DIWALI'
+  isFunDiwali?: boolean
+  assignedTeamName?: string | null
   resultCode?: string
   final?: boolean
   isLastStage?: boolean
@@ -602,18 +607,223 @@ function ScanPageInner() {
       </div>
     )
 
-    // Failed
-    return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#4a0a14,#8a1426)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 32, fontFamily: 'Inter, system-ui, sans-serif', color: '#fff', animation: 'slideUp .45s cubic-bezier(.2,.8,.2,1)' }}>
-        <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,.14)', border: '2px solid #ff8a8a', display: 'grid', placeItems: 'center', marginBottom: 22, animation: 'pop .5s .15s both' }}>
-          <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3.2} strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    // Fun Diwali Decoy QR
+    if (result.isFunDiwali) {
+      return (
+        <div
+          style={{
+            minHeight: '100vh',
+            background: 'radial-gradient(ellipse at 50% 20%, #4a154b 0%, #200438 60%, #0d0118 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: 32,
+            fontFamily: 'Inter, system-ui, sans-serif',
+            color: '#fff',
+            animation: 'slideUp .45s cubic-bezier(.2,.8,.2,1)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Ambient Glows */}
+          <div style={{ position: 'absolute', top: -50, width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,200,87,0.22), transparent 70%)', pointerEvents: 'none' }} />
+
+          <div
+            style={{
+              width: 88,
+              height: 88,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, rgba(255,200,87,0.25), rgba(255,107,53,0.3))',
+              border: '2.5px solid #FFC857',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 48,
+              marginBottom: 18,
+              boxShadow: '0 0 40px rgba(255,200,87,0.5)',
+              animation: 'pop .5s .15s both',
+            }}
+          >
+            🪔
+          </div>
+
+          <div
+            style={{
+              fontFamily: 'Fredoka, sans-serif',
+              fontWeight: 800,
+              fontSize: 28,
+              background: 'linear-gradient(135deg, #ffffff 40%, #FFC857 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              marginBottom: 10,
+            }}
+          >
+            {result.title || 'Happy Diwali! 🎉'}
+          </div>
+
+          <div
+            style={{
+              fontSize: 16,
+              color: '#ffd9b8',
+              maxWidth: 320,
+              lineHeight: 1.6,
+              margin: '0 0 20px',
+              whiteSpace: 'pre-line',
+            }}
+          >
+            {result.message}
+          </div>
+
+          <div
+            style={{
+              background: 'rgba(255,200,87,0.12)',
+              border: '1px solid rgba(255,200,87,0.35)',
+              borderRadius: 14,
+              padding: '12px 18px',
+              maxWidth: 320,
+              fontSize: 13,
+              color: '#FFC857',
+              marginBottom: 28,
+              lineHeight: 1.45,
+            }}
+          >
+            🕵️ <b>Decoy Found!</b> This is a festive prank QR. Check your clue to find your real team QR!
+          </div>
+
+          <button
+            onClick={() => { setResult(null); setSelfieDone(false) }}
+            style={{
+              width: '100%',
+              maxWidth: 300,
+              height: 54,
+              borderRadius: 16,
+              border: 0,
+              background: 'linear-gradient(135deg,#FFA23A,#FF6B35 60%,#e8431a)',
+              color: '#fff',
+              fontFamily: 'Fredoka, sans-serif',
+              fontWeight: 700,
+              fontSize: 18,
+              cursor: 'pointer',
+              boxShadow: '0 8px 28px rgba(255,107,53,.5)',
+              marginBottom: 14,
+            }}
+          >
+            Keep Hunting 🔍
+          </button>
+          <Link href="/player" style={{ color: '#ffd9b8', fontSize: 14 }}>Back to Dashboard</Link>
         </div>
-        <div style={{ fontFamily: 'Fredoka, sans-serif', fontWeight: 700, fontSize: 24, marginBottom: 12 }}>Oops!</div>
-        <div style={{ fontSize: 17, color: '#ffd0d0', maxWidth: 300, lineHeight: 1.5, margin: '0 0 34px' }}>{result.message}</div>
-        <button onClick={() => { setResult(null); setSelfieDone(false) }} style={{ width: '100%', maxWidth: 300, height: 54, borderRadius: 16, border: 0, background: '#fff', color: '#8a1426', fontFamily: 'Fredoka, sans-serif', fontWeight: 600, fontSize: 18, cursor: 'pointer', marginBottom: 12 }}>
-          Try Again
+      )
+    }
+
+    // Friendly non-red Error Screen (Wrong Team, Wrong Sequence, Already Scanned, Invalid QR)
+    const isWrongTeam = result.reason === 'WRONG_TEAM'
+    const isWrongSeq = result.reason === 'WRONG_SEQUENCE'
+    const isAlready = result.reason === 'ALREADY_SCANNED'
+
+    const errorIcon = isWrongTeam ? '🕵️‍♂️' : isWrongSeq ? '⏳' : isAlready ? '🔄' : '🧭'
+    const errorTitle = result.title || (isWrongTeam ? "Another Team's Clue! 🕵️" : "Wrong QR Code 🧭")
+
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: 'radial-gradient(ellipse at 50% 25%, #2c1244 0%, #16062a 55%, #080112 100%)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: 32,
+          fontFamily: 'Inter, system-ui, sans-serif',
+          color: '#fff',
+          animation: 'slideUp .45s cubic-bezier(.2,.8,.2,1)',
+          position: 'relative',
+        }}
+      >
+        <div
+          style={{
+            width: 80,
+            height: 80,
+            borderRadius: '50%',
+            background: isWrongTeam
+              ? 'rgba(255,162,58,0.18)'
+              : 'rgba(168,85,247,0.18)',
+            border: `2px solid ${isWrongTeam ? '#FFA23A' : '#c084fc'}`,
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 40,
+            marginBottom: 20,
+            boxShadow: `0 0 30px ${isWrongTeam ? 'rgba(255,162,58,0.35)' : 'rgba(168,85,247,0.35)'}`,
+            animation: 'pop .5s .15s both',
+          }}
+        >
+          {errorIcon}
+        </div>
+
+        <div
+          style={{
+            fontFamily: 'Fredoka, sans-serif',
+            fontWeight: 800,
+            fontSize: 24,
+            color: '#FFC857',
+            marginBottom: 10,
+          }}
+        >
+          {errorTitle}
+        </div>
+
+        <div
+          style={{
+            fontSize: 16,
+            color: '#e2d5f0',
+            maxWidth: 320,
+            lineHeight: 1.5,
+            margin: '0 0 18px',
+          }}
+        >
+          {result.message}
+        </div>
+
+        {result.hint && (
+          <div
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              borderRadius: 14,
+              padding: '12px 18px',
+              maxWidth: 320,
+              fontSize: 13,
+              color: '#ffd9b8',
+              marginBottom: 28,
+              lineHeight: 1.45,
+            }}
+          >
+            💡 <b>Tip:</b> {result.hint}
+          </div>
+        )}
+
+        <button
+          onClick={() => { setResult(null); setSelfieDone(false) }}
+          style={{
+            width: '100%',
+            maxWidth: 300,
+            height: 54,
+            borderRadius: 16,
+            border: 0,
+            background: 'linear-gradient(135deg,#FFA23A,#FF6B35 60%,#e8431a)',
+            color: '#fff',
+            fontFamily: 'Fredoka, sans-serif',
+            fontWeight: 700,
+            fontSize: 18,
+            cursor: 'pointer',
+            boxShadow: '0 8px 28px rgba(255,107,53,.45)',
+            marginBottom: 14,
+          }}
+        >
+          Scan Again 📷
         </button>
-        <Link href="/player" style={{ color: '#ffd0d0', fontSize: 14 }}>Back to Dashboard</Link>
+        <Link href="/player" style={{ color: '#ffd9b8', fontSize: 14 }}>Back to Dashboard</Link>
       </div>
     )
   }

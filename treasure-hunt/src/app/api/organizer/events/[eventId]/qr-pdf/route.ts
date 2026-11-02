@@ -28,14 +28,6 @@ export async function GET(
     return NextResponse.json({ error: 'No QR codes found. Generate them first.' }, { status: 400 })
   }
 
-  // We need token values — but we only stored hashes.
-  // For PDF generation we'll generate a scan URL using the tokenHash as a placeholder
-  // Actually we need to re-derive URLs. Since we only have hashes, we'll use a display-only PDF
-  // with QR codes encoding the hash-based lookup URL pattern.
-  // Note: In production, tokens should be stored or derived differently.
-  // For this MVP, we encode the tokenHash as the scan token (so the scan endpoint must accept tokenHash directly)
-  // or we add a separate "token" column. Since schema has tokenHash only, we'll use it as the URL token.
-
   // Build PDF
   const doc = new PDFDocument({ size: 'A4', margin: 30 })
   const passThrough = new PassThrough()
@@ -65,8 +57,18 @@ export async function GET(
     // Card border
     doc.rect(x + 4, y + 4, cardWidth - 8, cardHeight - 8).stroke()
 
-    const teamName = qr.qrType === 'COMMON_FINAL' ? 'COMMON FINAL' : (qr.assignedTeam?.teamName ?? 'Unknown Team')
-    const stageLabel = qr.qrType === 'COMMON_FINAL' ? 'Final' : `Stage ${qr.stageNumber}`
+    const isFunDiwali = qr.tokenHash.startsWith('fun_diwali_') || (qr.assignedTeamId === null && qr.stageNumber === null && qr.qrType === 'TEAM_STAGE')
+    const teamName = isFunDiwali
+      ? 'FUN DUMMY DECOY'
+      : qr.qrType === 'COMMON_FINAL'
+      ? 'COMMON FINAL'
+      : (qr.assignedTeam?.teamName ?? 'Unknown Team')
+
+    const stageLabel = isFunDiwali
+      ? 'Happy Diwali Surprise'
+      : qr.qrType === 'COMMON_FINAL'
+      ? 'Final'
+      : `Stage ${qr.stageNumber}`
 
     // Team name
     doc
@@ -98,26 +100,22 @@ export async function GET(
       const qrY = y + 60
 
       doc.image(imgBuffer, qrX, qrY, { width: qrSize, height: qrSize })
-    } catch {
-      doc.fontSize(8).text('[QR generation error]', x + 10, y + 60)
+    } catch (err) {
+      console.warn('Notice: PDF QR image generation error:', err)
     }
   }
 
   doc.end()
 
-  // Wait for PDF to finish
-  await new Promise<void>((resolve, reject) => {
-    passThrough.on('end', resolve)
+  const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
+    passThrough.on('end', () => resolve(Buffer.concat(chunks)))
     passThrough.on('error', reject)
   })
 
-  const pdfBuffer = Buffer.concat(chunks)
-
-  return new NextResponse(pdfBuffer, {
-    status: 200,
+  return new NextResponse(pdfBuffer as any, {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="qr-codes-event-${eventId}.pdf"`,
+      'Content-Disposition': `attachment; filename="qr-codes-${event.name.toLowerCase().replace(/\s+/g, '-')}.pdf"`,
       'Content-Length': String(pdfBuffer.length),
     },
   })

@@ -5,32 +5,57 @@ import { useRouter } from 'next/navigation'
 export default function QrActions({ eventId, hasExistingQr }: { eventId: number; hasExistingQr: boolean }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [dummyLoading, setDummyLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
   async function handleGenerate(force = false) {
     const msg = force
-      ? 'This will DELETE all existing QR codes and regenerate fresh ones. All printed QRs will stop working. Continue?'
-      : 'Generate QR codes for all teams and stages?'
+      ? 'This will DELETE all existing QR codes and regenerate fresh ones (including festive Dummy Diwali QRs). All printed QRs will stop working. Continue?'
+      : 'Generate QR codes for all teams, stages, and festive Dummy Diwali QRs?'
     if (!confirm(msg)) return
     setLoading(true); setError(''); setSuccess('')
-    const res = await fetch(`/api/organizer/events/${eventId}/generate-qr`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ force }),
-    })
-    const data = await res.json()
-    setLoading(false)
-    if (!res.ok) { setError(data.error ?? 'Failed to generate QR codes'); return }
-    setSuccess(`Generated ${data.created} QR codes!`)
-    router.refresh()
+    try {
+      const res = await fetch(`/api/organizer/events/${eventId}/generate-qr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? 'Failed to generate QR codes'); return }
+      setSuccess(`Generated ${data.created} QR codes (including Diwali decoys)!`)
+      router.refresh()
+    } catch {
+      setError('Network error generating QR codes')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleAddDummyDiwali() {
+    setDummyLoading(true); setError(''); setSuccess('')
+    try {
+      const res = await fetch(`/api/organizer/events/${eventId}/generate-qr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addDummy: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? 'Failed to add dummy QR'); return }
+      setSuccess('Added a new Fun Dummy Diwali Decoy QR!')
+      router.refresh()
+    } catch {
+      setError('Network error adding dummy QR')
+    } finally {
+      setDummyLoading(false)
+    }
   }
 
   return (
     <div>
       {error && <div style={{ background: '#fee2e2', color: '#b91c1c', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 13 }}>{error}</div>}
       {success && <div style={{ background: '#dcfce7', color: '#15803d', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 13 }}>{success}</div>}
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {!hasExistingQr ? (
           <button
             onClick={() => handleGenerate(false)}
@@ -42,21 +67,38 @@ export default function QrActions({ eventId, hasExistingQr }: { eventId: number;
               cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? 'Generating…' : 'Generate QR Codes'}
+            {loading ? 'Generating…' : 'Generate QR Codes (With Diwali Decoys)'}
           </button>
         ) : (
-          <button
-            onClick={() => handleGenerate(true)}
-            disabled={loading}
-            style={{
-              background: '#fff', color: '#b91c1c',
-              border: '1px solid #fca5a5',
-              borderRadius: 8, padding: '9px 14px', fontWeight: 600, fontSize: 13,
-              cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading ? 'Regenerating…' : '↺ Regenerate QR Codes'}
-          </button>
+          <>
+            <button
+              onClick={() => handleGenerate(true)}
+              disabled={loading || dummyLoading}
+              style={{
+                background: '#fff', color: '#b91c1c',
+                border: '1px solid #fca5a5',
+                borderRadius: 8, padding: '9px 14px', fontWeight: 600, fontSize: 13,
+                cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? 'Regenerating…' : '↺ Regenerate All QRs'}
+            </button>
+
+            <button
+              onClick={handleAddDummyDiwali}
+              disabled={loading || dummyLoading}
+              style={{
+                background: '#fef3c7', color: '#92400e',
+                border: '1px solid #fcd34d',
+                borderRadius: 8, padding: '9px 14px', fontWeight: 700, fontSize: 13,
+                cursor: dummyLoading ? 'not-allowed' : 'pointer', opacity: dummyLoading ? 0.7 : 1,
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              <span>🪔</span>
+              <span>{dummyLoading ? 'Adding…' : '+ Add Dummy Diwali QR'}</span>
+            </button>
+          </>
         )}
         {hasExistingQr && (
           <a

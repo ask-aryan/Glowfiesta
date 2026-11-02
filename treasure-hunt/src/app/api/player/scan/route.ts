@@ -11,20 +11,63 @@ export async function POST(req: NextRequest) {
   const { token } = body as { token: string }
 
   if (!token || typeof token !== 'string') {
-    return NextResponse.json({ success: false, message: 'Invalid QR code' })
+    return NextResponse.json({
+      success: false,
+      reason: 'INVALID_QR',
+      title: 'Invalid QR Code 🔍',
+      message: 'Could not read a valid code from this scan.',
+      hint: 'Please try scanning again in steady lighting.',
+    })
   }
 
-  // Look up QrCode by direct tokenHash (as encoded in QR cards/grid) or hash of raw token
+  const cleanToken = token.trim()
+
+  // 1. Direct check for FUN DUMMY DIWALI QR (by token string or prefix)
+  const isDiwaliToken =
+    cleanToken.startsWith('fun_diwali_') ||
+    cleanToken.toLowerCase().includes('happy_diwali') ||
+    cleanToken.toLowerCase().includes('happydiwali') ||
+    cleanToken.toLowerCase().includes('diwali_fun') ||
+    cleanToken.toLowerCase().includes('diwalidecoy')
+
+  if (isDiwaliToken) {
+    return NextResponse.json({
+      success: false,
+      isFunDiwali: true,
+      reason: 'FUN_DIWALI',
+      title: '🪔 Happy Diwali! 🎉',
+      message: '✨ Bura na mano, Diwali hai! ✨\nYeh ek Fun Dummy Decoy QR hai! Clue dhundte raho aur apna asli treasure unlock karo! 🕵️‍♂️',
+      hint: 'Decoy found! Read your clue card carefully to find your real team QR.',
+    })
+  }
+
+  // Look up QrCode by direct tokenHash or hash of raw token
   let qrCode = await prisma.qrCode.findUnique({
-    where: { tokenHash: token },
+    where: { tokenHash: cleanToken },
     include: { event: true, assignedTeam: true },
   })
 
   if (!qrCode) {
-    const tokenHash = hashToken(token)
+    const tokenHash = hashToken(cleanToken)
     qrCode = await prisma.qrCode.findUnique({
       where: { tokenHash },
       include: { event: true, assignedTeam: true },
+    })
+  }
+
+  // 2. Check if the DB record is a Fun Dummy Diwali QR
+  if (
+    qrCode &&
+    (qrCode.tokenHash.startsWith('fun_diwali_') ||
+      (qrCode.assignedTeamId === null && qrCode.stageNumber === null && qrCode.qrType === 'TEAM_STAGE'))
+  ) {
+    return NextResponse.json({
+      success: false,
+      isFunDiwali: true,
+      reason: 'FUN_DIWALI',
+      title: '🪔 Happy Diwali! 🎉',
+      message: '✨ Bura na mano, Diwali hai! ✨\nYeh ek Fun Dummy Decoy QR hai! Clue dhundte raho aur apna asli treasure unlock karo! 🕵️‍♂️',
+      hint: 'Decoy found! Read your clue card carefully to find your real team QR.',
     })
   }
 
@@ -38,7 +81,13 @@ export async function POST(req: NextRequest) {
         failureReason: 'Invalid or inactive QR code',
       },
     }).catch(() => {/* ignore if eventId is 0 */})
-    return NextResponse.json({ success: false, message: 'Invalid QR code' })
+    return NextResponse.json({
+      success: false,
+      reason: 'INVALID_QR',
+      title: 'Not a Treasure Hunt QR 🔍',
+      message: 'This QR code is not part of the active Glowfiesta game.',
+      hint: 'Make sure to scan the official printed clue cards hidden by the organizers.',
+    })
   }
 
   // Check event is LIVE
@@ -52,13 +101,25 @@ export async function POST(req: NextRequest) {
         failureReason: 'Event is not live',
       },
     })
-    return NextResponse.json({ success: false, message: 'Event is not currently active' })
+    return NextResponse.json({
+      success: false,
+      reason: 'EVENT_NOT_LIVE',
+      title: 'Hunt Is Not Active ⏳',
+      message: 'The organizers have not started the game yet (or it is currently paused).',
+      hint: 'Wait for the host to announce the game is LIVE on the dashboard!',
+    })
   }
 
   // Get the team
   const team = await prisma.team.findUnique({ where: { id: session!.teamId } })
   if (!team || team.eventId !== qrCode.eventId) {
-    return NextResponse.json({ success: false, message: 'Invalid QR code' })
+    return NextResponse.json({
+      success: false,
+      reason: 'INVALID_QR',
+      title: 'Different Event QR 🔍',
+      message: 'This QR code belongs to a different room or game.',
+      hint: 'Please scan clue cards for your team’s current event.',
+    })
   }
 
   if (qrCode.qrType === 'TEAM_STAGE') {
@@ -82,7 +143,15 @@ export async function POST(req: NextRequest) {
           failureReason: 'QR belongs to another team',
         },
       })
-      return NextResponse.json({ success: false, message: msg })
+      return NextResponse.json({
+        success: false,
+        reason: 'WRONG_TEAM',
+        title: "Another Team's Clue! 🕵️",
+        message: msg,
+        hint: qrCode.assignedTeam?.teamName
+          ? `This clue was placed for "${qrCode.assignedTeam.teamName}". Your team's clue is hidden in a different spot!`
+          : "This clue card belongs to another team. Read your clue description again to find your spot!",
+      })
     }
 
     // Determine expected next stage
@@ -118,8 +187,7 @@ export async function POST(req: NextRequest) {
         `Backward mat jao doston! 👀 Apni clue dobara padho aur sahi jagah dhundo.`,
         `Yeh QR tumhare liye expire ho chuka hai! ⏰ Aage badho!`,
       ]
-      const msgs = skipMessages
-      const msg = msgs[Math.floor(Math.random() * msgs.length)]
+      const msg = skipMessages[Math.floor(Math.random() * skipMessages.length)]
       await prisma.scanHistory.create({
         data: {
           eventId: qrCode.eventId,
@@ -129,13 +197,26 @@ export async function POST(req: NextRequest) {
           failureReason: `Wrong sequence: expected stage ${expectedStage}, got stage ${qrCode.stageNumber}`,
         },
       })
-      return NextResponse.json({ success: false, message: msg })
+      return NextResponse.json({
+        success: false,
+        reason: 'WRONG_SEQUENCE',
+        title: scannedAhead ? 'Hold on, Detective! ⏳' : 'Stage Already Completed 🔁',
+        message: msg,
+        hint: scannedAhead
+          ? `You must solve Stage ${expectedStage} first before scanning this!`
+          : `You are already on Stage ${expectedStage}. Keep following your active clue!`,
+      })
     }
 
     // Check for duplicate scan
     const progress = allProgress.find(p => p.stageNumber === qrCode.stageNumber)
     if (!progress) {
-      return NextResponse.json({ success: false, message: 'Stage not found' })
+      return NextResponse.json({
+        success: false,
+        reason: 'INVALID_QR',
+        title: 'Stage Not Found',
+        message: 'Could not match this clue with your team record.',
+      })
     }
 
     const alreadyScanned = ['QR_SCANNED', 'AWAITING_RECEPTION_VERIFICATION', 'NEXT_CLUE_RELEASED', 'COMPLETED']
@@ -157,7 +238,13 @@ export async function POST(req: NextRequest) {
           failureReason: 'Already scanned',
         },
       })
-      return NextResponse.json({ success: false, message: msg })
+      return NextResponse.json({
+        success: false,
+        reason: 'ALREADY_SCANNED',
+        title: 'Already Scanned! ✅',
+        message: msg,
+        hint: 'Show your 4-digit code at the reception desk to unlock your next clue!',
+      })
     }
 
     // Get the team's clue for this stage to retrieve the result code
@@ -216,11 +303,23 @@ export async function POST(req: NextRequest) {
           failureReason: 'Not all stages completed',
         },
       })
-      return NextResponse.json({ success: false, message: msg })
+      return NextResponse.json({
+        success: false,
+        reason: 'WRONG_SEQUENCE',
+        title: 'Not Ready for Final Yet! 🏆',
+        message: msg,
+        hint: `You still have ${remaining} stage clue(s) to solve before the Final QR!`,
+      })
     }
 
     if (team.status === 'COMPLETED') {
-      return NextResponse.json({ success: false, message: 'Your team has already completed the hunt!' })
+      return NextResponse.json({
+        success: false,
+        reason: 'ALREADY_SCANNED',
+        title: 'Hunt Already Completed! 🏆',
+        message: 'Your team has already crossed the finish line!',
+        hint: 'Head to the scoreboard to celebrate your victory!',
+      })
     }
 
     // Mark team and all progress as COMPLETED
@@ -252,5 +351,10 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  return NextResponse.json({ success: false, message: 'Unknown QR type' })
+  return NextResponse.json({
+    success: false,
+    reason: 'INVALID_QR',
+    title: 'Unknown QR Type',
+    message: 'This QR code is not recognized.',
+  })
 }
