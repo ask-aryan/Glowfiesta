@@ -62,7 +62,7 @@ export default function BigScreenLivePollPage() {
 
     async function fetchLive() {
       try {
-        const res = await fetch(`/api/poll/${roomCode}`)
+        const res = await fetch(`/api/poll/${roomCode}?_t=${Date.now()}`, { cache: 'no-store' })
         if (!res.ok) return
         const data: PollRoomData = await res.json()
         if (active) {

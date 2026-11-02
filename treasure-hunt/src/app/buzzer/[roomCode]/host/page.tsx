@@ -89,8 +89,8 @@ export default function HostBuzzerRoomPage() {
 
     async function fetchRoom() {
       try {
-        const url = `/api/buzzer/${roomCode}${hostKey ? `?hostKey=${encodeURIComponent(hostKey)}` : ''}`
-        const res = await fetch(url)
+        const url = `/api/buzzer/${roomCode}?_t=${Date.now()}${hostKey ? `&hostKey=${encodeURIComponent(hostKey)}` : ''}`
+        const res = await fetch(url, { cache: 'no-store' })
         if (!res.ok) {
           if (res.status === 404) setErrorMsg('Room not found')
           return

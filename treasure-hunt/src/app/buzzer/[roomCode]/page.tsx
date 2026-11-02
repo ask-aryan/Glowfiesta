@@ -67,8 +67,8 @@ export default function ParticipantBuzzerPage() {
 
     async function poll() {
       try {
-        const url = `/api/buzzer/${roomCode}${teamName ? `?teamName=${encodeURIComponent(teamName)}` : ''}`
-        const res = await fetch(url)
+        const url = `/api/buzzer/${roomCode}?_t=${Date.now()}${teamName ? `&teamName=${encodeURIComponent(teamName)}` : ''}`
+        const res = await fetch(url, { cache: 'no-store' })
         if (!res.ok) {
           if (res.status === 404) setErrorMsg('Room not found')
           return

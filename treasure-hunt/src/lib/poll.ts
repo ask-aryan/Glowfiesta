@@ -43,7 +43,7 @@ export interface PollRoom {
   votes: PollVote[]
 }
 
-// In-memory store for instantaneous sub-millisecond reactions across requests
+// In-memory store for fallback and sub-millisecond fast lookups
 const globalPollStore = globalThis as unknown as {
   pollRooms?: Map<string, PollRoom>
   pollTablesInitialized?: boolean
@@ -163,121 +163,131 @@ export async function createPollRoom(title?: string): Promise<PollRoom> {
 
   rooms.set(code, room)
 
-  // Persist to DB asynchronously
-  prisma.$executeRawUnsafe(
-    `INSERT INTO poll_rooms (id, title, host_key, status, active_question_index, show_results_live, created_at, updated_at)
-     VALUES ('${code}', '${pollTitle.replace(/'/g, "''")}', '${hostKey}', 'DRAFT', 0, 1, ${now}, ${now})`
-  ).catch(() => {})
+  // Persist to DB synchronously with await to prevent serverless freezing
+  try {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO poll_rooms (id, title, host_key, status, active_question_index, show_results_live, created_at, updated_at)
+       VALUES ('${code}', '${pollTitle.replace(/'/g, "''")}', '${hostKey}', 'DRAFT', 0, 1, ${now}, ${now})`
+    )
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO poll_questions (id, room_code, order_index, title, subtitle, winner_option_id)
+       VALUES ('${defaultQuestionId}', '${code}', 0, '${defaultQuestion.title.replace(/'/g, "''")}', '${(defaultQuestion.subtitle || '').replace(/'/g, "''")}', NULL)`
+    )
+    for (let i = 0; i < defaultQuestion.options.length; i++) {
+      const opt = defaultQuestion.options[i]
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO poll_options (id, question_id, room_code, text, description, image_url, order_index)
+         VALUES ('${opt.id}', '${defaultQuestionId}', '${code}', '${opt.text.replace(/'/g, "''")}', '${(opt.description || '').replace(/'/g, "''")}', NULL, ${i})`
+      )
+    }
+  } catch (err) {
+    console.warn('Notice: writing new poll room to DB:', err)
+  }
 
   return room
 }
 
 export async function getPollRoom(roomCode: string): Promise<PollRoom | null> {
   const code = roomCode.toUpperCase().trim()
-  if (rooms.has(code)) {
-    return rooms.get(code)!
-  }
+  if (!code) return null
 
   await ensureTables()
+
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM poll_rooms WHERE id = '${code.replace(/'/g, "''")}' LIMIT 1`
     )
-    if (!rows || rows.length === 0) return null
+    if (rows && rows.length > 0) {
+      const r = rows[0]
+      const dbRoom: PollRoom = {
+        id: r.id,
+        title: r.title,
+        hostKey: r.host_key,
+        status: (r.status as PollStatus) || 'DRAFT',
+        activeQuestionIndex: Number(r.active_question_index || 0),
+        showResultsLive: Boolean(r.show_results_live ?? 1),
+        createdAt: Number(r.created_at || Date.now()),
+        updatedAt: Number(r.updated_at || Date.now()),
+        questions: [],
+        votes: [],
+      }
 
-    const r = rows[0]
-    const room: PollRoom = {
-      id: r.id,
-      title: r.title,
-      hostKey: r.host_key,
-      status: (r.status as PollStatus) || 'DRAFT',
-      activeQuestionIndex: Number(r.active_question_index || 0),
-      showResultsLive: Boolean(r.show_results_live ?? 1),
-      createdAt: Number(r.created_at || Date.now()),
-      updatedAt: Number(r.updated_at || Date.now()),
-      questions: [],
-      votes: [],
-    }
+      // Load questions
+      const qRows = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT * FROM poll_questions WHERE room_code = '${code.replace(/'/g, "''")}' ORDER BY order_index ASC`
+      )
 
-    // Load questions
-    const qRows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM poll_questions WHERE room_code = '${code.replace(/'/g, "''")}' ORDER BY order_index ASC`
-    )
+      // Load options
+      const optRows = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT * FROM poll_options WHERE room_code = '${code.replace(/'/g, "''")}' ORDER BY order_index ASC`
+      )
 
-    // Load options
-    const optRows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM poll_options WHERE room_code = '${code.replace(/'/g, "''")}' ORDER BY order_index ASC`
-    )
+      // Load votes
+      const vRows = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT * FROM poll_votes WHERE room_code = '${code.replace(/'/g, "''")}'`
+      )
 
-    // Load votes
-    const vRows = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM poll_votes WHERE room_code = '${code.replace(/'/g, "''")}'`
-    )
+      dbRoom.votes = (vRows || []).map(v => ({
+        id: v.id,
+        roomCode: v.room_code,
+        questionId: v.question_id,
+        optionId: v.option_id,
+        voterId: v.voter_id,
+        voterName: v.voter_name,
+        isAnonymous: Boolean(v.is_anonymous),
+        votedAt: Number(v.voted_at),
+      }))
 
-    room.votes = (vRows || []).map(v => ({
-      id: v.id,
-      roomCode: v.room_code,
-      questionId: v.question_id,
-      optionId: v.option_id,
-      voterId: v.voter_id,
-      voterName: v.voter_name,
-      isAnonymous: Boolean(v.is_anonymous),
-      votedAt: Number(v.voted_at),
-    }))
-
-    const questionsMap = new Map<string, PollQuestion>()
-    for (const q of qRows || []) {
-      questionsMap.set(q.id, {
-        id: q.id,
-        title: q.title,
-        subtitle: q.subtitle || undefined,
-        winnerOptionId: q.winner_option_id || null,
-        options: [],
-        totalVotes: 0,
-      })
-    }
-
-    for (const opt of optRows || []) {
-      const q = questionsMap.get(opt.question_id)
-      if (q) {
-        const votesForOpt = room.votes.filter(v => v.questionId === opt.question_id && v.optionId === opt.id).length
-        q.options.push({
-          id: opt.id,
-          text: opt.text,
-          description: opt.description || undefined,
-          imageUrl: opt.image_url || undefined,
-          votesCount: votesForOpt,
+      const questionsMap = new Map<string, PollQuestion>()
+      for (const q of qRows || []) {
+        questionsMap.set(q.id, {
+          id: q.id,
+          title: q.title,
+          subtitle: q.subtitle || undefined,
+          winnerOptionId: q.winner_option_id || null,
+          options: [],
+          totalVotes: 0,
         })
       }
+
+      for (const opt of optRows || []) {
+        const q = questionsMap.get(opt.question_id)
+        if (q) {
+          const votesForOpt = dbRoom.votes.filter(v => v.questionId === opt.question_id && v.optionId === opt.id).length
+          q.options.push({
+            id: opt.id,
+            text: opt.text,
+            description: opt.description || undefined,
+            imageUrl: opt.image_url || undefined,
+            votesCount: votesForOpt,
+          })
+        }
+      }
+
+      Array.from(questionsMap.values()).forEach(q => {
+        q.totalVotes = q.options.reduce((sum: number, o: PollOption) => sum + o.votesCount, 0)
+        dbRoom.questions.push(q)
+      })
+
+      // If DB has room but questions empty, fallback to memory questions if available
+      const memRoom = rooms.get(code)
+      if (dbRoom.questions.length === 0 && memRoom && memRoom.questions.length > 0) {
+        dbRoom.questions = memRoom.questions
+      }
+
+      rooms.set(code, dbRoom)
+      return dbRoom
     }
-
-    Array.from(questionsMap.values()).forEach(q => {
-      q.totalVotes = q.options.reduce((sum: number, o: PollOption) => sum + o.votesCount, 0)
-      room.questions.push(q)
-    })
-
-    if (room.questions.length === 0) {
-      // Create default question if none existed in DB
-      room.questions = [
-        {
-          id: `q_${code}_1`,
-          title: 'Star Performer of the Year',
-          subtitle: 'Category: Outstanding Energy & Dedication',
-          options: [
-            { id: `opt_${code}_1`, text: 'Nominee 1: Team Alpha', votesCount: 0 },
-            { id: `opt_${code}_2`, text: 'Nominee 2: Team Beta', votesCount: 0 },
-          ],
-          totalVotes: 0,
-        },
-      ]
-    }
-
-    rooms.set(code, room)
-    return room
   } catch (err) {
-    console.warn('Error loading poll room from DB:', err)
-    return null
+    console.warn('Notice: reading poll room from DB fallback to memory:', err)
   }
+
+  // Fallback to in-memory store if DB query returned nothing or failed
+  if (rooms.has(code)) {
+    return rooms.get(code)!
+  }
+
+  return null
 }
 
 export async function updatePollStatus(
@@ -303,9 +313,22 @@ export async function updatePollStatus(
     }
   }
 
-  prisma.$executeRawUnsafe(
-    `UPDATE poll_rooms SET status = '${status}', updated_at = ${room.updatedAt} WHERE id = '${room.id}'`
-  ).catch(() => {})
+  // Sync memory store
+  rooms.set(room.id, room)
+
+  // Persist to DB with await
+  try {
+    await prisma.$executeRawUnsafe(
+      `UPDATE poll_rooms SET status = '${status}', updated_at = ${room.updatedAt} WHERE id = '${room.id}'`
+    )
+    if (status === 'COMPLETED' && activeQ?.winnerOptionId) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE poll_questions SET winner_option_id = '${activeQ.winnerOptionId.replace(/'/g, "''")}' WHERE id = '${activeQ.id}'`
+      )
+    }
+  } catch (err) {
+    console.warn('Error updating poll status in DB:', err)
+  }
 
   return room
 }
@@ -322,9 +345,15 @@ export async function setActiveQuestion(
   room.activeQuestionIndex = index
   room.updatedAt = Date.now()
 
-  prisma.$executeRawUnsafe(
-    `UPDATE poll_rooms SET active_question_index = ${index}, updated_at = ${room.updatedAt} WHERE id = '${room.id}'`
-  ).catch(() => {})
+  rooms.set(room.id, room)
+
+  try {
+    await prisma.$executeRawUnsafe(
+      `UPDATE poll_rooms SET active_question_index = ${index}, updated_at = ${room.updatedAt} WHERE id = '${room.id}'`
+    )
+  } catch (err) {
+    console.warn('Error updating active question in DB:', err)
+  }
 
   return room
 }
@@ -368,6 +397,43 @@ export async function updateQuestion(
   })
   q.totalVotes = q.options.reduce((sum, o) => sum + o.votesCount, 0)
   room.updatedAt = Date.now()
+
+  rooms.set(room.id, room)
+
+  try {
+    const qIndex = room.questions.indexOf(q)
+    // Upsert question in DB
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO poll_questions (id, room_code, order_index, title, subtitle, winner_option_id)
+       VALUES ('${q.id}', '${room.id}', ${qIndex}, '${q.title.replace(/'/g, "''")}', '${(q.subtitle || '').replace(/'/g, "''")}', NULL)
+       ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, subtitle = EXCLUDED.subtitle`
+    ).catch(async () => {
+      // MySQL fallback
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO poll_questions (id, room_code, order_index, title, subtitle, winner_option_id)
+         VALUES ('${q.id}', '${room.id}', ${qIndex}, '${q.title.replace(/'/g, "''")}', '${(q.subtitle || '').replace(/'/g, "''")}', NULL)
+         ON DUPLICATE KEY UPDATE title = VALUES(title), subtitle = VALUES(subtitle)`
+      )
+    })
+
+    // Upsert options
+    for (let i = 0; i < q.options.length; i++) {
+      const opt = q.options[i]
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO poll_options (id, question_id, room_code, text, description, image_url, order_index)
+         VALUES ('${opt.id}', '${q.id}', '${room.id}', '${opt.text.replace(/'/g, "''")}', '${(opt.description || '').replace(/'/g, "''")}', NULL, ${i})
+         ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text, description = EXCLUDED.description`
+      ).catch(async () => {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO poll_options (id, question_id, room_code, text, description, image_url, order_index)
+           VALUES ('${opt.id}', '${q.id}', '${room.id}', '${opt.text.replace(/'/g, "''")}', '${(opt.description || '').replace(/'/g, "''")}', NULL, ${i})
+           ON DUPLICATE KEY UPDATE text = VALUES(text), description = VALUES(description)`
+        )
+      })
+    }
+  } catch (err) {
+    console.warn('Notice: updateQuestion DB write:', err)
+  }
 
   return room
 }
@@ -431,11 +497,16 @@ export async function castVote(
   q.totalVotes += 1
   room.updatedAt = now
 
-  // Persist to DB asynchronously
-  prisma.$executeRawUnsafe(
-    `INSERT INTO poll_votes (id, room_code, question_id, option_id, voter_id, voter_name, is_anonymous, voted_at)
-     VALUES ('${voteId}', '${room.id}', '${questionId}', '${optionId}', '${voterId}', '${cleanName.replace(/'/g, "''")}', ${isAnonymous ? 1 : 0}, ${now})`
-  ).catch(() => {})
+  rooms.set(room.id, room)
+
+  try {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO poll_votes (id, room_code, question_id, option_id, voter_id, voter_name, is_anonymous, voted_at)
+       VALUES ('${voteId}', '${room.id}', '${questionId}', '${optionId}', '${voterId}', '${cleanName.replace(/'/g, "''")}', ${isAnonymous ? 1 : 0}, ${now})`
+    )
+  } catch (err) {
+    console.warn('Notice: castVote DB write:', err)
+  }
 
   return {
     success: true,
@@ -467,9 +538,21 @@ export async function resetQuestionVotes(
   room.status = 'READY'
   room.updatedAt = Date.now()
 
-  prisma.$executeRawUnsafe(
-    `DELETE FROM poll_votes WHERE room_code = '${room.id}' AND question_id = '${targetQ.id}'`
-  ).catch(() => {})
+  rooms.set(room.id, room)
+
+  try {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM poll_votes WHERE room_code = '${room.id}' AND question_id = '${targetQ.id}'`
+    )
+    await prisma.$executeRawUnsafe(
+      `UPDATE poll_rooms SET status = 'READY', updated_at = ${room.updatedAt} WHERE id = '${room.id}'`
+    )
+    await prisma.$executeRawUnsafe(
+      `UPDATE poll_questions SET winner_option_id = NULL WHERE id = '${targetQ.id}'`
+    )
+  } catch (err) {
+    console.warn('Notice: resetQuestionVotes DB write:', err)
+  }
 
   return room
 }

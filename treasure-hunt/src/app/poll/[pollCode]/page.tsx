@@ -75,8 +75,8 @@ export default function AudiencePollPage() {
 
     async function poll() {
       try {
-        const url = `/api/poll/${roomCode}?voterId=${encodeURIComponent(voterId)}`
-        const res = await fetch(url)
+        const url = `/api/poll/${roomCode}?_t=${Date.now()}&voterId=${encodeURIComponent(voterId)}`
+        const res = await fetch(url, { cache: 'no-store' })
         if (!res.ok) return
         const data: PollRoomData = await res.json()
         if (active) {

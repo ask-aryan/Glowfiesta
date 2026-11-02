@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPollRoom } from '@/lib/poll'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: { pollCode: string } }
@@ -8,7 +17,7 @@ export async function GET(
   try {
     const room = await getPollRoom(params.pollCode)
     if (!room) {
-      return NextResponse.json({ success: false, message: 'Poll room not found' }, { status: 404 })
+      return NextResponse.json({ success: false, message: 'Poll room not found' }, { status: 404, headers: NO_CACHE_HEADERS })
     }
 
     const { searchParams } = new URL(req.url)
@@ -67,9 +76,9 @@ export async function GET(
         isActive: idx === room.activeQuestionIndex,
       })) : undefined,
       serverTime: Date.now(),
-    })
+    }, { headers: NO_CACHE_HEADERS })
   } catch (err: any) {
     console.error('Error fetching poll room:', err)
-    return NextResponse.json({ success: false, message: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ success: false, message: 'Internal error' }, { status: 500, headers: NO_CACHE_HEADERS })
   }
 }

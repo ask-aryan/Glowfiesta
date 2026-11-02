@@ -34,7 +34,7 @@ export interface BuzzerRoom {
   presses: BuzzerPress[]
 }
 
-// In-memory store for instantaneous sub-millisecond reactions across requests
+// In-memory store for fallback and sub-millisecond fast lookups
 const globalBuzzerStore = globalThis as unknown as {
   buzzerRooms?: Map<string, BuzzerRoom>
   buzzerTablesInitialized?: boolean
@@ -99,11 +99,13 @@ function generateRoomCode(): string {
   return code
 }
 
+// Generate host management key
 function generateHostKey(): string {
   return 'hk_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36)
 }
 
-export async function createRoom(name?: string): Promise<BuzzerRoom> {
+export async function createBuzzerRoom(name?: string): Promise<BuzzerRoom> {
+
   await ensureTables()
   let code = generateRoomCode()
   while (rooms.has(code)) {
@@ -111,7 +113,7 @@ export async function createRoom(name?: string): Promise<BuzzerRoom> {
   }
 
   const now = Date.now()
-  const roomName = (name || '').trim() || `Quiz Room ${code}`
+  const roomName = (name || '').trim() || `Diwali Party ${code}`
   const hostKey = generateHostKey()
 
   const room: BuzzerRoom = {
@@ -130,99 +132,86 @@ export async function createRoom(name?: string): Promise<BuzzerRoom> {
 
   rooms.set(code, room)
 
-  // Persist to DB asynchronously
-  prisma.$executeRawUnsafe(
-    `INSERT INTO buzzer_rooms (id, name, host_key, status, round_number, live_at, first_buzz_at, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     ON CONFLICT (id) DO UPDATE SET name = $2, updated_at = $9`,
-    code,
-    roomName,
-    hostKey,
-    'DRAFT',
-    1,
-    null,
-    null,
-    BigInt(now),
-    BigInt(now)
-  ).catch(async () => {
-    // MySQL syntax fallback if PostgreSQL ON CONFLICT fails
-    try {
-      await prisma.$executeRawUnsafe(
-        `REPLACE INTO buzzer_rooms (id, name, host_key, status, round_number, live_at, first_buzz_at, created_at, updated_at)
-         VALUES ('${code}', '${roomName.replace(/'/g, "''")}', '${hostKey}', 'DRAFT', 1, NULL, NULL, ${now}, ${now})`
-      )
-    } catch (e) {
-      console.warn('DB persistence fallback:', e)
-    }
-  })
+  try {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO buzzer_rooms (id, name, host_key, status, round_number, live_at, first_buzz_at, created_at, updated_at)
+       VALUES ('${code}', '${roomName.replace(/'/g, "''")}', '${hostKey}', 'DRAFT', 1, NULL, NULL, ${now}, ${now})`
+    )
+  } catch (e) {
+    console.warn('DB persistence fallback:', e)
+  }
 
   return room
 }
 
 export async function getRoom(roomCode: string): Promise<BuzzerRoom | null> {
   const code = roomCode.toUpperCase().trim()
-  if (rooms.has(code)) {
-    return rooms.get(code)!
-  }
+  if (!code) return null
 
-  // Hydrate from DB if not in memory
   await ensureTables()
+
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT * FROM buzzer_rooms WHERE id = '${code.replace(/'/g, "''")}' LIMIT 1`
     )
-    if (!rows || rows.length === 0) return null
+    if (rows && rows.length > 0) {
+      const r = rows[0]
+      const roundNumber = Number(r.round_number || 1)
+      const dbRoom: BuzzerRoom = {
+        id: r.id,
+        name: r.name,
+        hostKey: r.host_key,
+        status: (r.status as BuzzerStatus) || 'DRAFT',
+        roundNumber,
+        liveAt: r.live_at ? Number(r.live_at) : null,
+        firstBuzzAt: r.first_buzz_at ? Number(r.first_buzz_at) : null,
+        createdAt: Number(r.created_at || Date.now()),
+        updatedAt: Number(r.updated_at || Date.now()),
+        participants: new Map(),
+        presses: [],
+      }
 
-    const r = rows[0]
-    const roundNumber = Number(r.round_number || 1)
-    const room: BuzzerRoom = {
-      id: r.id,
-      name: r.name,
-      hostKey: r.host_key,
-      status: (r.status as BuzzerStatus) || 'DRAFT',
-      roundNumber,
-      liveAt: r.live_at ? Number(r.live_at) : null,
-      firstBuzzAt: r.first_buzz_at ? Number(r.first_buzz_at) : null,
-      createdAt: Number(r.created_at || Date.now()),
-      updatedAt: Number(r.updated_at || Date.now()),
-      participants: new Map(),
-      presses: [],
+      // Load participants
+      const parts = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT * FROM buzzer_participants WHERE room_code = '${code.replace(/'/g, "''")}'`
+      )
+      for (const p of parts || []) {
+        dbRoom.participants.set(p.team_name.toLowerCase(), {
+          id: p.id,
+          roomCode: p.room_code,
+          teamName: p.team_name,
+          joinedAt: Number(p.joined_at),
+          lastSeenAt: Number(p.last_seen_at),
+        })
+      }
+
+      // Load current round presses
+      const presses = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT * FROM buzzer_presses WHERE room_code = '${code.replace(/'/g, "''")}' AND round_number = ${roundNumber} ORDER BY buzzed_at_ms ASC`
+      )
+      dbRoom.presses = (presses || []).map((pr, idx) => ({
+        id: pr.id,
+        roomCode: pr.room_code,
+        roundNumber: Number(pr.round_number),
+        teamName: pr.team_name,
+        buzzedAtMs: Number(pr.buzzed_at_ms),
+        deltaMs: Number(pr.delta_ms),
+        rank: idx + 1,
+      }))
+
+      rooms.set(code, dbRoom)
+      return dbRoom
     }
-
-    // Load participants
-    const parts = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM buzzer_participants WHERE room_code = '${code.replace(/'/g, "''")}'`
-    )
-    for (const p of parts || []) {
-      room.participants.set(p.team_name.toLowerCase(), {
-        id: p.id,
-        roomCode: p.room_code,
-        teamName: p.team_name,
-        joinedAt: Number(p.joined_at),
-        lastSeenAt: Number(p.last_seen_at),
-      })
-    }
-
-    // Load current round presses
-    const presses = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT * FROM buzzer_presses WHERE room_code = '${code.replace(/'/g, "''")}' AND round_number = ${roundNumber} ORDER BY buzzed_at_ms ASC`
-    )
-    room.presses = (presses || []).map((pr, idx) => ({
-      id: pr.id,
-      roomCode: pr.room_code,
-      roundNumber: Number(pr.round_number),
-      teamName: pr.team_name,
-      buzzedAtMs: Number(pr.buzzed_at_ms),
-      deltaMs: Number(pr.delta_ms),
-      rank: idx + 1,
-    }))
-
-    rooms.set(code, room)
-    return room
   } catch (err) {
     console.warn('Error loading buzzer room from DB:', err)
-    return null
   }
+
+  // Fallback to in-memory store
+  if (rooms.has(code)) {
+    return rooms.get(code)!
+  }
+
+  return null
 }
 
 export async function joinParticipant(roomCode: string, teamName: string): Promise<BuzzerParticipant | null> {
@@ -250,52 +239,60 @@ export async function joinParticipant(roomCode: string, teamName: string): Promi
     room.participants.set(key, participant)
   }
 
-  // Persist participant asynchronously
+  rooms.set(room.id, room)
+
   try {
     await prisma.$executeRawUnsafe(
       `INSERT INTO buzzer_participants (id, room_code, team_name, joined_at, last_seen_at)
        VALUES ('${partId.replace(/'/g, "''")}', '${room.id}', '${cleanName.replace(/'/g, "''")}', ${now}, ${now})
-       ON DUPLICATE KEY UPDATE last_seen_at = ${now}`
-    )
-  } catch {
-    try {
+       ON CONFLICT (id) DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at`
+    ).catch(async () => {
       await prisma.$executeRawUnsafe(
         `INSERT INTO buzzer_participants (id, room_code, team_name, joined_at, last_seen_at)
          VALUES ('${partId.replace(/'/g, "''")}', '${room.id}', '${cleanName.replace(/'/g, "''")}', ${now}, ${now})
-         ON CONFLICT (id) DO UPDATE SET last_seen_at = ${now}`
+         ON DUPLICATE KEY UPDATE last_seen_at = VALUES(last_seen_at)`
       )
-    } catch {}
+    })
+  } catch (err) {
+    console.warn('Notice: joinParticipant DB write:', err)
   }
 
   return participant
 }
 
-export async function updateRoomStatus(roomCode: string, hostKey: string, status: BuzzerStatus): Promise<BuzzerRoom | null> {
+export async function updateRoomStatus(
+  roomCode: string,
+  hostKey: string,
+  status: BuzzerStatus
+): Promise<BuzzerRoom | null> {
   const room = await getRoom(roomCode)
   if (!room || room.hostKey !== hostKey) return null
 
-  const now = Date.now()
   room.status = status
-  room.updatedAt = now
-
-  if (status === 'LIVE' && !room.liveAt) {
-    room.liveAt = now
-  } else if (status === 'DRAFT') {
+  room.updatedAt = Date.now()
+  if (status === 'LIVE') {
+    room.liveAt = Date.now()
+  } else {
     room.liveAt = null
     room.firstBuzzAt = null
   }
 
-  // Persist to DB
-  const liveAtSql = room.liveAt ? `${room.liveAt}` : 'NULL'
-  const firstBuzzSql = room.firstBuzzAt ? `${room.firstBuzzAt}` : 'NULL'
-  prisma.$executeRawUnsafe(
-    `UPDATE buzzer_rooms SET status = '${status}', live_at = ${liveAtSql}, first_buzz_at = ${firstBuzzSql}, updated_at = ${now} WHERE id = '${room.id}'`
-  ).catch(() => {})
+  rooms.set(room.id, room)
+
+  try {
+    const liveAtSql = room.liveAt ? `${room.liveAt}` : 'NULL'
+    const firstBuzzSql = room.firstBuzzAt ? `${room.firstBuzzAt}` : 'NULL'
+    await prisma.$executeRawUnsafe(
+      `UPDATE buzzer_rooms SET status = '${status}', live_at = ${liveAtSql}, first_buzz_at = ${firstBuzzSql}, updated_at = ${room.updatedAt} WHERE id = '${room.id}'`
+    )
+  } catch (err) {
+    console.warn('Notice: updateRoomStatus DB write:', err)
+  }
 
   return room
 }
 
-export async function recordBuzz(
+export async function recordBuzzerPress(
   roomCode: string,
   teamName: string,
   clientTimeMs?: number
@@ -352,16 +349,21 @@ export async function recordBuzz(
   room.presses.push(press)
   room.updatedAt = now
 
-  // Persist press to DB
-  prisma.$executeRawUnsafe(
-    `INSERT INTO buzzer_presses (id, room_code, round_number, team_name, buzzed_at_ms, delta_ms, created_at)
-     VALUES ('${pressId.replace(/'/g, "''")}', '${room.id}', ${room.roundNumber}, '${cleanName.replace(/'/g, "''")}', ${now}, ${deltaMs}, ${now})`
-  ).catch(() => {})
+  rooms.set(room.id, room)
 
-  if (rank === 1) {
-    prisma.$executeRawUnsafe(
-      `UPDATE buzzer_rooms SET first_buzz_at = ${now}, updated_at = ${now} WHERE id = '${room.id}'`
-    ).catch(() => {})
+  try {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO buzzer_presses (id, room_code, round_number, team_name, buzzed_at_ms, delta_ms, created_at)
+       VALUES ('${pressId.replace(/'/g, "''")}', '${room.id}', ${room.roundNumber}, '${cleanName.replace(/'/g, "''")}', ${now}, ${deltaMs}, ${now})`
+    )
+
+    if (rank === 1) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE buzzer_rooms SET first_buzz_at = ${now}, updated_at = ${now} WHERE id = '${room.id}'`
+      )
+    }
+  } catch (err) {
+    console.warn('Notice: recordBuzzerPress DB write:', err)
   }
 
   return {
@@ -387,10 +389,20 @@ export async function resetRoomBuzzers(
   room.liveAt = nextStatus === 'LIVE' ? now : null
   room.updatedAt = now
 
-  const liveAtSql = room.liveAt ? `${room.liveAt}` : 'NULL'
-  prisma.$executeRawUnsafe(
-    `UPDATE buzzer_rooms SET round_number = ${room.roundNumber}, status = '${nextStatus}', live_at = ${liveAtSql}, first_buzz_at = NULL, updated_at = ${now} WHERE id = '${room.id}'`
-  ).catch(() => {})
+  rooms.set(room.id, room)
+
+  try {
+    const liveAtSql = room.liveAt ? `${room.liveAt}` : 'NULL'
+    await prisma.$executeRawUnsafe(
+      `UPDATE buzzer_rooms SET round_number = ${room.roundNumber}, status = '${nextStatus}', live_at = ${liveAtSql}, first_buzz_at = NULL, updated_at = ${now} WHERE id = '${room.id}'`
+    )
+  } catch (err) {
+    console.warn('Notice: resetRoomBuzzers DB write:', err)
+  }
 
   return room
 }
+
+export const createRoom = createBuzzerRoom
+export const recordBuzz = recordBuzzerPress
+

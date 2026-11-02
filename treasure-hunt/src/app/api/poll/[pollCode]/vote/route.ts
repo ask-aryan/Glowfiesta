@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { castVote } from '@/lib/poll'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { pollCode: string } }
@@ -10,7 +19,7 @@ export async function POST(
     const { questionId, optionId, voterId, voterName, isAnonymous } = body
 
     if (!questionId || !optionId || !voterId) {
-      return NextResponse.json({ success: false, message: 'Missing voting parameters' }, { status: 400 })
+      return NextResponse.json({ success: false, message: 'Missing required voting parameters' }, { status: 400, headers: NO_CACHE_HEADERS })
     }
 
     const result = await castVote(
@@ -22,18 +31,13 @@ export async function POST(
       Boolean(isAnonymous)
     )
 
-    if (!result.success) {
-      return NextResponse.json({ success: false, message: result.message || 'Vote failed' }, { status: 400 })
+    if (!result.success && !result.alreadyVoted) {
+      return NextResponse.json(result, { status: 400, headers: NO_CACHE_HEADERS })
     }
 
-    return NextResponse.json({
-      success: true,
-      alreadyVoted: Boolean(result.alreadyVoted),
-      totalVotes: result.totalVotes,
-      message: result.message || 'Vote successfully cast!',
-    })
+    return NextResponse.json(result, { headers: NO_CACHE_HEADERS })
   } catch (err: any) {
-    console.error('Error casting vote:', err)
-    return NextResponse.json({ success: false, message: 'Internal error' }, { status: 500 })
+    console.error('Error submitting vote:', err)
+    return NextResponse.json({ success: false, message: 'Internal error' }, { status: 500, headers: NO_CACHE_HEADERS })
   }
 }

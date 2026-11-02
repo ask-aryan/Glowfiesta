@@ -98,8 +98,8 @@ export default function PollAdminPage() {
 
     async function fetchRoom() {
       try {
-        const url = `/api/poll/${roomCode}${hostKey ? `?hostKey=${encodeURIComponent(hostKey)}` : ''}`
-        const res = await fetch(url)
+        const url = `/api/poll/${roomCode}?_t=${Date.now()}${hostKey ? `&hostKey=${encodeURIComponent(hostKey)}` : ''}`
+        const res = await fetch(url, { cache: 'no-store' })
         if (!res.ok) {
           if (res.status === 404) setErrorMsg('Poll room not found')
           return
@@ -122,7 +122,11 @@ export default function PollAdminPage() {
 
   // Update status (DRAFT, READY, LIVE, COMPLETED)
   async function handleSetStatus(newStatus: PollStatus) {
-    if (!hostKey || actionLoading) return
+    if (!hostKey) {
+      alert('Host admin key is missing. Please access admin using the key link.')
+      return
+    }
+    if (actionLoading) return
     setActionLoading(true)
     try {
       const res = await fetch(`/api/poll/${roomCode}/status`, {
@@ -131,11 +135,16 @@ export default function PollAdminPage() {
         body: JSON.stringify({ hostKey, status: newStatus }),
       })
       const data = await res.json()
-      if (data.success && room) {
-        setRoom({ ...room, status: newStatus })
+      if (data.success) {
+        setRoom(prev => prev ? { ...prev, status: newStatus } : null)
+      } else {
+        alert(data.message || 'Failed to update status')
       }
-    } catch {}
-    setActionLoading(false)
+    } catch {
+      alert('Network error updating poll status')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   // Switch question

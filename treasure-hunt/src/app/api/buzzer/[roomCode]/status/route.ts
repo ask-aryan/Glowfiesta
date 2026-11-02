@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateRoomStatus, BuzzerStatus } from '@/lib/buzzer'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { roomCode: string } }
@@ -10,16 +19,16 @@ export async function POST(
     const { hostKey, status } = body
 
     if (!hostKey) {
-      return NextResponse.json({ success: false, message: 'Host key required' }, { status: 401 })
+      return NextResponse.json({ success: false, message: 'Host key required' }, { status: 401, headers: NO_CACHE_HEADERS })
     }
 
     if (!['DRAFT', 'READY', 'LIVE'].includes(status)) {
-      return NextResponse.json({ success: false, message: 'Invalid status' }, { status: 400 })
+      return NextResponse.json({ success: false, message: 'Invalid status' }, { status: 400, headers: NO_CACHE_HEADERS })
     }
 
     const room = await updateRoomStatus(params.roomCode, hostKey, status as BuzzerStatus)
     if (!room) {
-      return NextResponse.json({ success: false, message: 'Room not found or unauthorized' }, { status: 403 })
+      return NextResponse.json({ success: false, message: 'Room not found or unauthorized' }, { status: 403, headers: NO_CACHE_HEADERS })
     }
 
     return NextResponse.json({
@@ -27,9 +36,9 @@ export async function POST(
       status: room.status,
       liveAt: room.liveAt,
       roundNumber: room.roundNumber,
-    })
+    }, { headers: NO_CACHE_HEADERS })
   } catch (err: any) {
     console.error('Error updating buzzer room status:', err)
-    return NextResponse.json({ success: false, message: 'Internal error' }, { status: 500 })
+    return NextResponse.json({ success: false, message: 'Internal error' }, { status: 500, headers: NO_CACHE_HEADERS })
   }
 }
