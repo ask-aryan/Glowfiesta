@@ -40,15 +40,24 @@ export async function GET(
       }
     }
 
-    // Format options with percentages
-    const optionsWithPercent = (activeQuestion?.options || []).map(opt => {
-      const total = activeQuestion?.totalVotes || 0
-      const percent = total > 0 ? Math.round((opt.votesCount / total) * 100) : 0
+    // Format all questions with options and percentages for instant client navigation
+    const allQuestionsWithPercent = (room.questions || []).map((q, idx) => {
+      const total = q.totalVotes || 0
       return {
-        ...opt,
-        percentage: percent,
+        id: q.id,
+        title: q.title,
+        subtitle: q.subtitle,
+        totalVotes: total,
+        winnerOptionId: q.winnerOptionId,
+        isActive: idx === room.activeQuestionIndex,
+        options: (q.options || []).map(opt => ({
+          ...opt,
+          percentage: total > 0 ? Math.round((opt.votesCount / total) * 100) : 0,
+        })),
       }
     })
+
+    const activeQuestionWithPercent = allQuestionsWithPercent[room.activeQuestionIndex] || allQuestionsWithPercent[0] || null
 
     return NextResponse.json({
       success: true,
@@ -58,23 +67,17 @@ export async function GET(
       activeQuestionIndex: room.activeQuestionIndex,
       totalQuestions: room.questions.length,
       isHost,
-      activeQuestion: activeQuestion ? {
-        id: activeQuestion.id,
-        title: activeQuestion.title,
-        subtitle: activeQuestion.subtitle,
-        options: optionsWithPercent,
-        totalVotes: activeQuestion.totalVotes,
-        winnerOptionId: activeQuestion.winnerOptionId,
-      } : null,
-      myVote,
-      questionsList: isHost ? room.questions.map((q, idx) => ({
+      activeQuestion: activeQuestionWithPercent,
+      questions: allQuestionsWithPercent,
+      questionsList: allQuestionsWithPercent.map((q, idx) => ({
         id: q.id,
         title: q.title,
         subtitle: q.subtitle,
         optionsCount: q.options.length,
         totalVotes: q.totalVotes,
         isActive: idx === room.activeQuestionIndex,
-      })) : undefined,
+      })),
+      myVote,
       serverTime: Date.now(),
     }, { headers: NO_CACHE_HEADERS })
   } catch (err: any) {

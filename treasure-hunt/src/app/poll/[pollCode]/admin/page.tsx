@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { PollStatus } from '@/lib/poll'
@@ -20,6 +20,7 @@ interface QuestionData {
   options: OptionData[]
   totalVotes: number
   winnerOptionId?: string | null
+  isActive?: boolean
 }
 
 interface QuestionSummary {
@@ -39,6 +40,7 @@ interface PollRoomData {
   totalQuestions: number
   isHost: boolean
   activeQuestion: QuestionData | null
+  questions?: QuestionData[]
   questionsList?: QuestionSummary[]
 }
 
@@ -64,6 +66,9 @@ export default function PollAdminPage() {
   const [editTitle, setEditTitle] = useState('')
   const [editSubtitle, setEditSubtitle] = useState('')
   const [editOptions, setEditOptions] = useState<Array<{ id?: string; text: string; description?: string }>>([])
+
+  const isEditingRef = useRef(false)
+  isEditingRef.current = isEditingQuestion
 
   // Load hostKey
   useEffect(() => {
@@ -106,7 +111,17 @@ export default function PollAdminPage() {
         }
         const data: PollRoomData = await res.json()
         if (active) {
-          setRoom(data)
+          setRoom(prev => {
+            if (!prev) return data
+            if (isEditingRef.current) {
+              return {
+                ...data,
+                activeQuestionIndex: prev.activeQuestionIndex,
+                activeQuestion: prev.activeQuestion,
+              }
+            }
+            return data
+          })
           setLoading(false)
         }
       } catch {}
@@ -120,7 +135,7 @@ export default function PollAdminPage() {
     }
   }, [roomCode, hostKey])
 
-  // Update status (DRAFT, READY, LIVE, COMPLETED)
+  // Update status (DRAFT, READY, LIVE, STOPPED, COMPLETED)
   async function handleSetStatus(newStatus: PollStatus) {
     if (!hostKey) {
       alert('Host admin key is missing. Please access admin using the key link.')
@@ -147,10 +162,26 @@ export default function PollAdminPage() {
     }
   }
 
-  // Switch question
+  // Switch category
   async function handleSwitchQuestion(index: number) {
-    if (!hostKey || actionLoading) return
-    setActionLoading(true)
+    if (!hostKey || !room) return
+    const categoriesCount = room.questions?.length || room.questionsList?.length || 0
+    if (index < 0 || index >= categoriesCount) return
+    if (index === room.activeQuestionIndex && !isEditingQuestion) return
+
+    const targetQ = room.questions ? room.questions[index] : null
+
+    // Optimistic switch immediately with zero lag
+    setRoom(prev => {
+      if (!prev) return null
+      return {
+        ...prev,
+        activeQuestionIndex: index,
+        activeQuestion: targetQ || prev.activeQuestion,
+      }
+    })
+    setIsEditingQuestion(false)
+
     try {
       const res = await fetch(`/api/poll/${roomCode}/question`, {
         method: 'POST',
@@ -158,16 +189,55 @@ export default function PollAdminPage() {
         body: JSON.stringify({ hostKey, action: 'switch', index }),
       })
       const data = await res.json()
-      if (data.success && room) {
-        setRoom({
-          ...room,
-          activeQuestionIndex: index,
+      if (data.success) {
+        setRoom(prev => prev ? {
+          ...prev,
+          activeQuestionIndex: data.activeQuestionIndex,
           activeQuestion: data.activeQuestion,
-        })
-        setIsEditingQuestion(false)
+          questions: data.questions || prev.questions,
+        } : null)
       }
     } catch {}
-    setActionLoading(false)
+  }
+
+  // Advance to Next Category & open in READY mode
+  async function handleNextCategory() {
+    if (!hostKey || actionLoading || !room) return
+    const categoriesCount = room.questions?.length || room.questionsList?.length || 0
+    if (currentIdx >= categoriesCount - 1) return
+
+    const nextIdx = currentIdx + 1
+    const targetQ = room.questions ? room.questions[nextIdx] : null
+
+    // Optimistic update
+    setRoom(prev => {
+      if (!prev) return null
+      return {
+        ...prev,
+        activeQuestionIndex: nextIdx,
+        status: 'READY',
+        activeQuestion: targetQ || prev.activeQuestion,
+      }
+    })
+    setIsEditingQuestion(false)
+
+    try {
+      const res = await fetch(`/api/poll/${roomCode}/question`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostKey, action: 'next' }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setRoom(prev => prev ? {
+          ...prev,
+          activeQuestionIndex: data.activeQuestionIndex,
+          status: 'READY',
+          activeQuestion: data.activeQuestion,
+          questions: data.questions || prev.questions,
+        } : null)
+      }
+    } catch {}
   }
 
   // Open question editor
@@ -190,6 +260,7 @@ export default function PollAdminPage() {
     }
 
     setActionLoading(true)
+    const currentQId = room.activeQuestion.id
     try {
       const res = await fetch(`/api/poll/${roomCode}/question`, {
         method: 'POST',
@@ -198,7 +269,7 @@ export default function PollAdminPage() {
           hostKey,
           action: 'save',
           questionData: {
-            id: room.activeQuestion.id,
+            id: currentQId,
             title: editTitle.trim(),
             subtitle: editSubtitle.trim(),
             options: filteredOpts,
@@ -207,37 +278,110 @@ export default function PollAdminPage() {
       })
       const data = await res.json()
       if (data.success) {
+        setRoom(prev => prev ? {
+          ...prev,
+          activeQuestionIndex: data.activeQuestionIndex,
+          activeQuestion: data.activeQuestion,
+          questions: data.questions || prev.questions,
+        } : null)
         setIsEditingQuestion(false)
+      } else {
+        alert(data.message || 'Failed to save category')
       }
-    } catch {}
-    setActionLoading(false)
+    } catch {
+      alert('Network error saving category')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
-  // Add new blank question/category
+  // Add new blank question/category and navigate to it immediately
   async function handleAddNewQuestion() {
     if (!hostKey || actionLoading || !room) return
     setActionLoading(true)
-    const newIdx = room.questionsList ? room.questionsList.length + 1 : 2
+    const totalCount = room.questions?.length || room.questionsList?.length || 1
+    const newIdx = totalCount + 1
+    const newQId = `q_${roomCode}_${Date.now()}`
+    const defaultNewQ = {
+      id: newQId,
+      title: `Category ${newIdx}: Best Innovation`,
+      subtitle: 'Honoring creativity and out-of-the-box thinking',
+      options: [
+        { text: 'Nominee A', description: 'Tech Team' },
+        { text: 'Nominee B', description: 'Operations Team' },
+      ],
+    }
+
     try {
-      await fetch(`/api/poll/${roomCode}/question`, {
+      const res = await fetch(`/api/poll/${roomCode}/question`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           hostKey,
           action: 'save',
-          questionData: {
-            id: `q_${roomCode}_${Date.now()}`,
-            title: `Category ${newIdx}: Best Innovation`,
-            subtitle: 'Honoring creativity and out-of-the-box thinking',
-            options: [
-              { text: 'Nominee A', description: 'Tech Team' },
-              { text: 'Nominee B', description: 'Operations' },
-            ],
-          },
+          switchAfterSave: true,
+          questionData: defaultNewQ,
         }),
       })
-    } catch {}
-    setActionLoading(false)
+      const data = await res.json()
+      if (data.success) {
+        setRoom(prev => prev ? {
+          ...prev,
+          activeQuestionIndex: data.activeQuestionIndex,
+          activeQuestion: data.activeQuestion,
+          questions: data.questions,
+          totalQuestions: data.questions?.length || totalCount + 1,
+        } : null)
+        // Automatically open editor for the new category so the host can customize it immediately
+        setEditTitle(defaultNewQ.title)
+        setEditSubtitle(defaultNewQ.subtitle)
+        setEditOptions(defaultNewQ.options.map(o => ({ text: o.text, description: o.description })))
+        setIsEditingQuestion(true)
+      }
+    } catch {} finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Delete category
+  async function handleDeleteQuestion(questionId: string) {
+    if (!hostKey || actionLoading || !room) return
+    const totalCount = room.questions?.length || room.questionsList?.length || 1
+    if (totalCount <= 1) {
+      alert('You must keep at least 1 category in the poll.')
+      return
+    }
+    if (!confirm('Are you sure you want to delete this category? All its nominees and votes will be permanently removed.')) return
+
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/poll/${roomCode}/question`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hostKey,
+          action: 'delete',
+          questionId,
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setRoom(prev => prev ? {
+          ...prev,
+          activeQuestionIndex: data.activeQuestionIndex,
+          activeQuestion: data.activeQuestion,
+          questions: data.questions,
+          totalQuestions: data.questions?.length || totalCount - 1,
+        } : null)
+        setIsEditingQuestion(false)
+      } else {
+        alert(data.message || 'Could not delete category')
+      }
+    } catch {
+      alert('Network error deleting category')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   // Reset votes for current category
@@ -245,13 +389,22 @@ export default function PollAdminPage() {
     if (!hostKey || actionLoading || !confirm('Reset all votes for this current category?')) return
     setActionLoading(true)
     try {
-      await fetch(`/api/poll/${roomCode}/reset`, {
+      const res = await fetch(`/api/poll/${roomCode}/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hostKey, questionId: room?.activeQuestion?.id }),
       })
-    } catch {}
-    setActionLoading(false)
+      const data = await res.json()
+      if (data.success && room) {
+        setRoom(prev => prev ? {
+          ...prev,
+          status: data.status,
+          activeQuestion: data.activeQuestion || prev.activeQuestion,
+        } : null)
+      }
+    } catch {} finally {
+      setActionLoading(false)
+    }
   }
 
   function handleCopyShareLink() {
@@ -286,6 +439,21 @@ export default function PollAdminPage() {
 
   const currentStage = room.status
   const activeQ = room.activeQuestion
+  const categoriesList = room.questions || (room.questionsList as any[]) || []
+  const currentIdx = room.activeQuestionIndex
+  const totalCategories = categoriesList.length
+
+  const stageBadgeColor =
+    currentStage === 'LIVE' ? '#4ade80' :
+    currentStage === 'STOPPED' ? '#f87171' :
+    currentStage === 'READY' ? '#fde047' :
+    currentStage === 'COMPLETED' ? '#c084fc' : '#94a3b8'
+
+  const stageBadgeLabel =
+    currentStage === 'LIVE' ? '🟢 VOTING IN PROGRESS' :
+    currentStage === 'STOPPED' ? '🛑 VOTING CLOSED' :
+    currentStage === 'READY' ? '🟡 SHOWCASE (WAITING TO VOTE)' :
+    currentStage === 'COMPLETED' ? '🏆 WINNER REVEALED' : '⚪ DRAFT (EDITING)'
 
   return (
     <div
@@ -423,10 +591,11 @@ export default function PollAdminPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.1em', color: '#ffd9b8', textTransform: 'uppercase' }}>
-                LIVE POLL STAGE
+                LIVE POLL CONTROLS
               </div>
-              <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, fontWeight: 800, color: '#fff' }}>
-                Current Stage: <span style={{ color: currentStage === 'LIVE' ? '#4ade80' : currentStage === 'READY' ? '#fde047' : currentStage === 'COMPLETED' ? '#c084fc' : '#94a3b8' }}>{currentStage}</span>
+              <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
+                <span>Status:</span>
+                <span style={{ color: stageBadgeColor }}>{stageBadgeLabel}</span>
               </div>
             </div>
 
@@ -449,7 +618,7 @@ export default function PollAdminPage() {
                 }}
               >
                 <span>🔁</span>
-                <span>Reset Votes</span>
+                <span>Reset Category Votes</span>
               </button>
             </div>
           </div>
@@ -461,7 +630,7 @@ export default function PollAdminPage() {
               onClick={() => handleSetStatus('DRAFT')}
               disabled={actionLoading}
               style={{
-                height: 50,
+                height: 52,
                 borderRadius: 14,
                 border: currentStage === 'DRAFT' ? '2px solid #94a3b8' : '1px solid rgba(255,255,255,0.12)',
                 background: currentStage === 'DRAFT' ? 'rgba(148,163,184,0.25)' : 'rgba(255,255,255,0.05)',
@@ -480,7 +649,7 @@ export default function PollAdminPage() {
               onClick={() => handleSetStatus('READY')}
               disabled={actionLoading}
               style={{
-                height: 50,
+                height: 52,
                 borderRadius: 14,
                 border: currentStage === 'READY' ? '2px solid #eab308' : '1px solid rgba(255,255,255,0.12)',
                 background: currentStage === 'READY' ? 'rgba(234,179,8,0.25)' : 'rgba(255,255,255,0.05)',
@@ -494,24 +663,44 @@ export default function PollAdminPage() {
               🟡 READY (SHOWCASE)
             </button>
 
-            {/* LIVE */}
+            {/* LIVE / START VOTING */}
             <button
               onClick={() => handleSetStatus('LIVE')}
               disabled={actionLoading}
               style={{
-                height: 50,
+                height: 52,
                 borderRadius: 14,
-                border: currentStage === 'LIVE' ? '2px solid #22c55e' : '1px solid rgba(255,255,255,0.12)',
-                background: currentStage === 'LIVE' ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'rgba(255,255,255,0.05)',
-                color: currentStage === 'LIVE' ? '#fff' : '#22c55e',
+                border: currentStage === 'LIVE' ? '2px solid #22c55e' : '1px solid rgba(34,197,94,0.3)',
+                background: currentStage === 'LIVE' ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'rgba(34,197,94,0.12)',
+                color: currentStage === 'LIVE' ? '#fff' : '#4ade80',
                 fontFamily: 'Fredoka, sans-serif',
-                fontWeight: 700,
+                fontWeight: 800,
                 fontSize: 14,
                 cursor: 'pointer',
                 boxShadow: currentStage === 'LIVE' ? '0 0 20px rgba(34,197,94,0.5)' : 'none',
               }}
             >
-              🟢 GO LIVE (VOTE)
+              {currentStage === 'STOPPED' ? '▶ RE-OPEN VOTING' : '🟢 START VOTING'}
+            </button>
+
+            {/* STOP VOTING */}
+            <button
+              onClick={() => handleSetStatus('STOPPED')}
+              disabled={actionLoading}
+              style={{
+                height: 52,
+                borderRadius: 14,
+                border: currentStage === 'STOPPED' ? '2px solid #ef4444' : '1px solid rgba(239,68,68,0.3)',
+                background: currentStage === 'STOPPED' ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'rgba(239,68,68,0.12)',
+                color: currentStage === 'STOPPED' ? '#fff' : '#f87171',
+                fontFamily: 'Fredoka, sans-serif',
+                fontWeight: 800,
+                fontSize: 14,
+                cursor: 'pointer',
+                boxShadow: currentStage === 'STOPPED' ? '0 0 20px rgba(239,68,68,0.5)' : 'none',
+              }}
+            >
+              🛑 STOP VOTING
             </button>
 
             {/* COMPLETED */}
@@ -519,7 +708,7 @@ export default function PollAdminPage() {
               onClick={() => handleSetStatus('COMPLETED')}
               disabled={actionLoading}
               style={{
-                height: 50,
+                height: 52,
                 borderRadius: 14,
                 border: currentStage === 'COMPLETED' ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.12)',
                 background: currentStage === 'COMPLETED' ? 'linear-gradient(135deg, #a855f7, #7e22ce)' : 'rgba(255,255,255,0.05)',
@@ -531,10 +720,89 @@ export default function PollAdminPage() {
                 boxShadow: currentStage === 'COMPLETED' ? '0 0 20px rgba(168,85,247,0.5)' : 'none',
               }}
             >
-              🏆 REVEAL WINNER!
+              🏆 REVEAL WINNER
             </button>
           </div>
         </section>
+
+        {/* PROMINENT NEXT CATEGORY ACTION (Shows when voting is STOPPED or WINNER REVEALED) */}
+        {(currentStage === 'STOPPED' || currentStage === 'COMPLETED') && (
+          <section
+            style={{
+              background: 'linear-gradient(135deg, rgba(168,85,247,0.22), rgba(255,200,87,0.18))',
+              border: '2px solid #FFC857',
+              borderRadius: 20,
+              padding: '18px 24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 14,
+              boxShadow: '0 8px 30px rgba(255,200,87,0.2)',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#FFC857', letterSpacing: '.06em', textTransform: 'uppercase' }}>
+                {currentStage === 'STOPPED' ? '🛑 VOTING IS CLOSED FOR THIS CATEGORY' : '🏆 WINNER HAS BEEN ANNOUNCED!'}
+              </div>
+              <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 19, fontWeight: 800, color: '#fff', marginTop: 2 }}>
+                {currentIdx < totalCategories - 1
+                  ? `Next up: Category #${currentIdx + 2} — ${categoriesList[currentIdx + 1]?.title}`
+                  : '🎉 All categories have concluded for this award show!'}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              {currentStage === 'STOPPED' && (
+                <button
+                  onClick={() => handleSetStatus('COMPLETED')}
+                  style={{
+                    padding: '12px 20px',
+                    borderRadius: 14,
+                    background: 'linear-gradient(135deg, #a855f7, #7e22ce)',
+                    color: '#fff',
+                    border: 'none',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 14,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(168,85,247,0.4)',
+                  }}
+                >
+                  🏆 Reveal Winner First
+                </button>
+              )}
+
+              {currentIdx < totalCategories - 1 ? (
+                <button
+                  onClick={handleNextCategory}
+                  style={{
+                    padding: '12px 26px',
+                    borderRadius: 14,
+                    background: 'linear-gradient(135deg, #FFC857, #FFA23A)',
+                    color: '#000',
+                    border: 'none',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 15,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 18px rgba(255,200,87,0.4)',
+                  }}
+                >
+                  <span>Advance to Next Category</span>
+                  <span style={{ fontSize: 18 }}>➔</span>
+                </button>
+              ) : (
+                <span style={{ fontSize: 14, color: '#FFC857', fontWeight: 800 }}>
+                  ✨ All Categories Completed!
+                </span>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* QUESTIONS / CATEGORIES TABS */}
         <section
@@ -543,51 +811,64 @@ export default function PollAdminPage() {
             alignItems: 'center',
             gap: 8,
             overflowX: 'auto',
-            paddingBottom: 4,
+            paddingBottom: 6,
+            scrollbarWidth: 'thin',
           }}
         >
-          {room.questionsList?.map((q, idx) => (
-            <button
-              key={q.id}
-              onClick={() => handleSwitchQuestion(idx)}
-              style={{
-                padding: '10px 18px',
-                borderRadius: 14,
-                background: idx === room.activeQuestionIndex ? 'linear-gradient(135deg, #FFC857, #FFA23A)' : 'rgba(255,255,255,0.05)',
-                color: idx === room.activeQuestionIndex ? '#000' : '#fff',
-                border: idx === room.activeQuestionIndex ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                fontFamily: 'Fredoka, sans-serif',
-                fontSize: 14,
-                fontWeight: 700,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span>{idx + 1}.</span>
-              <span>{q.title}</span>
-              <span style={{ fontSize: 11, opacity: 0.7 }}>({q.totalVotes} votes)</span>
-            </button>
-          ))}
+          {categoriesList.map((q, idx) => {
+            const isTabActive = idx === currentIdx
+            return (
+              <button
+                key={q.id || idx}
+                onClick={() => handleSwitchQuestion(idx)}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: 14,
+                  background: isTabActive ? 'linear-gradient(135deg, #FFC857, #FFA23A)' : 'rgba(255,255,255,0.06)',
+                  color: isTabActive ? '#000' : '#fff',
+                  border: isTabActive ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                  fontFamily: 'Fredoka, sans-serif',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  transition: 'all 0.15s ease',
+                  boxShadow: isTabActive ? '0 4px 16px rgba(255,200,87,0.35)' : 'none',
+                }}
+              >
+                <span style={{ opacity: isTabActive ? 0.8 : 0.5 }}>#{idx + 1}</span>
+                <span>{q.title || `Category ${idx + 1}`}</span>
+                <span style={{ fontSize: 11, background: isTabActive ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 999 }}>
+                  {q.totalVotes || 0} votes
+                </span>
+              </button>
+            )
+          })}
 
           <button
             onClick={handleAddNewQuestion}
+            disabled={actionLoading}
             style={{
-              padding: '10px 16px',
+              padding: '10px 18px',
               borderRadius: 14,
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px dashed rgba(255,255,255,0.3)',
+              background: 'rgba(255,200,87,0.12)',
+              border: '1.5px dashed rgba(255,200,87,0.5)',
               color: '#FFC857',
               fontFamily: 'Fredoka, sans-serif',
               fontSize: 14,
               fontWeight: 700,
-              cursor: 'pointer',
+              cursor: actionLoading ? 'wait' : 'pointer',
               whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
             }}
           >
-            + Add Category
+            <span>✨</span>
+            <span>+ Add Category</span>
           </button>
         </section>
 
@@ -601,12 +882,63 @@ export default function PollAdminPage() {
             boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
           }}
         >
+          {/* Quick Prev / Next Navigator for Categories */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.08)', flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                onClick={() => handleSwitchQuestion(currentIdx - 1)}
+                disabled={currentIdx <= 0}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 10,
+                  background: currentIdx > 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: currentIdx > 0 ? '#fff' : 'rgba(255,255,255,0.2)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: currentIdx > 0 ? 'pointer' : 'default',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <span>←</span>
+                <span>Prev Category</span>
+              </button>
+
+              <button
+                onClick={() => handleSwitchQuestion(currentIdx + 1)}
+                disabled={currentIdx >= totalCategories - 1}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 10,
+                  background: currentIdx < totalCategories - 1 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: currentIdx < totalCategories - 1 ? '#fff' : 'rgba(255,255,255,0.2)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: currentIdx < totalCategories - 1 ? 'pointer' : 'default',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <span>Next Category</span>
+                <span>→</span>
+              </button>
+            </div>
+
+            <div style={{ fontSize: 13, color: '#ffd9b8', fontFamily: 'Fredoka, sans-serif' }}>
+              Category <b>{currentIdx + 1}</b> of <b>{totalCategories}</b>
+            </div>
+          </div>
+
           {!isEditingQuestion ? (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
                 <div>
                   <div style={{ fontSize: 12, color: '#ffd9b8', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-                    CATEGORY #{room.activeQuestionIndex + 1}
+                    CATEGORY #{currentIdx + 1}
                   </div>
                   <h2 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 26, fontWeight: 800, margin: '2px 0 4px', color: '#FFC857' }}>
                     {activeQ?.title}
@@ -616,7 +948,7 @@ export default function PollAdminPage() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <div style={{ fontSize: 14, color: '#ffd9b8', background: 'rgba(255,255,255,0.06)', padding: '6px 14px', borderRadius: 999 }}>
                     Total Votes: <b>{activeQ?.totalVotes || 0}</b>
                   </div>
@@ -631,10 +963,37 @@ export default function PollAdminPage() {
                       fontSize: 13,
                       fontWeight: 700,
                       cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
                     }}
                   >
-                    ✏️ Edit Nominees
+                    <span>✏️</span>
+                    <span>Edit Nominees</span>
                   </button>
+
+                  {totalCategories > 1 && activeQ && (
+                    <button
+                      onClick={() => handleDeleteQuestion(activeQ.id)}
+                      disabled={actionLoading}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: 12,
+                        background: 'rgba(239,68,68,0.12)',
+                        border: '1px solid rgba(239,68,68,0.3)',
+                        color: '#fca5a5',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <span>🗑️</span>
+                      <span>Delete</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -644,7 +1003,7 @@ export default function PollAdminPage() {
                   const isWinner = activeQ.winnerOptionId === opt.id
                   return (
                     <div
-                      key={opt.id}
+                      key={opt.id || idx}
                       style={{
                         padding: '16px 18px',
                         borderRadius: 16,
@@ -661,7 +1020,7 @@ export default function PollAdminPage() {
                           left: 0,
                           bottom: 0,
                           top: 0,
-                          width: `${opt.percentage}%`,
+                          width: `${opt.percentage || 0}%`,
                           background: isWinner ? 'rgba(255,200,87,0.15)' : 'rgba(168,85,247,0.12)',
                           zIndex: 0,
                           transition: 'width 0.4s ease',
@@ -674,7 +1033,7 @@ export default function PollAdminPage() {
                             {opt.text}
                           </div>
                           <div style={{ fontFamily: 'Fredoka, monospace', fontSize: 18, fontWeight: 800, color: isWinner ? '#FFC857' : '#d8b4fe' }}>
-                            {opt.percentage}%
+                            {opt.percentage || 0}%
                           </div>
                         </div>
 
@@ -685,7 +1044,7 @@ export default function PollAdminPage() {
                         )}
 
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: '#ffd9b8' }}>
-                          <span>{opt.votesCount} {opt.votesCount === 1 ? 'vote' : 'votes'}</span>
+                          <span>{opt.votesCount || 0} {(opt.votesCount || 0) === 1 ? 'vote' : 'votes'}</span>
                           {isWinner && (
                             <span style={{ color: '#4ade80', fontWeight: 800 }}>🏆 WINNER!</span>
                           )}
@@ -701,7 +1060,7 @@ export default function PollAdminPage() {
             <form onSubmit={handleSaveQuestion} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 20, fontWeight: 700, margin: 0, color: '#FFC857' }}>
-                  Edit Category & Nominees
+                  Edit Category #{currentIdx + 1}
                 </h3>
                 <button
                   type="button"
@@ -714,7 +1073,7 @@ export default function PollAdminPage() {
 
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#e5d9f2', marginBottom: 4 }}>
-                  CATEGORY / QUESTION TITLE
+                  CATEGORY / AWARD TITLE
                 </label>
                 <input
                   type="text"
@@ -742,47 +1101,49 @@ export default function PollAdminPage() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                   <label style={{ fontSize: 12, fontWeight: 700, color: '#e5d9f2' }}>
-                    NOMINEES / OPTIONS
+                    NOMINEES / CANDIDATES
                   </label>
                   <button
                     type="button"
                     onClick={() => setEditOptions([...editOptions, { text: '', description: '' }])}
-                    style={{ background: 'none', border: 0, color: '#FFC857', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                    style={{ background: 'none', border: 0, color: '#FFC857', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
                   >
                     + Add Nominee
                   </button>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {editOptions.map((opt, idx) => (
-                    <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {editOptions.map((opt, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, color: '#ffd9b8', width: 24, textAlign: 'center' }}>{i + 1}.</span>
                       <input
                         type="text"
-                        placeholder={`Nominee ${idx + 1} Name`}
+                        placeholder="Nominee / Option name"
                         value={opt.text}
                         onChange={e => {
                           const updated = [...editOptions]
-                          updated[idx].text = e.target.value
+                          updated[i].text = e.target.value
                           setEditOptions(updated)
                         }}
-                        style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(10,3,20,0.7)', color: '#fff', fontSize: 14 }}
+                        required
+                        style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(10,3,20,0.7)', color: '#fff', fontSize: 14 }}
                       />
                       <input
                         type="text"
-                        placeholder="Tag / Dept (optional)"
+                        placeholder="Subtitle / Department (optional)"
                         value={opt.description || ''}
                         onChange={e => {
                           const updated = [...editOptions]
-                          updated[idx].description = e.target.value
+                          updated[i].description = e.target.value
                           setEditOptions(updated)
                         }}
-                        style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(10,3,20,0.7)', color: '#fff', fontSize: 14 }}
+                        style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(10,3,20,0.7)', color: '#fff', fontSize: 14 }}
                       />
                       {editOptions.length > 2 && (
                         <button
                           type="button"
-                          onClick={() => setEditOptions(editOptions.filter((_, i) => i !== idx))}
-                          style={{ width: 34, height: 34, borderRadius: 8, border: 0, background: 'rgba(239,68,68,0.2)', color: '#f87171', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+                          onClick={() => setEditOptions(editOptions.filter((_, idx) => idx !== i))}
+                          style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', cursor: 'pointer', fontSize: 13 }}
                         >
                           ✕
                         </button>
@@ -792,20 +1153,20 @@ export default function PollAdminPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
                 <button
                   type="button"
                   onClick={() => setIsEditingQuestion(false)}
-                  style={{ flex: 1, height: 46, borderRadius: 12, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#ccc', fontFamily: 'Fredoka, sans-serif', fontSize: 15, cursor: 'pointer' }}
+                  style={{ padding: '10px 18px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: 14, cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  style={{ flex: 2, height: 46, borderRadius: 12, border: 0, background: 'linear-gradient(135deg, #FFC857, #FFA23A)', color: '#000', fontFamily: 'Fredoka, sans-serif', fontSize: 16, fontWeight: 800, cursor: 'pointer' }}
+                  style={{ padding: '10px 24px', borderRadius: 12, background: 'linear-gradient(135deg, #FFC857, #FFA23A)', border: 'none', color: '#000', fontFamily: 'Fredoka, sans-serif', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}
                 >
-                  {actionLoading ? 'Saving…' : 'Save Nominees & Category'}
+                  {actionLoading ? 'Saving…' : 'Save Nominees'}
                 </button>
               </div>
             </form>
@@ -816,71 +1177,66 @@ export default function PollAdminPage() {
       {/* QR Code Modal */}
       {showQrModal && (
         <div
+          onClick={() => setShowQrModal(false)}
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(5,1,10,0.92)',
-            backdropFilter: 'blur(16px)',
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 20,
             zIndex: 1000,
-          }}
-          onClick={e => {
-            if (e.target === e.currentTarget) setShowQrModal(false)
+            padding: 20,
           }}
         >
           <div
+            onClick={e => e.stopPropagation()}
             style={{
-              width: '100%',
+              background: 'linear-gradient(145deg, #1f0b35, #0c0217)',
+              border: '2px solid rgba(255,200,87,0.4)',
+              borderRadius: 24,
+              padding: 28,
               maxWidth: 420,
-              background: 'linear-gradient(145deg, #240a38 0%, #110220 100%)',
-              border: '2px solid rgba(255,200,87,0.5)',
-              borderRadius: 28,
-              padding: '30px 24px',
+              width: '100%',
               textAlign: 'center',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              position: 'relative',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.7)',
             }}
           >
-            <button
-              onClick={() => setShowQrModal(false)}
-              style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 0, width: 34, height: 34, borderRadius: '50%', color: '#fff', fontSize: 16, cursor: 'pointer', display: 'grid', placeItems: 'center' }}
-            >
-              ✕
-            </button>
-
-            <div style={{ fontSize: 32, marginBottom: 6 }}>📱</div>
-            <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, fontWeight: 800, margin: '0 0 6px', color: '#FFC857' }}>
-              Scan to Vote
-            </h3>
-            <div style={{ fontSize: 13, color: '#ffd9b8', marginBottom: 16 }}>
-              Audience members can scan to cast their vote in real time
+            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 24, fontWeight: 800, color: '#FFC857', marginBottom: 4 }}>
+              Audience Voting QR
+            </div>
+            <div style={{ fontSize: 13, color: '#d8b4fe', marginBottom: 20 }}>
+              Scan to vote directly from your mobile phone!
             </div>
 
             {qrDataUrl && (
-              <div style={{ background: '#fff', padding: 12, borderRadius: 16, marginBottom: 16, boxShadow: '0 10px 28px rgba(0,0,0,0.5)' }}>
+              <div style={{ display: 'inline-block', background: '#fff', padding: 14, borderRadius: 18, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qrDataUrl} alt="Poll QR" style={{ width: 240, height: 240, display: 'block', borderRadius: 8 }} />
+                <img src={qrDataUrl} alt="Voting QR Code" style={{ width: 260, height: 260, display: 'block' }} />
               </div>
             )}
 
-            <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,200,87,0.3)', borderRadius: 12, padding: '8px 16px', width: '100%', boxSizing: 'border-box', marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#ffd9b8' }}>POLL CODE</div>
-              <div style={{ fontFamily: 'Fredoka, monospace', fontSize: 24, fontWeight: 800, color: '#FFC857' }}>
-                {roomCode}
+            <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 13, color: '#ffd9b8' }}>
+                Poll Code: <b style={{ color: '#FFC857', fontSize: 16 }}>{roomCode}</b>
               </div>
+              <button
+                onClick={() => setShowQrModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
             </div>
-
-            <button
-              onClick={handleCopyShareLink}
-              style={{ width: '100%', height: 46, borderRadius: 12, border: 0, background: 'linear-gradient(135deg, #FFC857, #FFA23A)', color: '#000', fontFamily: 'Fredoka, sans-serif', fontSize: 15, fontWeight: 800, cursor: 'pointer' }}
-            >
-              {copied ? '✓ COPIED LINK' : '📋 COPY AUDIENCE LINK'}
-            </button>
           </div>
         </div>
       )}

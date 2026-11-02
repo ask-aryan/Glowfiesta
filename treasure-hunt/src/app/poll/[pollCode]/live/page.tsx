@@ -103,9 +103,10 @@ export default function BigScreenLivePollPage() {
   const isLive = stage === 'LIVE'
   const isReady = stage === 'READY'
   const isDraft = stage === 'DRAFT'
+  const isStopped = stage === 'STOPPED'
   const isCompleted = stage === 'COMPLETED'
 
-  // Sort options by vote count if in LIVE or COMPLETED
+  // Options list
   const displayOptions = [...(activeQ?.options || [])]
 
   return (
@@ -176,6 +177,8 @@ export default function BigScreenLivePollPage() {
               textTransform: 'uppercase',
               background: isLive
                 ? 'rgba(34,197,94,0.2)'
+                : isStopped
+                ? 'rgba(239,68,68,0.2)'
                 : isReady
                 ? 'rgba(234,179,8,0.2)'
                 : isCompleted
@@ -184,18 +187,20 @@ export default function BigScreenLivePollPage() {
               border: `2px solid ${
                 isLive
                   ? '#22c55e'
+                  : isStopped
+                  ? '#ef4444'
                   : isReady
                   ? '#eab308'
                   : isCompleted
                   ? '#FFC857'
                   : 'rgba(255,255,255,0.25)'
               }`,
-              color: isLive ? '#4ade80' : isReady ? '#fde047' : isCompleted ? '#FFC857' : '#cbd5e1',
-              boxShadow: isLive ? '0 0 24px rgba(34,197,94,0.5)' : isCompleted ? '0 0 28px rgba(255,200,87,0.5)' : 'none',
+              color: isLive ? '#4ade80' : isStopped ? '#f87171' : isReady ? '#fde047' : isCompleted ? '#FFC857' : '#cbd5e1',
+              boxShadow: isLive ? '0 0 24px rgba(34,197,94,0.5)' : isStopped ? '0 0 24px rgba(239,68,68,0.5)' : isCompleted ? '0 0 28px rgba(255,200,87,0.5)' : 'none',
               animation: isLive ? 'pulse 1.4s infinite' : 'none',
             }}
           >
-            {isLive ? '● VOTING LIVE' : isReady ? '● CATEGORY SHOWCASE' : isCompleted ? '🏆 WINNER REVEALED' : '● DRAFT'}
+            {isLive ? '● VOTING LIVE' : isStopped ? '🛑 VOTING CLOSED' : isReady ? '● CATEGORY SHOWCASE' : isCompleted ? '🏆 WINNER REVEALED' : '● DRAFT'}
           </div>
 
           {/* Fullscreen Button */}
@@ -303,6 +308,8 @@ export default function BigScreenLivePollPage() {
           >
             {displayOptions.map((opt, idx) => {
               const isWinner = activeQ?.winnerOptionId === opt.id
+              const showFill = isLive || isStopped || isCompleted
+
               return (
                 <div
                   key={opt.id}
@@ -320,7 +327,7 @@ export default function BigScreenLivePollPage() {
                   }}
                 >
                   {/* Dynamic Progress Fill Bar */}
-                  {(isLive || isCompleted) && (
+                  {showFill && (
                     <div
                       style={{
                         position: 'absolute',
@@ -384,20 +391,20 @@ export default function BigScreenLivePollPage() {
                     </div>
 
                     <div style={{ textAlign: 'right' }}>
-                      <div
-                        style={{
-                          fontFamily: 'Fredoka, monospace',
-                          fontSize: 34,
-                          fontWeight: 800,
-                          color: isWinner ? '#FFC857' : '#d8b4fe',
-                          letterSpacing: '.04em',
-                        }}
-                      >
-                        {opt.percentage}%
-                      </div>
-                      <div style={{ fontSize: 14, color: '#ffd9b8', fontWeight: 600 }}>
-                        {opt.votesCount} {opt.votesCount === 1 ? 'vote' : 'votes'}
-                      </div>
+                      {showFill ? (
+                        <div>
+                          <div style={{ fontFamily: 'Fredoka, monospace', fontSize: 32, fontWeight: 900, color: isWinner ? '#FFC857' : '#d8b4fe' }}>
+                            {opt.percentage}%
+                          </div>
+                          <div style={{ fontSize: 13, color: '#ffd9b8', fontWeight: 600 }}>
+                            {opt.votesCount} {opt.votesCount === 1 ? 'vote' : 'votes'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 14, color: '#a89bc2', fontStyle: 'italic' }}>
+                          Nominated
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -406,80 +413,66 @@ export default function BigScreenLivePollPage() {
           </div>
         </div>
 
-        {/* Right Sidebar: Huge Audience Scan QR Code */}
-        <aside
-          style={{
-            background: 'linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-            border: '2px solid rgba(255,200,87,0.35)',
-            borderRadius: 26,
-            padding: '28px 24px',
-            textAlign: 'center',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-          }}
-        >
-          <div style={{ fontSize: 32, marginBottom: 4 }}>📱</div>
-          <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, fontWeight: 800, color: '#FFC857', margin: '0 0 4px' }}>
-            Scan to Vote!
-          </div>
-          <div style={{ fontSize: 13, color: '#ffd9b8', marginBottom: 20 }}>
-            Use your phone camera to cast your vote
-          </div>
+        {/* Right: Live Audience QR Card & Info */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div
+            style={{
+              background: 'linear-gradient(145deg, rgba(20,5,35,0.9), rgba(10,2,18,0.95))',
+              border: '2px solid rgba(255,200,87,0.4)',
+              borderRadius: 26,
+              padding: 24,
+              textAlign: 'center',
+              boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 20, fontWeight: 800, color: '#FFC857', marginBottom: 2 }}>
+              {isStopped ? 'VOTING CLOSED' : isCompleted ? 'CATEGORY CONCLUDED' : 'SCAN TO VOTE'}
+            </div>
+            <div style={{ fontSize: 13, color: '#ffd9b8', marginBottom: 16 }}>
+              {isStopped
+                ? 'Ballots locked for this category!'
+                : isCompleted
+                ? 'Winner celebrated on stage!'
+                : 'Point your mobile camera to cast your vote!'}
+            </div>
 
-          {/* QR Code Container */}
-          {qrDataUrl && (
+            {/* QR Code Container */}
             <div
               style={{
+                display: 'inline-block',
                 background: '#fff',
                 padding: 12,
                 borderRadius: 20,
-                boxShadow: '0 12px 32px rgba(0,0,0,0.6)',
-                marginBottom: 20,
+                boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+                marginBottom: 16,
+                opacity: isStopped ? 0.6 : 1,
               }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={qrDataUrl}
-                alt="Scan to Vote"
-                style={{ width: 220, height: 220, display: 'block', borderRadius: 10 }}
-              />
+              {qrDataUrl && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={qrDataUrl} alt="Voting QR Code" style={{ width: 220, height: 220, display: 'block' }} />
+              )}
             </div>
-          )}
 
-          {/* Room Code Display */}
-          <div
-            style={{
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,200,87,0.3)',
-              borderRadius: 14,
-              padding: '12px 20px',
-              width: '100%',
-              boxSizing: 'border-box',
-            }}
-          >
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#ffd9b8', letterSpacing: '.08em' }}>
-              POLL ROOM CODE
+            <div style={{ fontSize: 12, color: '#c4b5d4', textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 700 }}>
+              ENTER CODE AT /POLL
             </div>
             <div
               style={{
-                fontFamily: 'Fredoka, monospace',
+                fontFamily: 'Fredoka, sans-serif',
                 fontSize: 28,
-                fontWeight: 800,
-                color: '#FFC857',
+                fontWeight: 900,
                 letterSpacing: '.12em',
+                color: '#FFC857',
                 marginTop: 2,
               }}
             >
               {roomCode}
             </div>
           </div>
-
-          <div style={{ fontSize: 12, color: '#8b7fa8', marginTop: 14 }}>
-            Vote anonymously or enter your name
-          </div>
-        </aside>
+        </div>
       </main>
     </div>
   )

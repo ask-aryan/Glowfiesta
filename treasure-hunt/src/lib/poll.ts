@@ -1,6 +1,6 @@
 import { prisma } from './db'
 
-export type PollStatus = 'DRAFT' | 'READY' | 'LIVE' | 'COMPLETED'
+export type PollStatus = 'DRAFT' | 'READY' | 'LIVE' | 'STOPPED' | 'COMPLETED'
 
 export interface PollOption {
   id: string
@@ -75,7 +75,7 @@ async function ensureTables() {
       CREATE TABLE IF NOT EXISTS poll_questions (
         id VARCHAR(100) PRIMARY KEY,
         room_code VARCHAR(50) NOT NULL,
-        order_index INT NOT NULL,
+        order_index INT NOT NULL DEFAULT 0,
         title VARCHAR(255) NOT NULL,
         subtitle VARCHAR(255) NULL,
         winner_option_id VARCHAR(100) NULL
@@ -238,7 +238,7 @@ export async function getPollRoom(roomCode: string): Promise<PollRoom | null> {
         votedAt: Number(v.voted_at),
       }))
 
-      const questionsMap = new Map<string, PollQuestion>()
+      const questionsMap = new Map<string, PollQuestion & { orderIndex: number }>()
       for (const q of qRows || []) {
         questionsMap.set(q.id, {
           id: q.id,
@@ -247,6 +247,7 @@ export async function getPollRoom(roomCode: string): Promise<PollRoom | null> {
           winnerOptionId: q.winner_option_id || null,
           options: [],
           totalVotes: 0,
+          orderIndex: Number(q.order_index ?? 0),
         })
       }
 
@@ -264,7 +265,8 @@ export async function getPollRoom(roomCode: string): Promise<PollRoom | null> {
         }
       }
 
-      Array.from(questionsMap.values()).forEach(q => {
+      const sortedQuestions = Array.from(questionsMap.values()).sort((a, b) => a.orderIndex - b.orderIndex)
+      sortedQuestions.forEach(q => {
         q.totalVotes = q.options.reduce((sum: number, o: PollOption) => sum + o.votesCount, 0)
         dbRoom.questions.push(q)
       })
@@ -273,6 +275,11 @@ export async function getPollRoom(roomCode: string): Promise<PollRoom | null> {
       const memRoom = rooms.get(code)
       if (dbRoom.questions.length === 0 && memRoom && memRoom.questions.length > 0) {
         dbRoom.questions = memRoom.questions
+      }
+
+      // Ensure activeQuestionIndex is within valid bounds
+      if (dbRoom.questions.length > 0 && dbRoom.activeQuestionIndex >= dbRoom.questions.length) {
+        dbRoom.activeQuestionIndex = dbRoom.questions.length - 1
       }
 
       rooms.set(code, dbRoom)
@@ -358,6 +365,31 @@ export async function setActiveQuestion(
   return room
 }
 
+export async function advanceToNextCategory(
+  roomCode: string,
+  hostKey: string
+): Promise<PollRoom | null> {
+  const room = await getPollRoom(roomCode)
+  if (!room || room.hostKey !== hostKey) return null
+  if (room.activeQuestionIndex >= room.questions.length - 1) return null
+
+  room.activeQuestionIndex += 1
+  room.status = 'READY'
+  room.updatedAt = Date.now()
+
+  rooms.set(room.id, room)
+
+  try {
+    await prisma.$executeRawUnsafe(
+      `UPDATE poll_rooms SET active_question_index = ${room.activeQuestionIndex}, status = 'READY', updated_at = ${room.updatedAt} WHERE id = '${room.id}'`
+    )
+  } catch (err) {
+    console.warn('Notice: advanceToNextCategory DB write:', err)
+  }
+
+  return room
+}
+
 export async function updateQuestion(
   roomCode: string,
   hostKey: string,
@@ -406,15 +438,23 @@ export async function updateQuestion(
     await prisma.$executeRawUnsafe(
       `INSERT INTO poll_questions (id, room_code, order_index, title, subtitle, winner_option_id)
        VALUES ('${q.id}', '${room.id}', ${qIndex}, '${q.title.replace(/'/g, "''")}', '${(q.subtitle || '').replace(/'/g, "''")}', NULL)
-       ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, subtitle = EXCLUDED.subtitle`
+       ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, subtitle = EXCLUDED.subtitle, order_index = ${qIndex}`
     ).catch(async () => {
       // MySQL fallback
       await prisma.$executeRawUnsafe(
         `INSERT INTO poll_questions (id, room_code, order_index, title, subtitle, winner_option_id)
          VALUES ('${q.id}', '${room.id}', ${qIndex}, '${q.title.replace(/'/g, "''")}', '${(q.subtitle || '').replace(/'/g, "''")}', NULL)
-         ON DUPLICATE KEY UPDATE title = VALUES(title), subtitle = VALUES(subtitle)`
+         ON DUPLICATE KEY UPDATE title = VALUES(title), subtitle = VALUES(subtitle), order_index = VALUES(order_index)`
       )
     })
+
+    // Clean up removed options in DB
+    const currentOptIds = q.options.map(o => `'${o.id}'`).join(',')
+    if (currentOptIds.length > 0) {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM poll_options WHERE room_code = '${room.id}' AND question_id = '${q.id}' AND id NOT IN (${currentOptIds})`
+      ).catch(() => {})
+    }
 
     // Upsert options
     for (let i = 0; i < q.options.length; i++) {
@@ -422,17 +462,62 @@ export async function updateQuestion(
       await prisma.$executeRawUnsafe(
         `INSERT INTO poll_options (id, question_id, room_code, text, description, image_url, order_index)
          VALUES ('${opt.id}', '${q.id}', '${room.id}', '${opt.text.replace(/'/g, "''")}', '${(opt.description || '').replace(/'/g, "''")}', NULL, ${i})
-         ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text, description = EXCLUDED.description`
+         ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text, description = EXCLUDED.description, order_index = ${i}`
       ).catch(async () => {
         await prisma.$executeRawUnsafe(
           `INSERT INTO poll_options (id, question_id, room_code, text, description, image_url, order_index)
            VALUES ('${opt.id}', '${q.id}', '${room.id}', '${opt.text.replace(/'/g, "''")}', '${(opt.description || '').replace(/'/g, "''")}', NULL, ${i})
-           ON DUPLICATE KEY UPDATE text = VALUES(text), description = VALUES(description)`
+           ON DUPLICATE KEY UPDATE text = VALUES(text), description = VALUES(description), order_index = VALUES(order_index)`
         )
       })
     }
   } catch (err) {
     console.warn('Notice: updateQuestion DB write:', err)
+  }
+
+  return room
+}
+
+export async function deleteQuestion(
+  roomCode: string,
+  hostKey: string,
+  questionId: string
+): Promise<PollRoom | null> {
+  const room = await getPollRoom(roomCode)
+  if (!room || room.hostKey !== hostKey) return null
+  if (room.questions.length <= 1) return null // Must preserve at least one category
+
+  const qIndex = room.questions.findIndex(q => q.id === questionId)
+  if (qIndex === -1) return null
+
+  room.questions.splice(qIndex, 1)
+  if (room.activeQuestionIndex >= room.questions.length) {
+    room.activeQuestionIndex = room.questions.length - 1
+  }
+  room.updatedAt = Date.now()
+
+  rooms.set(room.id, room)
+
+  try {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM poll_options WHERE room_code = '${room.id}' AND question_id = '${questionId}'`
+    )
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM poll_votes WHERE room_code = '${room.id}' AND question_id = '${questionId}'`
+    )
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM poll_questions WHERE room_code = '${room.id}' AND id = '${questionId}'`
+    )
+    await prisma.$executeRawUnsafe(
+      `UPDATE poll_rooms SET active_question_index = ${room.activeQuestionIndex}, updated_at = ${room.updatedAt} WHERE id = '${room.id}'`
+    )
+    for (let i = 0; i < room.questions.length; i++) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE poll_questions SET order_index = ${i} WHERE id = '${room.questions[i].id}'`
+      )
+    }
+  } catch (err) {
+    console.warn('Notice: deleteQuestion DB write:', err)
   }
 
   return room
@@ -454,6 +539,8 @@ export async function castVote(
       success: false,
       message: room.status === 'READY'
         ? 'Voting is in Ready mode. Waiting for host to open voting.'
+        : room.status === 'STOPPED'
+        ? 'Voting has ended for this category.'
         : room.status === 'COMPLETED'
         ? 'Voting for this category is now closed.'
         : 'Poll is in Draft mode.',

@@ -22,7 +22,7 @@ export async function POST(
       return NextResponse.json({ success: false, message: 'Admin key required' }, { status: 401, headers: NO_CACHE_HEADERS })
     }
 
-    if (!['DRAFT', 'READY', 'LIVE', 'COMPLETED'].includes(status)) {
+    if (!['DRAFT', 'READY', 'LIVE', 'STOPPED', 'COMPLETED'].includes(status)) {
       return NextResponse.json({ success: false, message: 'Invalid status' }, { status: 400, headers: NO_CACHE_HEADERS })
     }
 
