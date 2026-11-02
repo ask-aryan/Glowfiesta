@@ -39,6 +39,7 @@ interface PollRoomData {
   activeQuestionIndex: number
   totalQuestions: number
   isHost: boolean
+  showResultsLive?: boolean
   activeQuestion: QuestionData | null
   questions?: QuestionData[]
   questionsList?: QuestionSummary[]
@@ -238,6 +239,85 @@ export default function PollAdminPage() {
         } : null)
       }
     } catch {}
+  }
+
+  // Toggle suspense mode
+  async function handleToggleSuspense() {
+    if (!hostKey || actionLoading || !room) return
+    setActionLoading(true)
+    const nextVal = !room.showResultsLive
+    try {
+      const res = await fetch(`/api/poll/${roomCode}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostKey, showResultsLive: nextVal }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setRoom(prev => prev ? { ...prev, showResultsLive: nextVal } : null)
+      }
+    } catch {} finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Start results reveal ceremony starting from Category #1 (index 0)
+  async function handleStartRevealCeremony() {
+    if (!hostKey || actionLoading || !room) return
+    setActionLoading(true)
+    try {
+      // 1. Switch to index 0
+      await fetch(`/api/poll/${roomCode}/question`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostKey, action: 'switch', index: 0 }),
+      })
+      // 2. Put into STOPPED mode (awaiting reveal)
+      await fetch(`/api/poll/${roomCode}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostKey, status: 'STOPPED' }),
+      })
+      const firstQ = room.questions ? room.questions[0] : null
+      setRoom(prev => prev ? {
+        ...prev,
+        activeQuestionIndex: 0,
+        status: 'STOPPED',
+        activeQuestion: firstQ || prev.activeQuestion,
+      } : null)
+    } catch {} finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Next category reveal in ceremony
+  async function handleNextRevealCategory(nextIdx: number) {
+    if (!hostKey || actionLoading || !room) return
+    const categoriesCount = room.questions?.length || room.questionsList?.length || 0
+    if (nextIdx < 0 || nextIdx >= categoriesCount) return
+
+    setActionLoading(true)
+    try {
+      await fetch(`/api/poll/${roomCode}/question`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostKey, action: 'switch', index: nextIdx }),
+      })
+      await fetch(`/api/poll/${roomCode}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hostKey, status: 'STOPPED' }),
+      })
+      const targetQ = room.questions ? room.questions[nextIdx] : null
+      setRoom(prev => prev ? {
+        ...prev,
+        activeQuestionIndex: nextIdx,
+        status: 'STOPPED',
+        activeQuestion: targetQ || prev.activeQuestion,
+      } : null)
+    } catch {} finally {
+      setActionLoading(false)
+    }
   }
 
   // Open question editor
@@ -499,6 +579,28 @@ export default function PollAdminPage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Suspense Mode / Live Results toggle */}
+          <button
+            onClick={handleToggleSuspense}
+            disabled={actionLoading}
+            title="When Suspense Mode is active, live percentage bars and winners remain hidden on audience and projector screens until you reveal them!"
+            style={{
+              padding: '8px 16px',
+              borderRadius: 12,
+              background: room.showResultsLive ? 'rgba(59,130,246,0.18)' : 'rgba(168,85,247,0.22)',
+              border: `1.5px solid ${room.showResultsLive ? '#60a5fa' : '#c084fc'}`,
+              color: room.showResultsLive ? '#93c5fd' : '#e9d5ff',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>{room.showResultsLive ? '📊 Live Breakdown: ON' : '🎭 Suspense Mode: ACTIVE'}</span>
+          </button>
+
           {/* Big screen projector link */}
           <a
             href={`/poll/${roomCode}/live`}
@@ -743,39 +845,116 @@ export default function PollAdminPage() {
           >
             <div>
               <div style={{ fontSize: 12, fontWeight: 800, color: '#FFC857', letterSpacing: '.06em', textTransform: 'uppercase' }}>
-                {currentStage === 'STOPPED' ? '🛑 VOTING IS CLOSED FOR THIS CATEGORY' : '🏆 WINNER HAS BEEN ANNOUNCED!'}
+                {currentStage === 'STOPPED'
+                  ? (currentIdx === totalCategories - 1 ? '🎉 VOTING COMPLETE ACROSS ALL CATEGORIES!' : `🛑 VOTING CLOSED FOR CATEGORY #${currentIdx + 1}`)
+                  : `🏆 WINNER CROWNED FOR CATEGORY #${currentIdx + 1}!`}
               </div>
               <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 19, fontWeight: 800, color: '#fff', marginTop: 2 }}>
-                {currentIdx < totalCategories - 1
-                  ? `Next up: Category #${currentIdx + 2} — ${categoriesList[currentIdx + 1]?.title}`
-                  : '🎉 All categories have concluded for this award show!'}
+                {currentStage === 'STOPPED' ? (
+                  currentIdx < totalCategories - 1
+                    ? `Next up: Category #${currentIdx + 2} — ${categoriesList[currentIdx + 1]?.title}`
+                    : 'All audience ballots are safely locked in the database. Ready for the Award Ceremony?'
+                ) : (
+                  currentIdx < totalCategories - 1
+                    ? `Next in Ceremony: Category #${currentIdx + 2} — ${categoriesList[currentIdx + 1]?.title}`
+                    : '🎉 Grand Finale! All award categories have been celebrated and revealed! 🏆✨'
+                )}
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              {currentStage === 'STOPPED' && (
-                <button
-                  onClick={() => handleSetStatus('COMPLETED')}
-                  style={{
-                    padding: '12px 20px',
-                    borderRadius: 14,
-                    background: 'linear-gradient(135deg, #a855f7, #7e22ce)',
-                    color: '#fff',
-                    border: 'none',
-                    fontFamily: 'Fredoka, sans-serif',
-                    fontSize: 14,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(168,85,247,0.4)',
-                  }}
-                >
-                  🏆 Reveal Winner First
-                </button>
+              {/* If STOPPED and not last: option to advance to next question or reveal immediately */}
+              {currentStage === 'STOPPED' && currentIdx < totalCategories - 1 && (
+                <>
+                  <button
+                    onClick={() => handleSetStatus('COMPLETED')}
+                    style={{
+                      padding: '12px 20px',
+                      borderRadius: 14,
+                      background: 'linear-gradient(135deg, #a855f7, #7e22ce)',
+                      color: '#fff',
+                      border: 'none',
+                      fontFamily: 'Fredoka, sans-serif',
+                      fontSize: 14,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(168,85,247,0.4)',
+                    }}
+                  >
+                    🏆 Reveal Winner First
+                  </button>
+                  <button
+                    onClick={handleNextCategory}
+                    style={{
+                      padding: '12px 26px',
+                      borderRadius: 14,
+                      background: 'linear-gradient(135deg, #FFC857, #FFA23A)',
+                      color: '#000',
+                      border: 'none',
+                      fontFamily: 'Fredoka, sans-serif',
+                      fontSize: 15,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      boxShadow: '0 4px 18px rgba(255,200,87,0.4)',
+                    }}
+                  >
+                    <span>Advance to Next Category</span>
+                    <span style={{ fontSize: 18 }}>➔</span>
+                  </button>
+                </>
               )}
 
-              {currentIdx < totalCategories - 1 ? (
+              {/* If STOPPED and it is the last category: Start Results Reveal Ceremony from Category #1! */}
+              {currentStage === 'STOPPED' && currentIdx === totalCategories - 1 && (
+                <>
+                  <button
+                    onClick={() => handleSetStatus('COMPLETED')}
+                    style={{
+                      padding: '12px 20px',
+                      borderRadius: 14,
+                      background: 'linear-gradient(135deg, #a855f7, #7e22ce)',
+                      color: '#fff',
+                      border: 'none',
+                      fontFamily: 'Fredoka, sans-serif',
+                      fontSize: 14,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(168,85,247,0.4)',
+                    }}
+                  >
+                    🏆 Reveal This Winner
+                  </button>
+                  <button
+                    onClick={handleStartRevealCeremony}
+                    style={{
+                      padding: '12px 28px',
+                      borderRadius: 14,
+                      background: 'linear-gradient(135deg, #FFC857, #FFA23A)',
+                      color: '#000',
+                      border: 'none',
+                      fontFamily: 'Fredoka, sans-serif',
+                      fontSize: 15,
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      boxShadow: '0 6px 24px rgba(255,200,87,0.5)',
+                    }}
+                  >
+                    <span>🎤 Start Results Reveal Ceremony (from #1)</span>
+                    <span style={{ fontSize: 18 }}>➔</span>
+                  </button>
+                </>
+              )}
+
+              {/* If COMPLETED and not last: Proceed to next category reveal */}
+              {currentStage === 'COMPLETED' && currentIdx < totalCategories - 1 && (
                 <button
-                  onClick={handleNextCategory}
+                  onClick={() => handleNextRevealCategory(currentIdx + 1)}
                   style={{
                     padding: '12px 26px',
                     borderRadius: 14,
@@ -792,13 +971,30 @@ export default function PollAdminPage() {
                     boxShadow: '0 4px 18px rgba(255,200,87,0.4)',
                   }}
                 >
-                  <span>Advance to Next Category</span>
+                  <span>Proceed to Category #{currentIdx + 2} Reveal</span>
                   <span style={{ fontSize: 18 }}>➔</span>
                 </button>
-              ) : (
-                <span style={{ fontSize: 14, color: '#FFC857', fontWeight: 800 }}>
-                  ✨ All Categories Completed!
-                </span>
+              )}
+
+              {/* If COMPLETED and last: Grand finale */}
+              {currentStage === 'COMPLETED' && currentIdx === totalCategories - 1 && (
+                <button
+                  onClick={handleStartRevealCeremony}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: 14,
+                    background: 'linear-gradient(135deg, #a855f7, #7e22ce)',
+                    color: '#fff',
+                    border: 'none',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 14,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(168,85,247,0.4)',
+                  }}
+                >
+                  <span>🔄 Revisit Ceremony from #1</span>
+                </button>
               )}
             </div>
           </section>

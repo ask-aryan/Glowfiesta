@@ -28,6 +28,7 @@ interface PollRoomData {
   status: PollStatus
   activeQuestionIndex: number
   totalQuestions: number
+  showResultsLive?: boolean
   activeQuestion: QuestionData | null
 }
 
@@ -106,7 +107,10 @@ export default function BigScreenLivePollPage() {
   const isStopped = stage === 'STOPPED'
   const isCompleted = stage === 'COMPLETED'
 
-  // Options list
+  // If host enabled live breakdown OR winner is revealed / stage is COMPLETED, show breakdown
+  const isWinnerRevealed = Boolean(activeQ?.winnerOptionId || isCompleted)
+  const showBreakdown = Boolean(room?.showResultsLive || isWinnerRevealed)
+
   const displayOptions = [...(activeQ?.options || [])]
 
   return (
@@ -122,6 +126,41 @@ export default function BigScreenLivePollPage() {
         position: 'relative',
       }}
     >
+      <style>{`
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.85; transform: scale(1.03); } }
+        @keyframes floatConfetti {
+          0% { transform: translateY(-30px) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+        }
+        @keyframes winnerGlow {
+          0%, 100% { box-shadow: 0 0 35px rgba(255,200,87,0.5), inset 0 0 20px rgba(255,200,87,0.2); }
+          50% { box-shadow: 0 0 65px rgba(255,200,87,0.85), inset 0 0 30px rgba(255,200,87,0.35); }
+        }
+      `}</style>
+
+      {/* Confetti Fanfare when winner is crowned */}
+      {isWinnerRevealed && (
+        <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 99, overflow: 'hidden' }}>
+          {Array.from({ length: 35 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                position: 'absolute',
+                top: '-20px',
+                left: `${(i * 3) % 100}%`,
+                width: `${8 + (i % 8)}px`,
+                height: `${12 + (i % 10)}px`,
+                backgroundColor: ['#FFC857', '#FFA23A', '#c084fc', '#4ade80', '#60a5fa', '#f43f5e'][i % 6],
+                borderRadius: i % 2 === 0 ? '50%' : '2px',
+                animation: `floatConfetti ${3.5 + (i % 3)}s linear infinite`,
+                animationDelay: `${(i * 0.15)}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Background Ambient Glows */}
       <div style={{ position: 'absolute', top: -100, left: '20%', width: 450, height: 450, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,200,87,0.12), transparent 70%)', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', bottom: -100, right: '15%', width: 550, height: 550, borderRadius: '50%', background: 'radial-gradient(circle, rgba(168,85,247,0.14), transparent 70%)', pointerEvents: 'none' }} />
@@ -198,31 +237,34 @@ export default function BigScreenLivePollPage() {
               color: isLive ? '#4ade80' : isStopped ? '#f87171' : isReady ? '#fde047' : isCompleted ? '#FFC857' : '#cbd5e1',
               boxShadow: isLive ? '0 0 24px rgba(34,197,94,0.5)' : isStopped ? '0 0 24px rgba(239,68,68,0.5)' : isCompleted ? '0 0 28px rgba(255,200,87,0.5)' : 'none',
               animation: isLive ? 'pulse 1.4s infinite' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
             }}
           >
-            {isLive ? '● VOTING LIVE' : isStopped ? '🛑 VOTING CLOSED' : isReady ? '● CATEGORY SHOWCASE' : isCompleted ? '🏆 WINNER REVEALED' : '● DRAFT'}
+            <span>
+              {isLive ? '🟢 VOTING IS OPEN' : isStopped ? '🛑 VOTING CLOSED' : isReady ? '🟡 SHOWCASE (WAITING)' : isCompleted ? '🏆 WINNER CROWNED!' : '⚪ DRAFT (EDITING)'}
+            </span>
           </div>
 
           {/* Fullscreen Button */}
           <button
             onClick={toggleFullscreen}
-            title="Toggle Fullscreen"
             style={{
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.18)',
+              padding: '8px 16px',
               borderRadius: 12,
-              padding: '8px 14px',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.18)',
               color: '#fff',
-              fontSize: 14,
-              fontWeight: 700,
+              fontSize: 13,
+              fontWeight: 600,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: 6,
             }}
           >
-            <span>⛶</span>
-            <span>{isFullscreen ? 'Exit' : 'Fullscreen'}</span>
+            <span>{isFullscreen ? '↙ Exit Fullscreen' : '⛶ Fullscreen'}</span>
           </button>
         </div>
       </header>
@@ -257,23 +299,27 @@ export default function BigScreenLivePollPage() {
               overflow: 'hidden',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap', gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.12em', color: '#ffd9b8', textTransform: 'uppercase' }}>
-                AWARD CATEGORY #{room ? room.activeQuestionIndex + 1 : 1}
+                AWARD CATEGORY #{room ? room.activeQuestionIndex + 1 : 1} OF {room?.totalQuestions || 1}
               </div>
               <div
                 style={{
                   fontFamily: 'Fredoka, sans-serif',
                   fontSize: 16,
                   fontWeight: 800,
-                  color: '#4ade80',
-                  background: 'rgba(34,197,94,0.18)',
-                  padding: '4px 14px',
+                  color: isLive ? '#4ade80' : isCompleted ? '#FFC857' : '#ffd9b8',
+                  background: isLive ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.08)',
+                  padding: '4px 16px',
                   borderRadius: 999,
-                  border: '1px solid rgba(34,197,94,0.4)',
+                  border: isLive ? '1.5px solid rgba(34,197,94,0.45)' : '1px solid rgba(255,255,255,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
                 }}
               >
-                Total Votes: {activeQ?.totalVotes || 0}
+                {isLive && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', animation: 'pulse 1s infinite' }} />}
+                <span>Total Votes Cast: {activeQ?.totalVotes || 0}</span>
               </div>
             </div>
 
@@ -308,7 +354,6 @@ export default function BigScreenLivePollPage() {
           >
             {displayOptions.map((opt, idx) => {
               const isWinner = activeQ?.winnerOptionId === opt.id
-              const showFill = isLive || isStopped || isCompleted
 
               return (
                 <div
@@ -318,16 +363,17 @@ export default function BigScreenLivePollPage() {
                     padding: '22px 26px',
                     borderRadius: 22,
                     background: isWinner
-                      ? 'linear-gradient(135deg, rgba(255,200,87,0.25) 0%, rgba(255,107,53,0.2) 100%)'
+                      ? 'linear-gradient(135deg, rgba(255,200,87,0.3) 0%, rgba(255,107,53,0.25) 100%)'
                       : 'rgba(255,255,255,0.04)',
                     border: isWinner ? '3px solid #FFC857' : '1.5px solid rgba(255,255,255,0.09)',
-                    boxShadow: isWinner ? '0 0 35px rgba(255,200,87,0.4)' : '0 6px 20px rgba(0,0,0,0.3)',
+                    boxShadow: isWinner ? '0 0 35px rgba(255,200,87,0.5)' : '0 6px 20px rgba(0,0,0,0.3)',
+                    animation: isWinner ? 'winnerGlow 2.5s infinite ease-in-out' : 'none',
                     overflow: 'hidden',
                     transition: 'all .3s ease',
                   }}
                 >
-                  {/* Dynamic Progress Fill Bar */}
-                  {showFill && (
+                  {/* Dynamic Progress Fill Bar (shown if results breakdown is active or winner revealed) */}
+                  {showBreakdown && (
                     <div
                       style={{
                         position: 'absolute',
@@ -336,10 +382,10 @@ export default function BigScreenLivePollPage() {
                         bottom: 0,
                         width: `${opt.percentage}%`,
                         background: isWinner
-                          ? 'linear-gradient(90deg, rgba(255,200,87,0.25), rgba(255,107,53,0.25))'
-                          : 'linear-gradient(90deg, rgba(168,85,247,0.2), rgba(126,34,206,0.2))',
+                          ? 'linear-gradient(90deg, rgba(255,200,87,0.35), rgba(255,107,53,0.35))'
+                          : 'linear-gradient(90deg, rgba(168,85,247,0.22), rgba(126,34,206,0.22))',
                         zIndex: 0,
-                        transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                        transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
                       }}
                     />
                   )}
@@ -363,7 +409,7 @@ export default function BigScreenLivePollPage() {
                           boxShadow: isWinner ? '0 6px 18px rgba(255,200,87,0.5)' : 'none',
                         }}
                       >
-                        {isWinner ? '🏆' : `#${idx + 1}`}
+                        {isWinner ? '👑' : `#${idx + 1}`}
                       </div>
 
                       <div>
@@ -391,7 +437,7 @@ export default function BigScreenLivePollPage() {
                     </div>
 
                     <div style={{ textAlign: 'right' }}>
-                      {showFill ? (
+                      {showBreakdown ? (
                         <div>
                           <div style={{ fontFamily: 'Fredoka, monospace', fontSize: 32, fontWeight: 900, color: isWinner ? '#FFC857' : '#d8b4fe' }}>
                             {opt.percentage}%
@@ -401,8 +447,18 @@ export default function BigScreenLivePollPage() {
                           </div>
                         </div>
                       ) : (
-                        <div style={{ fontSize: 14, color: '#a89bc2', fontStyle: 'italic' }}>
-                          Nominated
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: '#ffd9b8',
+                            background: 'rgba(255,255,255,0.08)',
+                            padding: '6px 12px',
+                            borderRadius: 10,
+                            letterSpacing: '.06em',
+                          }}
+                        >
+                          NOMINEE
                         </div>
                       )}
                     </div>
@@ -428,14 +484,14 @@ export default function BigScreenLivePollPage() {
             }}
           >
             <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 20, fontWeight: 800, color: '#FFC857', marginBottom: 2 }}>
-              {isStopped ? 'VOTING CLOSED' : isCompleted ? 'CATEGORY CONCLUDED' : 'SCAN TO VOTE'}
+              {isStopped ? 'VOTING LOCKED' : isCompleted ? 'CATEGORY CONCLUDED' : 'SCAN TO VOTE'}
             </div>
             <div style={{ fontSize: 13, color: '#ffd9b8', marginBottom: 16 }}>
               {isStopped
-                ? 'Ballots locked for this category!'
+                ? 'Ballots sealed! Results ceremony coming up.'
                 : isCompleted
                 ? 'Winner celebrated on stage!'
-                : 'Point your mobile camera to cast your vote!'}
+                : 'Point your phone camera to cast your vote!'}
             </div>
 
             {/* QR Code Container */}
@@ -447,7 +503,7 @@ export default function BigScreenLivePollPage() {
                 borderRadius: 20,
                 boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
                 marginBottom: 16,
-                opacity: isStopped ? 0.6 : 1,
+                opacity: isStopped || isCompleted ? 0.6 : 1,
               }}
             >
               {qrDataUrl && (

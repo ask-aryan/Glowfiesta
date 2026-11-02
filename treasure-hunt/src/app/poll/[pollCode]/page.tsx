@@ -34,6 +34,7 @@ interface PollRoomData {
   status: PollStatus
   activeQuestionIndex: number
   totalQuestions: number
+  showResultsLive?: boolean
   activeQuestion: QuestionData | null
   myVote: MyVoteData | null
 }
@@ -61,46 +62,41 @@ export default function AudiencePollPage() {
     }
     setVoterId(id)
 
-    const savedName = localStorage.getItem('poll_voter_name')
+    const savedName = localStorage.getItem('poll_voter_name') || ''
+    const savedAnon = localStorage.getItem('poll_voter_anon') === 'true'
     if (savedName) setVoterName(savedName)
-
-    const savedAnon = localStorage.getItem('poll_voter_anon')
-    if (savedAnon === 'true') setIsAnonymous(true)
+    setIsAnonymous(savedAnon)
   }, [])
 
-  // Poll room data every 400ms
+  // Poll room state every 500ms
   useEffect(() => {
     if (!roomCode || !voterId) return
     let active = true
 
-    async function poll() {
+    async function fetchPoll() {
       try {
-        const url = `/api/poll/${roomCode}?_t=${Date.now()}&voterId=${encodeURIComponent(voterId)}`
-        const res = await fetch(url, { cache: 'no-store' })
+        const res = await fetch(`/api/poll/${roomCode}?voterId=${encodeURIComponent(voterId)}&_t=${Date.now()}`, { cache: 'no-store' })
         if (!res.ok) return
         const data: PollRoomData = await res.json()
         if (active) {
           setRoom(data)
           setLoading(false)
+          // If voter already voted for this active question, sync their selected option
+          if (data.myVote?.optionId) {
+            setSelectedOptionId(data.myVote.optionId)
+          }
         }
       } catch {}
     }
 
-    poll()
-    const interval = setInterval(poll, 400)
+    fetchPoll()
+    const interval = setInterval(fetchPoll, 500)
     return () => {
       active = false
       clearInterval(interval)
     }
   }, [roomCode, voterId])
 
-  // Reset selected option when question changes
-  useEffect(() => {
-    setSelectedOptionId('')
-    setFeedbackMsg('')
-  }, [room?.activeQuestion?.id])
-
-  // Save voter name / anon preference
   function handleNameChange(val: string) {
     setVoterName(val)
     if (typeof window !== 'undefined') {
@@ -115,14 +111,8 @@ export default function AudiencePollPage() {
     }
   }
 
-  // Cast vote
   async function handleVoteSubmit() {
-    if (!selectedOptionId || submitting || !room?.activeQuestion) return
-    if (!isAnonymous && !voterName.trim()) {
-      setFeedbackMsg('Please enter your name or check "Vote Anonymously"')
-      return
-    }
-
+    if (!selectedOptionId || !room?.activeQuestion || submitting) return
     setSubmitting(true)
     setFeedbackMsg('')
 
@@ -134,72 +124,100 @@ export default function AudiencePollPage() {
           questionId: room.activeQuestion.id,
           optionId: selectedOptionId,
           voterId,
-          voterName: isAnonymous ? 'Anonymous' : voterName.trim(),
+          voterName: isAnonymous ? 'Anonymous' : (voterName || 'Anonymous Voter'),
           isAnonymous,
         }),
       })
+
       const data = await res.json()
       if (data.success) {
-        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate([60, 40, 100])
-        }
+        // Optimistically set myVote
+        setRoom(prev => {
+          if (!prev) return null
+          return {
+            ...prev,
+            myVote: {
+              optionId: selectedOptionId,
+              voterName: isAnonymous ? 'Anonymous' : (voterName || 'Anonymous Voter'),
+              isAnonymous,
+              votedAt: Date.now(),
+            },
+          }
+        })
       } else {
-        setFeedbackMsg(data.message || 'Could not submit vote')
+        setFeedbackMsg(data.message || 'Failed to submit vote')
       }
     } catch {
-      setFeedbackMsg('Network error submitting vote')
+      setFeedbackMsg('Network error while casting vote')
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   if (loading && !room) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0114', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'Inter, sans-serif', gap: 14 }}>
-        <div style={{ width: 44, height: 44, borderRadius: '50%', border: '4px solid rgba(168,85,247,0.3)', borderTopColor: '#c084fc', animation: 'spin 0.75s linear infinite' }} />
-        <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 18 }}>Connecting to Poll…</div>
+      <div style={{ minHeight: '100vh', background: '#0a0114', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ width: 44, height: 44, borderRadius: '50%', border: '4px solid rgba(255,200,87,0.3)', borderTopColor: '#FFC857', animation: 'spin 0.75s linear infinite' }} />
+        <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 18, marginTop: 14 }}>Connecting to Poll…</div>
       </div>
     )
   }
 
   const stage = room?.status || 'DRAFT'
   const activeQ = room?.activeQuestion
-  const hasVoted = Boolean(room?.myVote)
   const isLive = stage === 'LIVE'
   const isReady = stage === 'READY'
   const isStopped = stage === 'STOPPED'
   const isCompleted = stage === 'COMPLETED'
+  const hasVoted = Boolean(room?.myVote?.optionId)
+
+  // In suspense mode (showResultsLive = false), hide percentages until winner is revealed
+  const isWinnerRevealed = Boolean(activeQ?.winnerOptionId || isCompleted)
+  const showPercentages = Boolean(room?.showResultsLive || isWinnerRevealed)
 
   return (
     <div
       style={{
         minHeight: '100vh',
-        background: 'radial-gradient(ellipse at 50% 20%, #20083b 0%, #0c0117 60%, #040008 100%)',
+        background: 'radial-gradient(ellipse at 50% 10%, #290848 0%, #0d011c 55%, #05000a 100%)',
         color: '#fff',
         fontFamily: 'Inter, system-ui, sans-serif',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
-      {/* Top Header */}
+      {/* Header */}
       <header
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '14px 20px',
+          padding: '16px 20px',
           background: 'rgba(255,255,255,0.03)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
           backdropFilter: 'blur(10px)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ fontSize: 22 }}>🗳️</div>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: 'linear-gradient(135deg, #FFC857, #FFA23A)',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 18,
+            }}
+          >
+            🏆
+          </div>
           <div>
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 16, fontWeight: 700 }}>
-              {room?.title || 'Live Poll'}
+            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 17, fontWeight: 700 }}>
+              {room?.title}
             </div>
-            <div style={{ fontSize: 11, color: '#ffd9b8' }}>
-              POLL CODE: <b style={{ color: '#FFC857' }}>{roomCode}</b>
+            <div style={{ fontSize: 11, color: '#ffd9b8', letterSpacing: '.05em' }}>
+              ROOM: <b style={{ color: '#FFC857' }}>{roomCode}</b>
             </div>
           </div>
         </div>
@@ -207,13 +225,11 @@ export default function AudiencePollPage() {
         {/* Stage pill */}
         <div
           style={{
-            padding: '4px 12px',
+            padding: '5px 12px',
             borderRadius: 999,
-            fontFamily: 'Fredoka, sans-serif',
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: 800,
-            letterSpacing: '.04em',
-            textTransform: 'uppercase',
+            letterSpacing: '.06em',
             background: isLive
               ? 'rgba(34,197,94,0.2)'
               : isStopped
@@ -221,10 +237,20 @@ export default function AudiencePollPage() {
               : isReady
               ? 'rgba(234,179,8,0.2)'
               : isCompleted
-              ? 'rgba(168,85,247,0.2)'
+              ? 'rgba(168,85,247,0.25)'
               : 'rgba(255,255,255,0.1)',
-            color: isLive ? '#4ade80' : isStopped ? '#f87171' : isReady ? '#fde047' : isCompleted ? '#d8b4fe' : '#94a3b8',
-            border: `1px solid ${isLive ? '#22c55e' : isStopped ? '#ef4444' : isReady ? '#eab308' : isCompleted ? '#a855f7' : 'rgba(255,255,255,0.2)'}`,
+            border: `1px solid ${
+              isLive
+                ? '#22c55e'
+                : isStopped
+                ? '#ef4444'
+                : isReady
+                ? '#eab308'
+                : isCompleted
+                ? '#c084fc'
+                : 'rgba(255,255,255,0.2)'
+            }`,
+            color: isLive ? '#4ade80' : isStopped ? '#f87171' : isReady ? '#fde047' : isCompleted ? '#c084fc' : '#cbd5e1',
           }}
         >
           {isLive ? '● VOTING OPEN' : isStopped ? '🛑 VOTING CLOSED' : isReady ? '🟡 SHOWCASE' : isCompleted ? '🏆 WINNER' : '⚪ DRAFT'}
@@ -356,12 +382,12 @@ export default function AudiencePollPage() {
               Voting Closed for this Category
             </div>
             <div style={{ fontSize: 13, color: '#ffd9b8', marginTop: 4 }}>
-              The host has locked ballots for this question. Winner reveal coming up next!
+              All votes are locked in the database! Results will be revealed on stage.
             </div>
           </div>
         )}
 
-        {stage === 'COMPLETED' && (
+        {isWinnerRevealed && (
           <div style={{ padding: '20px', borderRadius: 18, background: 'linear-gradient(135deg, rgba(255,200,87,0.2), rgba(168,85,247,0.2))', border: '1.5px solid #FFC857', color: '#FFC857', textAlign: 'center' }}>
             <div style={{ fontSize: 36, marginBottom: 6 }}>🏆</div>
             <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 20, fontWeight: 800 }}>
@@ -380,7 +406,6 @@ export default function AudiencePollPage() {
               const isSelected = selectedOptionId === opt.id
               const isMyVote = room.myVote?.optionId === opt.id
               const isWinner = activeQ.winnerOptionId === opt.id
-              const showPercentages = hasVoted || isStopped || isCompleted
 
               return (
                 <div
@@ -393,26 +418,26 @@ export default function AudiencePollPage() {
                     padding: '16px 20px',
                     borderRadius: 18,
                     background: isWinner
-                      ? 'linear-gradient(135deg, rgba(255,200,87,0.22), rgba(255,107,53,0.18))'
+                      ? 'linear-gradient(135deg, rgba(255,200,87,0.25), rgba(255,107,53,0.2))'
                       : isMyVote
                       ? 'linear-gradient(135deg, rgba(34,197,94,0.2), rgba(20,83,45,0.2))'
                       : isSelected
                       ? 'linear-gradient(135deg, rgba(168,85,247,0.25), rgba(126,34,206,0.2))'
                       : 'rgba(255,255,255,0.04)',
                     border: isWinner
-                      ? '2px solid #FFC857'
+                      ? '2.5px solid #FFC857'
                       : isMyVote
                       ? '2px solid #22c55e'
                       : isSelected
                       ? '2px solid #c084fc'
                       : '1px solid rgba(255,255,255,0.1)',
                     cursor: isLive && !hasVoted ? 'pointer' : 'default',
-                    boxShadow: isSelected ? '0 0 20px rgba(168,85,247,0.4)' : isWinner ? '0 0 24px rgba(255,200,87,0.3)' : 'none',
+                    boxShadow: isSelected ? '0 0 20px rgba(168,85,247,0.4)' : isWinner ? '0 0 24px rgba(255,200,87,0.4)' : 'none',
                     transition: 'all .15s ease',
                     overflow: 'hidden',
                   }}
                 >
-                  {/* Progress fill (if voted, stopped, or completed) */}
+                  {/* Progress fill (if breakdown permitted) */}
                   {showPercentages && (
                     <div
                       style={{
@@ -422,10 +447,10 @@ export default function AudiencePollPage() {
                         bottom: 0,
                         width: `${opt.percentage}%`,
                         background: isWinner
-                          ? 'rgba(255,200,87,0.18)'
+                          ? 'rgba(255,200,87,0.22)'
                           : isMyVote
-                          ? 'rgba(34,197,94,0.18)'
-                          : 'rgba(255,255,255,0.06)',
+                          ? 'rgba(34,197,94,0.2)'
+                          : 'rgba(255,255,255,0.08)',
                         zIndex: 0,
                         transition: 'width 0.4s ease',
                       }}
@@ -449,7 +474,7 @@ export default function AudiencePollPage() {
                         <div style={{ fontFamily: 'Fredoka, monospace', fontSize: 20, fontWeight: 800, color: isWinner ? '#FFC857' : isMyVote ? '#4ade80' : '#d8b4fe' }}>
                           {opt.percentage}%
                         </div>
-                      ) : isLive ? (
+                      ) : isLive && !hasVoted ? (
                         <div
                           style={{
                             width: 28,
@@ -465,6 +490,8 @@ export default function AudiencePollPage() {
                         >
                           {isSelected && '✓'}
                         </div>
+                      ) : isMyVote ? (
+                        <div style={{ fontSize: 18, color: '#4ade80' }}>✓</div>
                       ) : null}
                     </div>
                   </div>
@@ -477,7 +504,7 @@ export default function AudiencePollPage() {
 
                   {isMyVote && !isWinner && (
                     <div style={{ position: 'relative', zIndex: 1, fontSize: 12, fontWeight: 800, color: '#4ade80', marginTop: 6 }}>
-                      ✓ YOUR VOTE CAST HERE
+                      ✓ YOUR VOTE IS RECORDED
                     </div>
                   )}
                 </div>
@@ -512,7 +539,7 @@ export default function AudiencePollPage() {
         )}
 
         {/* CONFIRMATION CARD (AFTER VOTING) */}
-        {hasVoted && !isCompleted && !isStopped && (
+        {hasVoted && !isWinnerRevealed && (
           <div
             style={{
               background: 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(20,83,45,0.2))',
@@ -525,10 +552,10 @@ export default function AudiencePollPage() {
           >
             <div style={{ fontSize: 24, marginBottom: 4 }}>🎉</div>
             <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 18, fontWeight: 700, color: '#86efac' }}>
-              Your Vote Has Been Recorded!
+              Your Ballot Is Safely Recorded!
             </div>
             <div style={{ fontSize: 13, color: '#dcfce7', marginTop: 4 }}>
-              Watch the big screen as the host reveals the winner!
+              Winners will be revealed live on stage during the award ceremony. Keep this tab open for the next category!
             </div>
           </div>
         )}

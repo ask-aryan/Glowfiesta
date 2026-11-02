@@ -66,7 +66,7 @@ async function ensureTables() {
         host_key VARCHAR(100) NOT NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
         active_question_index INT NOT NULL DEFAULT 0,
-        show_results_live INT NOT NULL DEFAULT 1,
+        show_results_live INT NOT NULL DEFAULT 0,
         created_at BIGINT NOT NULL,
         updated_at BIGINT NOT NULL
       )
@@ -154,7 +154,7 @@ export async function createPollRoom(title?: string): Promise<PollRoom> {
     hostKey,
     status: 'DRAFT',
     activeQuestionIndex: 0,
-    showResultsLive: true,
+    showResultsLive: false,
     createdAt: now,
     updatedAt: now,
     questions: [defaultQuestion],
@@ -167,7 +167,7 @@ export async function createPollRoom(title?: string): Promise<PollRoom> {
   try {
     await prisma.$executeRawUnsafe(
       `INSERT INTO poll_rooms (id, title, host_key, status, active_question_index, show_results_live, created_at, updated_at)
-       VALUES ('${code}', '${pollTitle.replace(/'/g, "''")}', '${hostKey}', 'DRAFT', 0, 1, ${now}, ${now})`
+       VALUES ('${code}', '${pollTitle.replace(/'/g, "''")}', '${hostKey}', 'DRAFT', 0, 0, ${now}, ${now})`
     )
     await prisma.$executeRawUnsafe(
       `INSERT INTO poll_questions (id, room_code, order_index, title, subtitle, winner_option_id)
@@ -205,7 +205,7 @@ export async function getPollRoom(roomCode: string): Promise<PollRoom | null> {
         hostKey: r.host_key,
         status: (r.status as PollStatus) || 'DRAFT',
         activeQuestionIndex: Number(r.active_question_index || 0),
-        showResultsLive: Boolean(r.show_results_live ?? 1),
+        showResultsLive: Boolean(r.show_results_live && Number(r.show_results_live) === 1),
         createdAt: Number(r.created_at || Date.now()),
         updatedAt: Number(r.updated_at || Date.now()),
         questions: [],
@@ -335,6 +335,29 @@ export async function updatePollStatus(
     }
   } catch (err) {
     console.warn('Error updating poll status in DB:', err)
+  }
+
+  return room
+}
+
+export async function setShowResultsLive(
+  roomCode: string,
+  hostKey: string,
+  showResultsLive: boolean
+): Promise<PollRoom | null> {
+  const room = await getPollRoom(roomCode)
+  if (!room || room.hostKey !== hostKey) return null
+
+  room.showResultsLive = showResultsLive
+  room.updatedAt = Date.now()
+  rooms.set(room.id, room)
+
+  try {
+    await prisma.$executeRawUnsafe(
+      `UPDATE poll_rooms SET show_results_live = ${showResultsLive ? 1 : 0}, updated_at = ${room.updatedAt} WHERE id = '${room.id}'`
+    )
+  } catch (err) {
+    console.warn('Notice: setShowResultsLive DB write:', err)
   }
 
   return room

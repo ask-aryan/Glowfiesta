@@ -66,6 +66,7 @@ export async function GET(
       status: room.status,
       activeQuestionIndex: room.activeQuestionIndex,
       totalQuestions: room.questions.length,
+      showResultsLive: Boolean(room.showResultsLive),
       isHost,
       activeQuestion: activeQuestionWithPercent,
       questions: allQuestionsWithPercent,
