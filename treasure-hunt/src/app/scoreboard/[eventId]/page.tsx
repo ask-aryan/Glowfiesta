@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState, useRef, useCallback } from 'react'
+import confetti from 'canvas-confetti'
 
 interface TeamScore {
   id: number
@@ -24,6 +25,16 @@ interface EventInfo {
   currentRound?: number
 }
 
+interface DeclaredWinnerInfo {
+  eventId: number
+  teamId: number
+  teamName: string
+  leaderName: string | null
+  members: string | null
+  score: number
+  declaredAt: number
+}
+
 const COLORS = [
   '#FF6B35', '#3b82f6', '#8b5cf6', '#10b981', '#ec4899',
   '#f59e0b', '#06b6d4', '#e11d48', '#84cc16', '#a855f7',
@@ -42,12 +53,68 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
   const [isFullscreen, setIsFullscreen] = useState(false)
   const prevScoresRef = useRef<Record<number, number>>({})
 
+  // Declared Winner Celebration State
+  const [declaredWinner, setDeclaredWinner] = useState<DeclaredWinnerInfo | null>(null)
+  const [isWinnerModalDismissed, setIsWinnerModalDismissed] = useState(false)
+  const lastWinnerDeclaredAtRef = useRef<number>(0)
+
+  // Celebration Confetti Cannon
+  const fireCelebrationConfetti = useCallback(() => {
+    try {
+      const duration = 4.5 * 1000
+      const end = Date.now() + duration
+      const colors = ['#FFC857', '#FFA23A', '#FF6B35', '#22c55e', '#ffffff', '#3b82f6', '#ec4899']
+
+      ;(function frame() {
+        confetti({
+          particleCount: 7,
+          angle: 60,
+          spread: 65,
+          origin: { x: 0, y: 0.7 },
+          colors,
+        })
+        confetti({
+          particleCount: 7,
+          angle: 120,
+          spread: 65,
+          origin: { x: 1, y: 0.7 },
+          colors,
+        })
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame)
+        }
+      })()
+
+      // Center burst
+      confetti({
+        particleCount: 110,
+        spread: 100,
+        origin: { y: 0.45 },
+        colors,
+      })
+    } catch {}
+  }, [])
+
   const fetchScoreboard = useCallback(async () => {
     try {
       const res = await fetch(`/api/events/${eventId}/scoreboard`)
       if (res.ok) {
         const data = await res.json()
         setEvent(data.event)
+
+        // Winner detection & celebration trigger
+        if (data.declaredWinner) {
+          setDeclaredWinner(data.declaredWinner)
+          if (data.declaredWinner.declaredAt !== lastWinnerDeclaredAtRef.current) {
+            lastWinnerDeclaredAtRef.current = data.declaredWinner.declaredAt
+            setIsWinnerModalDismissed(false)
+            fireCelebrationConfetti()
+          }
+        } else {
+          setDeclaredWinner(null)
+          lastWinnerDeclaredAtRef.current = 0
+        }
 
         const incomingTeams: TeamScore[] = data.aliveTeams || data.teams || []
         const isAllZero = Boolean(data.allZero ?? (incomingTeams.length === 0 || incomingTeams.every(t => t.score === 0)))
@@ -95,6 +162,22 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
     const interval = setInterval(fetchScoreboard, 1800)
     return () => clearInterval(interval)
   }, [fetchScoreboard])
+
+  // Periodic celebratory confetti sparkles while winner modal is active
+  useEffect(() => {
+    if (!declaredWinner || isWinnerModalDismissed) return
+    const timer = setInterval(() => {
+      try {
+        confetti({
+          particleCount: 22,
+          spread: 60,
+          origin: { y: 0.5 },
+          colors: ['#FFC857', '#FFA23A', '#FF6B35', '#22c55e'],
+        })
+      } catch {}
+    }, 3500)
+    return () => clearInterval(timer)
+  }, [declaredWinner, isWinnerModalDismissed])
 
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
@@ -291,6 +374,35 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
             />
             LIVE TV
           </div>
+
+          {/* Winner Minimized Banner */}
+          {declaredWinner && isWinnerModalDismissed && (
+            <button
+              onClick={() => {
+                setIsWinnerModalDismissed(false)
+                fireCelebrationConfetti()
+              }}
+              title="Click to view full celebration stage"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 12px',
+                borderRadius: 999,
+                background: 'linear-gradient(135deg, rgba(255,200,87,0.25), rgba(255,107,53,0.3))',
+                border: '1.5px solid #FFC857',
+                color: '#FFC857',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+                animation: 'pulse-ring 1.6s infinite',
+                boxShadow: '0 0 16px rgba(255,200,87,0.35)',
+              }}
+            >
+              <span>🏆 CHAMPION: {declaredWinner.teamName} ({declaredWinner.score} PTS)</span>
+              <span style={{ fontSize: 10, textDecoration: 'underline' }}>View Stage ↗</span>
+            </button>
+          )}
 
           {/* Fullscreen Button */}
           <button
@@ -497,6 +609,165 @@ export default function ScoreboardPage({ params }: { params: { eventId: string }
           </>
         )}
       </main>
+
+      {/* ── Grand Champions Winner Celebration Overlay ───────────── */}
+      {declaredWinner && !isWinnerModalDismissed && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'radial-gradient(ellipse at 50% 30%, rgba(35,10,55,0.97) 0%, rgba(10,2,18,0.98) 70%, rgba(3,0,6,0.99) 100%)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            zIndex: 1000,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: '24px',
+            animation: 'slideUp .5s cubic-bezier(.2,.8,.2,1)',
+          }}
+        >
+          {/* Oscars/Diwali radiant sparkles & light beam */}
+          <div style={{ position: 'absolute', top: -120, width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,200,87,0.22) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 0, left: '20%', width: 2, height: '100%', background: 'linear-gradient(180deg, rgba(255,200,87,0.3), transparent)', transform: 'rotate(15deg)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: 0, right: '20%', width: 2, height: '100%', background: 'linear-gradient(180deg, rgba(255,200,87,0.3), transparent)', transform: 'rotate(-15deg)', pointerEvents: 'none' }} />
+
+          {/* Laurel Wreath Crown */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 24px',
+              borderRadius: 999,
+              background: 'linear-gradient(135deg, #FFC857, #FF6B35)',
+              color: '#150324',
+              fontFamily: "'Fredoka', sans-serif",
+              fontWeight: 900,
+              fontSize: 'clamp(14px, 2vw, 18px)',
+              letterSpacing: '.12em',
+              textTransform: 'uppercase',
+              marginBottom: 20,
+              boxShadow: '0 6px 24px rgba(255,107,53,0.5)',
+              animation: 'pop .5s both',
+            }}
+          >
+            <span>👑 TOURNAMENT CHAMPION DECLARED 👑</span>
+          </div>
+
+          {/* Trophy with radiant glow */}
+          <div
+            style={{
+              fontSize: 'clamp(72px, 10vw, 120px)',
+              lineHeight: 1,
+              filter: 'drop-shadow(0 0 35px rgba(255,200,87,0.7))',
+              marginBottom: 16,
+              animation: 'bannerPulse 2s infinite ease-in-out',
+            }}
+          >
+            🏆
+          </div>
+
+          {/* Winner Team Name */}
+          <div
+            style={{
+              fontFamily: "'Fredoka', sans-serif",
+              fontSize: 'clamp(38px, 6vw, 68px)',
+              fontWeight: 900,
+              letterSpacing: '-.02em',
+              background: 'linear-gradient(180deg, #ffffff 20%, #FFC857 70%, #FFA23A 100%)',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              color: 'transparent',
+              textShadow: '0 0 40px rgba(255,200,87,0.5)',
+              marginBottom: 8,
+              lineHeight: 1.1,
+            }}
+          >
+            {declaredWinner.teamName}
+          </div>
+
+          {/* Leader & Members */}
+          {declaredWinner.leaderName && (
+            <div style={{ fontSize: 'clamp(16px, 2.2vw, 22px)', color: '#ffd9b8', fontWeight: 700, marginBottom: 4 }}>
+              Captain: {declaredWinner.leaderName}
+            </div>
+          )}
+          {declaredWinner.members && (
+            <div style={{ fontSize: 'clamp(13px, 1.8vw, 16px)', color: '#c4b5d4', maxWidth: 600, margin: '0 auto 16px' }}>
+              Members: {declaredWinner.members}
+            </div>
+          )}
+
+          {/* Winning Score Pill */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'baseline',
+              gap: 8,
+              padding: '10px 28px',
+              borderRadius: 999,
+              background: 'rgba(34,197,94,0.18)',
+              border: '2px solid #22c55e',
+              boxShadow: '0 0 25px rgba(34,197,94,0.4)',
+              marginBottom: 28,
+            }}
+          >
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#86efac', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+              WINNING SCORE:
+            </span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 900, color: '#4ade80', lineHeight: 1 }}>
+              {declaredWinner.score > 0 ? `+${declaredWinner.score}` : declaredWinner.score} PTS
+            </span>
+          </div>
+
+          {/* Celebration Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, zIndex: 10 }}>
+            <button
+              onClick={fireCelebrationConfetti}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '12px 26px',
+                borderRadius: 14,
+                border: '1.5px solid #FFC857',
+                background: 'linear-gradient(135deg, #FFC857, #FFA23A)',
+                color: '#150324',
+                fontFamily: "'Fredoka', sans-serif",
+                fontWeight: 900,
+                fontSize: 16,
+                cursor: 'pointer',
+                boxShadow: '0 6px 20px rgba(255,200,87,0.4)',
+              }}
+            >
+              <span>🎉</span>
+              <span>More Confetti!</span>
+            </button>
+
+            <button
+              onClick={() => setIsWinnerModalDismissed(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '12px 24px',
+                borderRadius: 14,
+                border: '1px solid rgba(255,255,255,0.25)',
+                background: 'rgba(255,255,255,0.08)',
+                color: '#fff',
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              <span>View Leaderboard</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

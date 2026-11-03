@@ -53,6 +53,8 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
   const [undoToast, setUndoToast] = useState<string | null>(null)
   const [showManual, setShowManual] = useState<Record<number, boolean>>({})
   const [customScoreInput, setCustomScoreInput] = useState<Record<number, string>>({})
+  const [declaredWinner, setDeclaredWinner] = useState<{ teamId: number; teamName: string; score: number } | null>(null)
+  const [declaringWinner, setDeclaringWinner] = useState(false)
 
   // Elimination modal state
   const [eliminateModalOpen, setEliminateModalOpen] = useState(false)
@@ -116,11 +118,62 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
         setTeams(ranked)
         setEliminatedTeams(data.eliminatedTeams || [])
         setTotalCount(data.totalCount || baseTeams.length + (data.eliminatedTeams?.length || 0))
+        if (data.declaredWinner) {
+          setDeclaredWinner(data.declaredWinner)
+        } else {
+          setDeclaredWinner(null)
+        }
       }
     } finally {
       setLoading(false)
     }
   }, [eventId])
+
+  async function handleDeclareWinner(teamId: number) {
+    setDeclaringWinner(true)
+    try {
+      const res = await fetch(`/api/events/${eventId}/declare-winner`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setDeclaredWinner(json.declaredWinner)
+        setUndoToast(`🏆 ${json.declaredWinner.teamName} declared as Winner!`)
+        setTimeout(() => setUndoToast(null), 4000)
+        try {
+          const confettiModule = (await import('canvas-confetti')).default
+          confettiModule({ particleCount: 70, spread: 60, origin: { y: 0.6 } })
+        } catch {}
+      }
+    } catch {
+      alert('Failed to declare winner')
+    } finally {
+      setDeclaringWinner(false)
+    }
+  }
+
+  async function handleClearWinner() {
+    setDeclaringWinner(true)
+    try {
+      const res = await fetch(`/api/events/${eventId}/declare-winner`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear' }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setDeclaredWinner(null)
+        setUndoToast('Winner declaration cleared')
+        setTimeout(() => setUndoToast(null), 3000)
+      }
+    } catch {
+      alert('Failed to clear winner')
+    } finally {
+      setDeclaringWinner(false)
+    }
+  }
 
   useEffect(() => {
     fetchScoreboard()
@@ -414,6 +467,45 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
 
         {/* Action Controls: Undo, Eliminate & Live Scoreboard Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Winner Notification Pill */}
+          {declaredWinner && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 10px',
+                borderRadius: 8,
+                background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+                border: '1.5px solid #f59e0b',
+                color: '#92400e',
+                fontSize: 12,
+                fontWeight: 800,
+                boxShadow: '0 2px 8px rgba(245,158,11,0.25)',
+                animation: 'pop .3s ease',
+              }}
+            >
+              <span>🏆 Winner: {declaredWinner.teamName} ({declaredWinner.score} pts)</span>
+              <button
+                onClick={handleClearWinner}
+                title="Clear winner declaration"
+                disabled={declaringWinner}
+                style={{
+                  background: 'none',
+                  border: 0,
+                  color: '#b45309',
+                  fontWeight: 900,
+                  fontSize: 14,
+                  cursor: 'pointer',
+                  padding: '0 2px',
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+          )}
+
           {/* Undo Notification Pill */}
           {undoToast && (
             <span
@@ -608,28 +700,61 @@ export default function GiveScorePage({ params }: { params: { eventId: string } 
                       </div>
                     </div>
 
-                    {/* Rank Badge */}
-                    <span
-                      style={{
-                        padding: '2px 8px',
-                        borderRadius: 999,
-                        fontSize: 11,
-                        fontWeight: 800,
-                        background: isLeader ? '#fef3c7' : '#f1f5f9',
-                        color: isLeader ? '#b45309' : '#64748b',
-                        border: isLeader ? '1px solid #fde68a' : 'none',
-                        flexShrink: 0,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {allZero
-                        ? `Team #${team.initialOrder || idx + 1}`
-                        : isLeader
-                        ? (isTied ? '👑 #1 TIED' : '👑 #1')
-                        : isTied
-                        ? `#${team.rank} Tied`
-                        : `#${team.rank}`}
-                    </span>
+                    {/* Rank Badge & Declare Winner Button */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      {team.rank === 1 && !allZero && (
+                        <button
+                          type="button"
+                          onClick={() => declaredWinner?.teamId === team.id ? handleClearWinner() : handleDeclareWinner(team.id)}
+                          disabled={declaringWinner}
+                          title={declaredWinner?.teamId === team.id ? "Click to clear winner" : "Declare this team as the champion on the live projector!"}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '3px 9px',
+                            borderRadius: 999,
+                            fontSize: 11,
+                            fontWeight: 800,
+                            background: declaredWinner?.teamId === team.id
+                              ? 'linear-gradient(135deg, #FFC857, #FFA23A)'
+                              : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                            color: '#1a052e',
+                            border: '1px solid #fde68a',
+                            boxShadow: '0 2px 8px rgba(245,158,11,0.35)',
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            whiteSpace: 'nowrap',
+                            animation: declaredWinner?.teamId === team.id ? 'pulse 1.5s infinite' : 'none',
+                          }}
+                        >
+                          <span>🏆</span>
+                          <span>{declaredWinner?.teamId === team.id ? 'WINNER DECLARED' : 'DECLARE WINNER'}</span>
+                        </button>
+                      )}
+
+                      <span
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          fontSize: 11,
+                          fontWeight: 800,
+                          background: isLeader ? '#fef3c7' : '#f1f5f9',
+                          color: isLeader ? '#b45309' : '#64748b',
+                          border: isLeader ? '1px solid #fde68a' : 'none',
+                          flexShrink: 0,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {allZero
+                          ? `Team #${team.initialOrder || idx + 1}`
+                          : isLeader
+                          ? (isTied ? '👑 #1 TIED' : '👑 #1')
+                          : isTied
+                          ? `#${team.rank} Tied`
+                          : `#${team.rank}`}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Middle Line: Current Score & Flash Indicator */}

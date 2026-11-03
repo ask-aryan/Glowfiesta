@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { getDeclaredWinner } from '@/lib/declaredWinner'
 
 export async function GET(
   _req: NextRequest,
@@ -96,6 +97,8 @@ export async function GET(
     return b.score - a.score
   })
 
+  const declaredWinner = await getDeclaredWinner(eventId)
+
   return NextResponse.json({
     event,
     allZero,
@@ -106,5 +109,6 @@ export async function GET(
     totalCount: teams.length,
     aliveCount: aliveTeamsList.length,
     eliminatedCount: eliminatedTeamsList.length,
+    declaredWinner,
   })
 }
