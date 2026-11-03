@@ -5,7 +5,7 @@ import { getMascotById } from '@/lib/mascot'
 export const dynamic = 'force-dynamic'
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const { error } = await requireOrganizer()
@@ -18,12 +18,16 @@ export async function GET(
     }
 
     const fileBuffer = Buffer.from(mascot.fileData, 'base64')
-    const fileName = encodeURIComponent(mascot.fileName || 'mascot.stl')
+    const fileName = encodeURIComponent(mascot.fileName || 'artverse_mascot')
+
+    const isDownload = req.nextUrl.searchParams.get('download') === '1'
+    const isImageOrPdf = mascot.fileType?.startsWith('image/') || mascot.fileType === 'application/pdf'
+    const dispositionType = (isDownload || !isImageOrPdf) ? 'attachment' : 'inline'
 
     return new NextResponse(fileBuffer, {
       headers: {
         'Content-Type': mascot.fileType || 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${fileName}`,
+        'Content-Disposition': `${dispositionType}; filename="${fileName}"; filename*=UTF-8''${fileName}`,
         'Content-Length': String(fileBuffer.length),
       },
     })

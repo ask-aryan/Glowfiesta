@@ -414,7 +414,7 @@ export default function MascotSubmissionPage() {
               </h1>
 
               <p style={{ color: '#c4b5d4', fontSize: 15, maxWidth: 580, margin: '0 auto', lineHeight: 1.5 }}>
-                Welcome to <b>Artverse</b>! Management invites you to design the official company 3D mascot. Upload your 3D model file (<b>.stl</b>, <b>.obj</b>, <b>.glb</b>) and share the story behind your creation.
+                Welcome to <b>Artverse</b>! Management invites you to design the official company mascot. Upload your 3D model (<b>.stl</b>, <b>.obj</b>, <b>.glb</b>), design artwork (<b>.png</b>, <b>.jpg</b>), or concept presentation (<b>.pdf</b>) and share the story behind your creation.
               </p>
             </div>
 
@@ -561,10 +561,10 @@ export default function MascotSubmissionPage() {
                 </div>
               </div>
 
-              {/* Field 4: 3D Model File Upload Dropzone */}
+              {/* Field 4: Model / Image / PDF File Upload Dropzone */}
               <div>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#e5d9f2', marginBottom: 8 }}>
-                  UPLOAD 3D MODEL FILE (.STL) <span style={{ color: '#FF6B35' }}>*</span>
+                  UPLOAD MASCOT DESIGN (.STL / IMAGE / PDF) <span style={{ color: '#FF6B35' }}>*</span>
                 </label>
 
                 <div
@@ -594,14 +594,20 @@ export default function MascotSubmissionPage() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".stl,.obj,.glb,.gltf,.3mf,.zip"
+                    accept=".stl,.obj,.glb,.gltf,.3mf,.zip,.png,.jpg,.jpeg,.webp,.pdf"
                     onChange={e => handleFileChange(e.target.files?.[0] || null)}
                     style={{ display: 'none' }}
                   />
 
                   {file ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontSize: 36 }}>📦</div>
+                      <div style={{ fontSize: 38 }}>
+                        {file.name.match(/\.(png|jpg|jpeg|webp)$/i)
+                          ? '🖼️'
+                          : file.name.match(/\.pdf$/i)
+                          ? '📄'
+                          : '📦'}
+                      </div>
                       <div style={{ fontWeight: 700, color: '#4ade80', fontSize: 16 }}>
                         {file.name}
                       </div>
@@ -631,12 +637,12 @@ export default function MascotSubmissionPage() {
                     </div>
                   ) : (
                     <div>
-                      <div style={{ fontSize: 40, marginBottom: 10 }}>🤖 📤</div>
+                      <div style={{ fontSize: 40, marginBottom: 10 }}>📦 🖼️ 📄</div>
                       <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>
-                        Click to upload or drag & drop your 3D model
+                        Click to upload or drag & drop your mascot file
                       </div>
                       <div style={{ fontSize: 13, color: '#a89bc2' }}>
-                        Supports <b>.STL</b> (recommended), .OBJ, .GLB, .GLTF, .3MF (Max 35 MB)
+                        Supports <b>3D Models (.STL, .OBJ, .GLB)</b>, <b>Images (.PNG, .JPG)</b>, or <b>Design PDFs</b> (Max 35 MB)
                       </div>
                     </div>
                   )}

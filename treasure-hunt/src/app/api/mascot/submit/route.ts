@@ -39,14 +39,14 @@ export async function POST(req: NextRequest) {
     if (!file) {
       return NextResponse.json({
         success: false,
-        message: 'No 3D model file was selected. Please attach your .stl or 3D model file.',
+        message: 'No file was selected. Please attach your 3D model (.stl), design image (.png/.jpg), or PDF document.',
       }, { status: 400 })
     }
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json({
         success: false,
-        message: `File size (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the 35 MB upload limit. Please contact the Event Committee to submit your large 3D model directly!`,
+        message: `File size (${(file.size / (1024 * 1024)).toFixed(1)} MB) exceeds the 35 MB upload limit. Please contact the Event Committee to submit your large file directly!`,
         contactCommittee: true,
       }, { status: 413 })
     }
@@ -57,7 +57,18 @@ export async function POST(req: NextRequest) {
     const base64Data = buffer.toString('base64')
 
     const fileExt = file.name.split('.').pop()?.toLowerCase() || 'stl'
-    const cleanFileName = file.name || `mascot_${Date.now()}.${fileExt}`
+    const cleanFileName = file.name || `artverse_mascot_${Date.now()}.${fileExt}`
+
+    let detectedType = file.type
+    if (!detectedType || detectedType === 'application/octet-stream') {
+      if (['jpg', 'jpeg'].includes(fileExt)) detectedType = 'image/jpeg'
+      else if (fileExt === 'png') detectedType = 'image/png'
+      else if (fileExt === 'webp') detectedType = 'image/webp'
+      else if (fileExt === 'gif') detectedType = 'image/gif'
+      else if (fileExt === 'pdf') detectedType = 'application/pdf'
+      else if (fileExt === 'stl') detectedType = 'model/stl'
+      else detectedType = `model/${fileExt}`
+    }
 
     const submissionId = `mascot_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
 
@@ -68,7 +79,7 @@ export async function POST(req: NextRequest) {
       thoughtBehind,
       fileName: cleanFileName,
       fileSize: file.size,
-      fileType: file.type || `model/${fileExt}`,
+      fileType: detectedType,
       fileData: base64Data,
       submittedAt: Date.now(),
     })
@@ -76,7 +87,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       submissionId,
-      message: 'Mascot model submitted successfully! Thank you for participating.',
+      message: 'Mascot design submitted successfully! Thank you for participating in Artverse.',
     })
   } catch (err: any) {
     console.error('Error submitting mascot model:', err)

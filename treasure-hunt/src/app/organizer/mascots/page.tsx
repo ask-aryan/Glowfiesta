@@ -285,6 +285,10 @@ export default function OrganizerMascotsPage() {
               minute: '2-digit',
             })
             const sizeMb = (m.fileSize / (1024 * 1024)).toFixed(2)
+            const isImage = /\.(png|jpg|jpeg|webp|gif)$/i.test(m.fileName) || m.fileType.startsWith('image/')
+            const isPdf = /\.pdf$/i.test(m.fileName) || m.fileType.includes('pdf')
+            const fileBadgeIcon = isImage ? '🖼️' : isPdf ? '📄' : '📦'
+            const downloadLabel = isImage ? 'Image' : isPdf ? 'PDF' : 'STL'
 
             return (
               <div
@@ -342,7 +346,7 @@ export default function OrganizerMascotsPage() {
 
                   {/* File Tag */}
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#e0e7ff', color: '#4338ca', padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
-                    <span>📦</span>
+                    <span>{fileBadgeIcon}</span>
                     <span>{m.fileName}</span>
                     <span style={{ color: '#6366f1', fontWeight: 500 }}>({sizeMb} MB)</span>
                   </div>
@@ -363,12 +367,12 @@ export default function OrganizerMascotsPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    📖 Read Story
+                    📖 View Details
                   </button>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <a
-                      href={`/api/organizer/mascots/${m.id}/download`}
+                      href={`/api/organizer/mascots/${m.id}/download?download=1`}
                       download
                       style={{
                         background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
@@ -385,7 +389,7 @@ export default function OrganizerMascotsPage() {
                       }}
                     >
                       <span>⬇</span>
-                      <span>Download STL</span>
+                      <span>Download {downloadLabel}</span>
                     </a>
 
                     <button
@@ -472,6 +476,17 @@ export default function OrganizerMascotsPage() {
               </button>
             </div>
 
+            {/* Image Preview if applicable */}
+            {/\.(png|jpg|jpeg|webp|gif)$/i.test(selectedStory.fileName) && (
+              <div style={{ textAlign: 'center', marginBottom: 20, background: '#f8fafc', padding: 12, borderRadius: 14, border: '1px solid #e2e8f0' }}>
+                <img
+                  src={`/api/organizer/mascots/${selectedStory.id}/download`}
+                  alt={selectedStory.title}
+                  style={{ maxWidth: '100%', maxHeight: 280, borderRadius: 10, objectFit: 'contain' }}
+                />
+              </div>
+            )}
+
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6, textTransform: 'uppercase' }}>
                 Thought & Symbolism Behind The Mascot:
@@ -496,25 +511,48 @@ export default function OrganizerMascotsPage() {
               <div style={{ fontSize: 12, color: '#64748b' }}>
                 File: <b>{selectedStory.fileName}</b> ({(selectedStory.fileSize / (1024 * 1024)).toFixed(2)} MB)
               </div>
-              <a
-                href={`/api/organizer/mascots/${selectedStory.id}/download`}
-                download
-                style={{
-                  background: '#6366f1',
-                  color: '#fff',
-                  borderRadius: 10,
-                  padding: '9px 18px',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  textDecoration: 'none',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <span>⬇</span>
-                <span>Download Model</span>
-              </a>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <a
+                  href={`/api/organizer/mascots/${selectedStory.id}/download`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    background: '#f1f5f9',
+                    border: '1px solid #cbd5e1',
+                    color: '#334155',
+                    borderRadius: 10,
+                    padding: '8px 14px',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span>👁️</span>
+                  <span>View</span>
+                </a>
+                <a
+                  href={`/api/organizer/mascots/${selectedStory.id}/download?download=1`}
+                  download
+                  style={{
+                    background: '#6366f1',
+                    color: '#fff',
+                    borderRadius: 10,
+                    padding: '8px 16px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span>⬇</span>
+                  <span>Download</span>
+                </a>
+              </div>
             </div>
           </div>
         </div>
