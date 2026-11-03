@@ -381,8 +381,8 @@ export default function ParticipantBuzzerPage() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '24px 20px 40px',
-          maxWidth: 480,
+          padding: '20px 16px 36px',
+          maxWidth: 540,
           margin: '0 auto',
           width: '100%',
           boxSizing: 'border-box',
@@ -508,6 +508,7 @@ export default function ParticipantBuzzerPage() {
             alignItems: 'center',
             justifyContent: 'center',
             margin: '20px 0',
+            width: '100%',
           }}
         >
           {/* Pulsing ring when LIVE */}
@@ -515,10 +516,10 @@ export default function ParticipantBuzzerPage() {
             <div
               style={{
                 position: 'absolute',
-                width: 280,
-                height: 280,
+                width: 'clamp(330px, 90vw, 440px)',
+                height: 'clamp(330px, 90vw, 440px)',
                 borderRadius: '50%',
-                background: 'radial-gradient(circle, rgba(239,68,68,0.4), transparent 70%)',
+                background: 'radial-gradient(circle, rgba(239,68,68,0.45), transparent 70%)',
                 animation: 'burst 1.6s ease-out infinite',
                 pointerEvents: 'none',
               }}
@@ -528,15 +529,15 @@ export default function ParticipantBuzzerPage() {
           {/* Outer Chrome Bezel */}
           <div
             style={{
-              width: 250,
-              height: 250,
+              width: 'clamp(290px, 80vw, 380px)',
+              height: 'clamp(290px, 80vw, 380px)',
               borderRadius: '50%',
               background: 'linear-gradient(145deg, #3d3b45 0%, #15131b 100%)',
-              border: '6px solid rgba(255,255,255,0.12)',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.8), inset 0 3px 6px rgba(255,255,255,0.2)',
+              border: '8px solid rgba(255,255,255,0.16)',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.85), inset 0 4px 8px rgba(255,255,255,0.25), 0 0 35px rgba(255,107,53,0.18)',
               display: 'grid',
               placeItems: 'center',
-              padding: 10,
+              padding: 14,
               boxSizing: 'border-box',
             }}
           >
@@ -555,6 +556,7 @@ export default function ParticipantBuzzerPage() {
                 borderRadius: '50%',
                 border: 'none',
                 cursor: isLive && !hasBuzzed ? 'pointer' : 'default',
+                touchAction: 'manipulation',
                 background: hasBuzzed
                   ? 'radial-gradient(circle at 35% 35%, #22c55e 0%, #15803d 70%, #14532d 100%)'
                   : isLive
@@ -563,14 +565,14 @@ export default function ParticipantBuzzerPage() {
                   ? 'radial-gradient(circle at 35% 35%, #facc15 0%, #ca8a04 65%, #854d0e 100%)'
                   : 'radial-gradient(circle at 35% 35%, #64748b 0%, #475569 65%, #1e293b 100%)',
                 boxShadow: isPressingDown
-                  ? 'inset 0 8px 24px rgba(0,0,0,0.7)'
+                  ? 'inset 0 12px 30px rgba(0,0,0,0.75)'
                   : hasBuzzed
-                  ? '0 10px 28px rgba(34,197,94,0.5), inset 0 -8px 16px rgba(0,0,0,0.4), inset 0 6px 12px rgba(255,255,255,0.4)'
+                  ? '0 14px 34px rgba(34,197,94,0.55), inset 0 -10px 20px rgba(0,0,0,0.45), inset 0 8px 16px rgba(255,255,255,0.45)'
                   : isLive
-                  ? '0 14px 36px rgba(239,68,68,0.65), inset 0 -10px 20px rgba(0,0,0,0.5), inset 0 8px 14px rgba(255,255,255,0.45)'
+                  ? '0 18px 48px rgba(239,68,68,0.7), inset 0 -14px 26px rgba(0,0,0,0.55), inset 0 10px 18px rgba(255,255,255,0.5)'
                   : isReady
-                  ? '0 10px 28px rgba(234,179,8,0.45), inset 0 -8px 16px rgba(0,0,0,0.4), inset 0 6px 12px rgba(255,255,255,0.4)'
-                  : '0 6px 18px rgba(0,0,0,0.4)',
+                  ? '0 14px 34px rgba(234,179,8,0.5), inset 0 -10px 20px rgba(0,0,0,0.45), inset 0 8px 16px rgba(255,255,255,0.45)'
+                  : '0 8px 24px rgba(0,0,0,0.45)',
                 transform: isPressingDown ? 'scale(0.94)' : 'scale(1)',
                 transition: 'transform 0.08s ease, box-shadow 0.12s ease',
                 display: 'flex',
@@ -580,29 +582,41 @@ export default function ParticipantBuzzerPage() {
                 color: '#fff',
                 fontFamily: 'Fredoka, sans-serif',
                 textAlign: 'center',
-                padding: 10,
+                padding: 12,
               }}
             >
               <div
                 style={{
-                  fontSize: hasBuzzed ? 38 : isLive ? 44 : 36,
+                  fontSize: hasBuzzed ? 52 : isLive ? 68 : 48,
                   lineHeight: 1,
-                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))',
+                  filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.45))',
                 }}
               >
                 {hasBuzzed ? '✓' : isLive ? '🚨' : isReady ? '⚠️' : '🔒'}
               </div>
               <div
                 style={{
-                  fontSize: hasBuzzed ? 22 : isLive ? 28 : 20,
+                  fontSize: hasBuzzed ? 28 : isLive ? 38 : 26,
                   fontWeight: 800,
                   letterSpacing: '.06em',
-                  marginTop: 6,
-                  textShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                  marginTop: 8,
+                  textShadow: '0 3px 8px rgba(0,0,0,0.55)',
                   textTransform: 'uppercase',
                 }}
               >
                 {hasBuzzed ? 'BUZZED!' : isLive ? 'BUZZ!' : isReady ? 'STAND BY' : 'LOCKED'}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  letterSpacing: '.12em',
+                  opacity: 0.85,
+                  marginTop: 4,
+                  textTransform: 'uppercase',
+                  fontWeight: 600,
+                }}
+              >
+                {hasBuzzed ? 'LOCKED IN' : isLive ? 'SLAM TO BUZZ' : isReady ? 'HOLD TIGHT' : 'WAIT FOR LIVE'}
               </div>
             </button>
           </div>
