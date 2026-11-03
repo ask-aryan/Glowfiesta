@@ -154,9 +154,7 @@ export async function POST(req: NextRequest) {
         reason: 'WRONG_TEAM',
         title: "Another Team's Clue! 🕵️",
         message: msg,
-        hint: qrCode.assignedTeam?.teamName
-          ? `This clue was placed for "${qrCode.assignedTeam.teamName}". Your team's clue is hidden in a different spot!`
-          : "This clue card belongs to another team. Read your clue description again to find your spot!",
+        hint: "This clue card belongs to another team. Your team's clue is hidden in a different spot — check your clue description!",
       })
     }
 
