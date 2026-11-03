@@ -467,26 +467,50 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
               )}
             </>
           ) : (
-            <Link
-              href="/organizer"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 14px',
-                borderRadius: 8,
-                fontWeight: 600,
-                fontSize: 13,
-                textDecoration: 'none',
-                color: '#fff',
-                background: 'rgba(255,255,255,0.12)',
-              }}
-            >
-              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d={IC.dash} />
-              </svg>
-              <span>All Events</span>
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Link
+                href="/organizer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 14px',
+                  borderRadius: 8,
+                  fontWeight: pathname === '/organizer' ? 700 : 500,
+                  fontSize: 13,
+                  textDecoration: 'none',
+                  color: '#fff',
+                  background: pathname === '/organizer' ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)',
+                }}
+              >
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d={IC.dash} />
+                </svg>
+                <span>All Events</span>
+              </Link>
+
+              <Link
+                href="/organizer/choice-awards"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 14px',
+                  borderRadius: 8,
+                  fontWeight: pathname.includes('/choice-awards') ? 700 : 600,
+                  fontSize: 13,
+                  textDecoration: 'none',
+                  color: '#FFC857',
+                  background: pathname.includes('/choice-awards')
+                    ? 'linear-gradient(135deg, rgba(255,200,87,0.3), rgba(255,107,53,0.3))'
+                    : 'rgba(255,200,87,0.12)',
+                  border: '1px solid rgba(255,200,87,0.35)',
+                }}
+              >
+                <span>🏆</span>
+                <span>Choice Awards</span>
+              </Link>
+            </div>
           )}
         </nav>
 

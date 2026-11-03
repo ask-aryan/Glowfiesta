@@ -32,6 +32,90 @@ export default async function OrganizerPage() {
 
   return (
     <div>
+      {/* Choice Awards Hero Card */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #181124 0%, #291b3f 55%, #150921 100%)',
+          border: '1.5px solid rgba(255,200,87,0.35)',
+          borderRadius: 20,
+          padding: '22px 26px',
+          color: '#fff',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 18,
+          marginBottom: 32,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ position: 'absolute', right: -20, top: -30, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,200,87,0.18), transparent 70%)', pointerEvents: 'none' }} />
+
+        <div style={{ maxWidth: 640 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, background: 'rgba(255,200,87,0.15)', border: '1px solid rgba(255,200,87,0.35)', color: '#FFC857', fontSize: 11, fontWeight: 700, marginBottom: 8, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+            <span>🏆 FEATURED EVENT</span>
+          </div>
+          <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 24, fontWeight: 800, margin: '0 0 6px', background: 'linear-gradient(135deg, #ffffff 40%, #FFC857 85%, #FF6B35 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Choice Awards 2026
+          </div>
+          <div style={{ color: '#d8c7ed', fontSize: 13, lineHeight: 1.45 }}>
+            Unified anonymous audience voting form for all award categories, complete with live response toggles and the Oscars Ceremony big-screen reveal stage!
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <Link
+            href="/vote"
+            target="_blank"
+            style={{
+              padding: '9px 16px',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            📱 Voting Form ↗
+          </Link>
+          <Link
+            href="/choice-awards/live"
+            target="_blank"
+            style={{
+              padding: '9px 16px',
+              borderRadius: 10,
+              background: 'rgba(255,200,87,0.15)',
+              border: '1px solid rgba(255,200,87,0.4)',
+              color: '#FFC857',
+              fontSize: 13,
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >
+            🏆 Oscars Projector ↗
+          </Link>
+          <Link
+            href="/organizer/choice-awards"
+            style={{
+              padding: '9px 20px',
+              borderRadius: 10,
+              background: 'linear-gradient(135deg, #FFC857, #FFA23A)',
+              color: '#150324',
+              fontSize: 13,
+              fontWeight: 800,
+              textDecoration: 'none',
+              boxShadow: '0 4px 16px rgba(255,200,87,0.35)',
+            }}
+          >
+            Manage Setup →
+          </Link>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em' }}>Events</div>
