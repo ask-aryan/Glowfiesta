@@ -10,7 +10,7 @@ export default function ScanTokenPage({ params }: { params: { token: string } })
   useEffect(() => {
     async function redirectForScan() {
       try {
-        const meRes = await fetch('/api/auth/me')
+        const meRes = await fetch('/api/auth/me', { cache: 'no-store' })
         if (!meRes.ok) {
           router.replace(`/login?redirect=${encodeURIComponent(`/player/scan?token=${params.token}`)}`)
           return

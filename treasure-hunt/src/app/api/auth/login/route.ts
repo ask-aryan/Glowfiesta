@@ -6,6 +6,8 @@ import { prisma } from '@/lib/db'
 import { sessionOptions, SessionData } from '@/lib/session'
 import { loginSchema } from '@/lib/validation/auth'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(req: NextRequest) {
   const body = await req.json()
   const parsed = loginSchema.safeParse(body)
@@ -25,9 +27,18 @@ export async function POST(req: NextRequest) {
 
   if (user.role === 'TEAM') {
     const team = await prisma.team.findFirst({ where: { userId: user.id } })
-    if (team) session.teamId = team.id
+    session.teamId = team?.id
+  } else {
+    session.teamId = undefined
   }
 
   await session.save()
-  return NextResponse.json({ role: user.role, username: user.username })
+  return NextResponse.json(
+    { role: user.role, username: user.username },
+    {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      },
+    }
+  )
 }
