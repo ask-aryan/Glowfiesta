@@ -119,9 +119,9 @@ export default function HostBuzzerRoomPage() {
     }
   }, [roomCode, hostKey])
 
-  // Stopwatch timer logic: starts from firstBuzzAt (or liveAt) until Host resets
+  // Stopwatch timer logic: ONLY starts once the first buzzer is pressed until Host resets
   useEffect(() => {
-    const timerStartBase = room?.firstBuzzAt || (room?.status === 'LIVE' ? room.liveAt : null)
+    const timerStartBase = room?.firstBuzzAt || null
     if (!timerStartBase) {
       setElapsedMs(0)
       return
@@ -132,7 +132,7 @@ export default function HostBuzzerRoomPage() {
     }, 40)
 
     return () => clearInterval(interval)
-  }, [room?.firstBuzzAt, room?.liveAt, room?.status])
+  }, [room?.firstBuzzAt])
 
   // Format stopwatch MM:SS.mmm
   function formatStopwatch(ms: number): string {
@@ -428,60 +428,58 @@ export default function HostBuzzerRoomPage() {
           gap: 24,
         }}
       >
-        {/* TOP STOPWATCH / TIMER */}
-        <section
-          style={{
-            background: 'linear-gradient(145deg, rgba(20,5,35,0.9), rgba(10,2,18,0.9))',
-            border: '2px solid rgba(255,158,44,0.35)',
-            borderRadius: 24,
-            padding: '24px 28px',
-            textAlign: 'center',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          <div
+        {/* TOP STOPWATCH / TIMER — ONLY DISPLAYED ONCE A BUZZER IS PRESSED */}
+        {Boolean(room.firstBuzzAt) && (
+          <section
             style={{
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: '.12em',
-              textTransform: 'uppercase',
-              color: '#ffd9b8',
-              marginBottom: 6,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
+              background: 'linear-gradient(145deg, rgba(20,5,35,0.9), rgba(10,2,18,0.9))',
+              border: '2px solid rgba(255,158,44,0.4)',
+              borderRadius: 24,
+              padding: '24px 28px',
+              textAlign: 'center',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+              position: 'relative',
+              overflow: 'hidden',
             }}
           >
-            <span>⏱️ ROUND STOPWATCH TIMER</span>
-            {room.firstBuzzAt && (
-              <span style={{ color: '#22c55e', fontSize: 11, background: 'rgba(34,197,94,0.2)', padding: '2px 8px', borderRadius: 999 }}>
-                ACTIVE FROM 1ST BUZZ
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: '.12em',
+                textTransform: 'uppercase',
+                color: '#ffd9b8',
+                marginBottom: 6,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+            >
+              <span>⏱️ BUZZER STOPWATCH TIMER</span>
+              <span style={{ color: '#22c55e', fontSize: 11, background: 'rgba(34,197,94,0.2)', padding: '2px 8px', borderRadius: 999, fontWeight: 700 }}>
+                ● ACTIVE (FROM 1ST BUZZ)
               </span>
-            )}
-          </div>
+            </div>
 
-          <div
-            style={{
-              fontFamily: 'Fredoka, monospace, sans-serif',
-              fontSize: 'clamp(44px, 8vw, 76px)',
-              fontWeight: 800,
-              color: elapsedMs > 0 ? '#FFC857' : '#887d9c',
-              letterSpacing: '.04em',
-              textShadow: elapsedMs > 0 ? '0 0 24px rgba(255,200,87,0.4)' : 'none',
-              lineHeight: 1,
-            }}
-          >
-            {formatStopwatch(elapsedMs)}
-          </div>
-          <div style={{ fontSize: 13, color: '#a394bb', marginTop: 8 }}>
-            {elapsedMs > 0
-              ? 'Timer running continuously until you hit Reset'
-              : 'Timer triggers as soon as the first buzzer is pressed'}
-          </div>
-        </section>
+            <div
+              style={{
+                fontFamily: 'Fredoka, monospace, sans-serif',
+                fontSize: 'clamp(44px, 8vw, 76px)',
+                fontWeight: 800,
+                color: '#FFC857',
+                letterSpacing: '.04em',
+                textShadow: '0 0 24px rgba(255,200,87,0.4)',
+                lineHeight: 1,
+              }}
+            >
+              {formatStopwatch(elapsedMs)}
+            </div>
+            <div style={{ fontSize: 13, color: '#a394bb', marginTop: 8 }}>
+              Timer started on 1st buzzer press • Running until you hit Reset
+            </div>
+          </section>
+        )}
 
         {/* STAGE CONTROLS & RESET BUTTON */}
         <section
