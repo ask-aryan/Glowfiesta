@@ -194,6 +194,30 @@ function LoginForm() {
           <span>🗳️</span>
           <span>Vote Choice Awards</span>
         </a>
+
+        <a
+          href="/mascot"
+          style={{
+            padding: '8px 16px',
+            borderRadius: 999,
+            background: 'rgba(99,102,241,0.22)',
+            border: '1.5px solid rgba(129,140,248,0.5)',
+            color: '#c7d2fe',
+            fontFamily: 'Fredoka, sans-serif',
+            fontSize: 14,
+            fontWeight: 700,
+            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+            transition: 'all .15s ease',
+          }}
+        >
+          <span>🤖</span>
+          <span>Submit 3D Mascot</span>
+        </a>
       </div>
       <div
         style={{
@@ -477,6 +501,27 @@ function LoginForm() {
             >
               <span>🗳️</span>
               <span>Vote Choice Awards</span>
+            </a>
+
+            <a
+              href="/mascot"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 14px',
+                borderRadius: 999,
+                background: 'rgba(99,102,241,0.14)',
+                border: '1px solid rgba(129,140,248,0.4)',
+                color: '#c7d2fe',
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: 'none',
+                transition: 'all .15s ease',
+              }}
+            >
+              <span>🤖</span>
+              <span>3D Mascot Contest</span>
             </a>
           </div>
         </div>

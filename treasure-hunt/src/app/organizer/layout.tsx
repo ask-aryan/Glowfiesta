@@ -510,6 +510,28 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                 <span>🏆</span>
                 <span>Choice Awards</span>
               </Link>
+
+              <Link
+                href="/organizer/mascots"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 14px',
+                  borderRadius: 8,
+                  fontWeight: pathname.includes('/mascots') ? 700 : 600,
+                  fontSize: 13,
+                  textDecoration: 'none',
+                  color: '#818cf8',
+                  background: pathname.includes('/mascots')
+                    ? 'linear-gradient(135deg, rgba(99,102,241,0.3), rgba(129,140,248,0.3))'
+                    : 'rgba(99,102,241,0.12)',
+                  border: '1px solid rgba(99,102,241,0.35)',
+                }}
+              >
+                <span>🤖</span>
+                <span>3D Mascots</span>
+              </Link>
             </div>
           )}
         </nav>

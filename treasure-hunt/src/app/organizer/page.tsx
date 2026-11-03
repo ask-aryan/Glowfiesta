@@ -116,6 +116,74 @@ export default async function OrganizerPage() {
         </div>
       </div>
 
+      {/* 3D Mascot Challenge Hero Card */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #0e122b 0%, #1a1e4a 55%, #0d1028 100%)',
+          border: '1.5px solid rgba(129,140,248,0.35)',
+          borderRadius: 20,
+          padding: '22px 26px',
+          color: '#fff',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 18,
+          marginBottom: 32,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ position: 'absolute', right: -20, top: -30, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.2), transparent 70%)', pointerEvents: 'none' }} />
+
+        <div style={{ maxWidth: 640 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(129,140,248,0.4)', color: '#a5b4fc', fontSize: 11, fontWeight: 700, marginBottom: 8, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+            <span>🤖 EMPLOYEE 3D CONTEST</span>
+          </div>
+          <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 24, fontWeight: 800, margin: '0 0 6px', background: 'linear-gradient(135deg, #ffffff 40%, #c7d2fe 85%, #818cf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Company 3D Mascot Challenge
+          </div>
+          <div style={{ color: '#c7d2fe', fontSize: 13, lineHeight: 1.45 }}>
+            Employees submit their custom-designed 3D mascot models (.STL / .OBJ / .GLB) with the story and symbolism behind their creation.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <Link
+            href="/mascot"
+            target="_blank"
+            style={{
+              padding: '9px 16px',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            📱 Public Form ↗
+          </Link>
+          <Link
+            href="/organizer/mascots"
+            style={{
+              padding: '9px 20px',
+              borderRadius: 10,
+              background: 'linear-gradient(135deg, #818cf8, #6366f1)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 800,
+              textDecoration: 'none',
+              boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
+            }}
+          >
+            View Submissions & STL →
+          </Link>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em' }}>Events</div>
