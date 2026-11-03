@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { submitChoiceAwardsBallot } from '@/lib/choiceAwards'
+import { submitChoiceAwardsVote, submitChoiceAwardsBallot } from '@/lib/choiceAwards'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -13,13 +13,31 @@ const NO_CACHE_HEADERS = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
-    const votes: Record<string, string> = body.votes || {}
-    const voterHash = body.voterHash || req.headers.get('x-forwarded-for') || `anon_${Date.now()}`
+    const voterHash =
+      body.voterHash ||
+      req.headers.get('x-forwarded-for') ||
+      req.headers.get('x-real-ip') ||
+      `anon_${Date.now()}`
 
+    // Single Question Voting
+    if (body.categoryId && body.nomineeId) {
+      const result = await submitChoiceAwardsVote({
+        categoryId: body.categoryId,
+        nomineeId: body.nomineeId,
+        voterHash,
+      })
+      if (!result.success) {
+        return NextResponse.json(result, { status: 400, headers: NO_CACHE_HEADERS })
+      }
+      return NextResponse.json(result, { headers: NO_CACHE_HEADERS })
+    }
+
+    // Multi-category Ballot (fallback)
+    const votes: Record<string, string> = body.votes || {}
     if (!votes || typeof votes !== 'object' || Object.keys(votes).length === 0) {
       return NextResponse.json({
         success: false,
-        message: 'No votes received. Please select your nominees before submitting.',
+        message: 'No nominee selected. Please select an option to vote.',
       }, { status: 400, headers: NO_CACHE_HEADERS })
     }
 
@@ -33,7 +51,7 @@ export async function POST(req: NextRequest) {
     console.error('Error handling Choice Awards vote:', err)
     return NextResponse.json({
       success: false,
-      message: 'Failed to submit ballot',
+      message: 'Failed to submit vote',
     }, { status: 500, headers: NO_CACHE_HEADERS })
   }
 }

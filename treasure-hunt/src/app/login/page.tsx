@@ -457,6 +457,33 @@ function LoginForm() {
             {loading ? 'Signing in…' : 'Enter the Hunt'}
           </button>
 
+          {/* Quick Choice Awards Link */}
+          <div style={{ marginTop: 6, display: 'flex', justifyContent: 'center' }}>
+            <a
+              href="/vote"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 7,
+                padding: '7px 16px',
+                borderRadius: 999,
+                background: 'rgba(168, 85, 247, 0.18)',
+                border: '1.5px solid rgba(168, 85, 247, 0.45)',
+                color: '#e9d5ff',
+                fontFamily: 'Fredoka, sans-serif',
+                fontSize: 13,
+                fontWeight: 700,
+                textDecoration: 'none',
+                boxShadow: '0 4px 14px rgba(168, 85, 247, 0.25)',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              <span>🗳️</span>
+              <span>Vote Choice Awards</span>
+              <span style={{ fontSize: 11, opacity: 0.8 }}>→</span>
+            </a>
+          </div>
+
           {/* 
             Commented out bottom quick links (Game Buzzer, Choice Awards, Artverse)
             <div style={{ marginTop: 10, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>

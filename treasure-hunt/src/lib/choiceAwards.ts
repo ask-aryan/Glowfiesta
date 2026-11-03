@@ -1,12 +1,16 @@
 import { prisma } from './db'
 
 export type ChoiceAwardsStatus = 'LIVE' | 'CLOSED'
+export type ChoiceAwardsMode = 'SETUP' | 'LIVE_VOTING' | 'CEREMONY'
+export type QuestionVotingState = 'IDLE' | 'VOTING' | 'PAUSED' | 'STOPPED'
 
 export interface AwardNominee {
   id: string
   name: string
   role?: string
   avatar?: string
+  photoUrl?: string | null
+  videoUrl?: string | null
   votesCount: number
   percentage?: number
 }
@@ -24,7 +28,12 @@ export interface AwardCategory {
 export interface ChoiceAwardsState {
   id: string
   title: string
-  status: ChoiceAwardsStatus // LIVE = Accepting responses, CLOSED = Stopped
+  status: ChoiceAwardsStatus // LIVE = accepting, CLOSED = closed
+  mode: ChoiceAwardsMode // SETUP | LIVE_VOTING | CEREMONY
+  activeCategoryId: string | null
+  questionVotingState: QuestionVotingState // IDLE | VOTING | PAUSED | STOPPED
+  ceremonyCategoryId: string | null
+  ceremonyRevealed: boolean
   totalBallots: number
   categories: AwardCategory[]
   updatedAt: number
@@ -32,75 +41,11 @@ export interface ChoiceAwardsState {
 
 const GLOBAL_AWARDS_KEY = 'CHOICE_AWARDS_MAIN'
 
-// In-memory cache for ultra-fast polling
+// In-memory cache
 const globalAwardsStore = globalThis as unknown as {
   choiceAwardsCache?: ChoiceAwardsState | null
   choiceAwardsTablesReady?: boolean
 }
-
-const DEFAULT_CATEGORIES: AwardCategory[] = [
-  {
-    id: 'cat_star_performer',
-    orderIndex: 0,
-    title: 'Star Performer of the Year 🌟',
-    subtitle: 'Consistently delivered excellence, passion, and high impact execution',
-    totalVotes: 0,
-    nominees: [
-      { id: 'nom_1', name: 'Team Alpha', role: 'Engineering & Architecture', avatar: '🚀', votesCount: 0 },
-      { id: 'nom_2', name: 'Team Beta', role: 'Product & Innovation', avatar: '💡', votesCount: 0 },
-      { id: 'nom_3', name: 'Team Gamma', role: 'Operations & Reliability', avatar: '⚡', votesCount: 0 },
-      { id: 'nom_4', name: 'Team Delta', role: 'Quality & Delivery', avatar: '🛡️', votesCount: 0 },
-    ],
-  },
-  {
-    id: 'cat_culture_champion',
-    orderIndex: 1,
-    title: 'Best Team Player & Culture Hero 🤝',
-    subtitle: 'Always lifting others up, fostering teamwork and spreading positivity',
-    totalVotes: 0,
-    nominees: [
-      { id: 'nom_5', name: 'Synergy Squad', role: 'Collaboration Masters', avatar: '🌟', votesCount: 0 },
-      { id: 'nom_6', name: 'Rising Stars', role: 'Spirit & Dedication', avatar: '✨', votesCount: 0 },
-      { id: 'nom_7', name: 'Pixel Pioneers', role: 'Community & Support', avatar: '🎨', votesCount: 0 },
-    ],
-  },
-  {
-    id: 'cat_innovation_maestro',
-    orderIndex: 2,
-    title: 'Innovation & Creative Maestro 💡',
-    subtitle: 'Brought creative breakthrough ideas and out-of-the-box thinking',
-    totalVotes: 0,
-    nominees: [
-      { id: 'nom_8', name: 'Code Ninjas', role: 'AI & Next-Gen R&D', avatar: '🥋', votesCount: 0 },
-      { id: 'nom_9', name: 'Data Wizards', role: 'Analytics & Insights', avatar: '🔮', votesCount: 0 },
-      { id: 'nom_10', name: 'Tech Titans', role: 'Cloud & Modernization', avatar: '⚡', votesCount: 0 },
-    ],
-  },
-  {
-    id: 'cat_speed_execution',
-    orderIndex: 3,
-    title: 'Speed & Lightning Execution ⚡',
-    subtitle: 'Master of high velocity deadlines and rapid reliable delivery',
-    totalVotes: 0,
-    nominees: [
-      { id: 'nom_11', name: 'Agile Aces', role: 'Sprint Champions', avatar: '🏎️', votesCount: 0 },
-      { id: 'nom_12', name: 'Velocity Force', role: 'Zero-Lag Deployment', avatar: '🌪️', votesCount: 0 },
-      { id: 'nom_13', name: 'Rapid Fire', role: 'Quick Resolution Squad', avatar: '🔥', votesCount: 0 },
-    ],
-  },
-  {
-    id: 'cat_office_joymaker',
-    orderIndex: 4,
-    title: 'Office Joymaker & Energy Booster 😂',
-    subtitle: 'The soul of the office who turns any stressful day into smiles and laughter',
-    totalVotes: 0,
-    nominees: [
-      { id: 'nom_14', name: 'Vibe Masters', role: 'Celebrations & Fun', avatar: '🎉', votesCount: 0 },
-      { id: 'nom_15', name: 'Chai & Chill Club', role: 'Positive Vibes Only', avatar: '☕', votesCount: 0 },
-      { id: 'nom_16', name: 'Happy Hour Heroes', role: 'Memes & Motivation', avatar: '🥳', votesCount: 0 },
-    ],
-  },
-]
 
 async function ensureTables() {
   if (globalAwardsStore.choiceAwardsTablesReady) return
@@ -110,6 +55,11 @@ async function ensureTables() {
         id VARCHAR(50) PRIMARY KEY,
         title VARCHAR(200) NOT NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'LIVE',
+        mode VARCHAR(30) NOT NULL DEFAULT 'LIVE_VOTING',
+        active_category_id VARCHAR(100) NULL,
+        question_voting_state VARCHAR(30) NOT NULL DEFAULT 'IDLE',
+        ceremony_category_id VARCHAR(100) NULL,
+        ceremony_revealed BOOLEAN NOT NULL DEFAULT FALSE,
         updated_at BIGINT NOT NULL
       )
     `)
@@ -130,6 +80,8 @@ async function ensureTables() {
         name VARCHAR(255) NOT NULL,
         role VARCHAR(255) NULL,
         avatar VARCHAR(50) NULL,
+        photo_url TEXT NULL,
+        video_url TEXT NULL,
         order_index INT NOT NULL DEFAULT 0
       )
     `)
@@ -143,6 +95,20 @@ async function ensureTables() {
         voted_at BIGINT NOT NULL
       )
     `)
+
+    // Ensure columns exist on legacy tables
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_nominees ADD COLUMN IF NOT EXISTS photo_url TEXT;`)
+      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_nominees ADD COLUMN IF NOT EXISTS video_url TEXT;`)
+      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_state ADD COLUMN IF NOT EXISTS mode VARCHAR(30) DEFAULT 'LIVE_VOTING';`)
+      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_state ADD COLUMN IF NOT EXISTS active_category_id VARCHAR(100);`)
+      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_state ADD COLUMN IF NOT EXISTS question_voting_state VARCHAR(30) DEFAULT 'IDLE';`)
+      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_state ADD COLUMN IF NOT EXISTS ceremony_category_id VARCHAR(100);`)
+      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_state ADD COLUMN IF NOT EXISTS ceremony_revealed BOOLEAN DEFAULT FALSE;`)
+    } catch {
+      // Safe fallback if columns already present
+    }
+
     globalAwardsStore.choiceAwardsTablesReady = true
   } catch (err) {
     console.warn('Notice: Choice Awards tables check:', err)
@@ -157,15 +123,27 @@ export async function getChoiceAwards(): Promise<ChoiceAwardsState> {
       `SELECT * FROM choice_awards_state WHERE id = '${GLOBAL_AWARDS_KEY}' LIMIT 1`
     )
 
+    const now = Date.now()
     if (!rows || rows.length === 0) {
-      // Seed default awards
-      return await seedInitialAwards()
+      // Create empty state — NO default categories as requested
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO choice_awards_state (id, title, status, mode, active_category_id, question_voting_state, ceremony_category_id, ceremony_revealed, updated_at)
+         VALUES ('${GLOBAL_AWARDS_KEY}', 'GlowFiesta Choice Awards 2026', 'LIVE', 'LIVE_VOTING', NULL, 'IDLE', NULL, FALSE, ${now})`
+      )
     }
 
-    const stateRow = rows[0]
+    const stateRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT * FROM choice_awards_state WHERE id = '${GLOBAL_AWARDS_KEY}' LIMIT 1`
+    )
+    const stateRow = stateRows[0] || {}
     const status = (stateRow.status as ChoiceAwardsStatus) || 'LIVE'
+    const mode = (stateRow.mode as ChoiceAwardsMode) || 'LIVE_VOTING'
+    let activeCategoryId = stateRow.active_category_id || null
+    const questionVotingState = (stateRow.question_voting_state as QuestionVotingState) || 'IDLE'
+    let ceremonyCategoryId = stateRow.ceremony_category_id || null
+    const ceremonyRevealed = Boolean(stateRow.ceremony_revealed)
     const title = stateRow.title || 'GlowFiesta Choice Awards 2026'
-    const updatedAt = Number(stateRow.updated_at || Date.now())
+    const updatedAt = Number(stateRow.updated_at || now)
 
     // Load categories
     const catRows = await prisma.$queryRawUnsafe<any[]>(
@@ -188,7 +166,7 @@ export async function getChoiceAwards(): Promise<ChoiceAwardsState> {
       if (b.voter_hash) distinctVoters.add(b.voter_hash)
     }
 
-    // Tally votes per nominee
+    // Tally votes per nominee & category
     const votesPerNominee = new Map<string, number>()
     const votesPerCategory = new Map<string, number>()
     for (const b of ballotRows || []) {
@@ -209,6 +187,8 @@ export async function getChoiceAwards(): Promise<ChoiceAwardsState> {
         name: n.name,
         role: n.role || undefined,
         avatar: n.avatar || '⭐',
+        photoUrl: n.photo_url || null,
+        videoUrl: n.video_url || null,
         votesCount: count,
       })
     }
@@ -244,10 +224,28 @@ export async function getChoiceAwards(): Promise<ChoiceAwardsState> {
       }
     })
 
+    // If activeCategoryId is not set or invalid, default to the first category if any exist
+    if (categories.length > 0) {
+      if (!activeCategoryId || !categories.some(c => c.id === activeCategoryId)) {
+        activeCategoryId = categories[0].id
+      }
+      if (!ceremonyCategoryId || !categories.some(c => c.id === ceremonyCategoryId)) {
+        ceremonyCategoryId = categories[0].id
+      }
+    } else {
+      activeCategoryId = null
+      ceremonyCategoryId = null
+    }
+
     const state: ChoiceAwardsState = {
       id: GLOBAL_AWARDS_KEY,
       title,
       status,
+      mode,
+      activeCategoryId,
+      questionVotingState,
+      ceremonyCategoryId,
+      ceremonyRevealed,
       totalBallots: distinctVoters.size,
       categories,
       updatedAt,
@@ -264,52 +262,16 @@ export async function getChoiceAwards(): Promise<ChoiceAwardsState> {
       id: GLOBAL_AWARDS_KEY,
       title: 'GlowFiesta Choice Awards 2026',
       status: 'LIVE',
+      mode: 'LIVE_VOTING',
+      activeCategoryId: null,
+      questionVotingState: 'IDLE',
+      ceremonyCategoryId: null,
+      ceremonyRevealed: false,
       totalBallots: 0,
-      categories: DEFAULT_CATEGORIES,
+      categories: [],
       updatedAt: Date.now(),
     }
   }
-}
-
-async function seedInitialAwards(): Promise<ChoiceAwardsState> {
-  const now = Date.now()
-  const title = 'GlowFiesta Choice Awards 2026'
-
-  try {
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO choice_awards_state (id, title, status, updated_at)
-       VALUES ('${GLOBAL_AWARDS_KEY}', '${title}', 'LIVE', ${now})`
-    )
-
-    for (let cIdx = 0; cIdx < DEFAULT_CATEGORIES.length; cIdx++) {
-      const cat = DEFAULT_CATEGORIES[cIdx]
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO choice_awards_categories (id, awards_id, order_index, title, subtitle)
-         VALUES ('${cat.id}', '${GLOBAL_AWARDS_KEY}', ${cIdx}, '${cat.title.replace(/'/g, "''")}', '${(cat.subtitle || '').replace(/'/g, "''")}')`
-      )
-
-      for (let nIdx = 0; nIdx < cat.nominees.length; nIdx++) {
-        const nom = cat.nominees[nIdx]
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO choice_awards_nominees (id, category_id, awards_id, name, role, avatar, order_index)
-           VALUES ('${nom.id}', '${cat.id}', '${GLOBAL_AWARDS_KEY}', '${nom.name.replace(/'/g, "''")}', '${(nom.role || '').replace(/'/g, "''")}', '${nom.avatar || '⭐'}', ${nIdx})`
-        )
-      }
-    }
-  } catch (e) {
-    console.warn('Notice: Seeding choice awards initial data:', e)
-  }
-
-  const seeded: ChoiceAwardsState = {
-    id: GLOBAL_AWARDS_KEY,
-    title,
-    status: 'LIVE',
-    totalBallots: 0,
-    categories: DEFAULT_CATEGORIES,
-    updatedAt: now,
-  }
-  globalAwardsStore.choiceAwardsCache = seeded
-  return seeded
 }
 
 export async function setChoiceAwardsStatus(status: ChoiceAwardsStatus): Promise<ChoiceAwardsState> {
@@ -327,59 +289,207 @@ export async function setChoiceAwardsStatus(status: ChoiceAwardsStatus): Promise
   return await getChoiceAwards()
 }
 
-export async function submitChoiceAwardsBallot(
-  votes: Record<string, string>, // { [categoryId]: nomineeId }
+export async function updateChoiceAwardsLiveControl(payload: {
+  action:
+    | 'SET_ACTIVE_CATEGORY'
+    | 'START_VOTE'
+    | 'PAUSE_VOTE'
+    | 'RESUME_VOTE'
+    | 'STOP_VOTE'
+    | 'RESET_QUESTION_VOTES'
+    | 'SET_MODE'
+    | 'SET_CEREMONY_CATEGORY'
+    | 'REVEAL_CEREMONY'
+  categoryId?: string
+  mode?: ChoiceAwardsMode
+}): Promise<ChoiceAwardsState> {
+  await ensureTables()
+  const now = Date.now()
+  const { action, categoryId, mode } = payload
+
+  try {
+    if (action === 'SET_ACTIVE_CATEGORY' && categoryId) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE choice_awards_state 
+         SET active_category_id = '${categoryId.replace(/'/g, "''")}', 
+             question_voting_state = 'IDLE', 
+             updated_at = ${now} 
+         WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      )
+    } else if (action === 'START_VOTE') {
+      await prisma.$executeRawUnsafe(
+        `UPDATE choice_awards_state 
+         SET question_voting_state = 'VOTING', 
+             updated_at = ${now} 
+         WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      )
+    } else if (action === 'PAUSE_VOTE') {
+      await prisma.$executeRawUnsafe(
+        `UPDATE choice_awards_state 
+         SET question_voting_state = 'PAUSED', 
+             updated_at = ${now} 
+         WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      )
+    } else if (action === 'RESUME_VOTE') {
+      await prisma.$executeRawUnsafe(
+        `UPDATE choice_awards_state 
+         SET question_voting_state = 'VOTING', 
+             updated_at = ${now} 
+         WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      )
+    } else if (action === 'STOP_VOTE') {
+      await prisma.$executeRawUnsafe(
+        `UPDATE choice_awards_state 
+         SET question_voting_state = 'STOPPED', 
+             updated_at = ${now} 
+         WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      )
+    } else if (action === 'RESET_QUESTION_VOTES') {
+      const currentState = await getChoiceAwards()
+      const catId = categoryId || currentState.activeCategoryId
+      if (catId) {
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM choice_awards_ballots 
+           WHERE awards_id = '${GLOBAL_AWARDS_KEY}' AND category_id = '${catId.replace(/'/g, "''")}'`
+        )
+      }
+      await prisma.$executeRawUnsafe(
+        `UPDATE choice_awards_state 
+         SET question_voting_state = 'IDLE', 
+             updated_at = ${now} 
+         WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      )
+    } else if (action === 'SET_MODE' && mode) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE choice_awards_state 
+         SET mode = '${mode}', 
+             ceremony_revealed = FALSE,
+             updated_at = ${now} 
+         WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      )
+    } else if (action === 'SET_CEREMONY_CATEGORY' && categoryId) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE choice_awards_state 
+         SET ceremony_category_id = '${categoryId.replace(/'/g, "''")}', 
+             ceremony_revealed = FALSE,
+             updated_at = ${now} 
+         WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      )
+    } else if (action === 'REVEAL_CEREMONY') {
+      await prisma.$executeRawUnsafe(
+        `UPDATE choice_awards_state 
+         SET ceremony_revealed = TRUE, 
+             updated_at = ${now} 
+         WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      )
+    }
+  } catch (err) {
+    console.error('Error updating live control:', err)
+  }
+
+  return await getChoiceAwards()
+}
+
+export async function submitChoiceAwardsVote(payload: {
+  categoryId: string
+  nomineeId: string
   voterHash: string
-): Promise<{ success: boolean; message: string; totalBallots?: number }> {
+}): Promise<{ success: boolean; message: string; categoryTotal?: number; totalBallots?: number }> {
   await ensureTables()
 
   const state = await getChoiceAwards()
   if (state.status === 'CLOSED') {
+    return { success: false, message: 'Voting is currently closed by host.' }
+  }
+
+  if (state.mode !== 'LIVE_VOTING') {
+    return { success: false, message: 'Live voting is not currently active.' }
+  }
+
+  if (state.questionVotingState !== 'VOTING') {
     return {
       success: false,
-      message: 'Voting is currently closed. Host has stopped accepting responses.',
+      message:
+        state.questionVotingState === 'PAUSED'
+          ? 'Voting is temporarily paused. Please hold on!'
+          : 'Voting is not open for this category right now.',
     }
   }
 
-  const categoryEntries = Object.entries(votes)
-  if (categoryEntries.length === 0) {
-    return { success: false, message: 'Please select nominees before submitting.' }
+  const { categoryId, nomineeId, voterHash } = payload
+  if (!categoryId || !nomineeId) {
+    return { success: false, message: 'Please select a nominee to vote for.' }
+  }
+
+  if (state.activeCategoryId && state.activeCategoryId !== categoryId) {
+    return { success: false, message: 'Host has already advanced to another question.' }
   }
 
   const now = Date.now()
   const cleanHash = voterHash.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || `anon_${Math.random().toString(36).substring(2, 10)}`
 
   try {
-    // Delete previous ballot for this voter if updating
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM choice_awards_ballots WHERE awards_id = '${GLOBAL_AWARDS_KEY}' AND voter_hash = '${cleanHash}'`
+    // Check if this voter already voted for THIS category (1 vote per device per category)
+    const existing = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM choice_awards_ballots 
+       WHERE awards_id = '${GLOBAL_AWARDS_KEY}' 
+         AND category_id = '${categoryId.replace(/'/g, "''")}' 
+         AND voter_hash = '${cleanHash}' 
+       LIMIT 1`
     )
 
-    // Insert each vote
-    for (const [categoryId, nomineeId] of categoryEntries) {
-      if (!nomineeId) continue
-      const voteId = `b_${cleanHash}_${categoryId.slice(-12)}_${Date.now().toString(36)}`
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO choice_awards_ballots (id, awards_id, category_id, nominee_id, voter_hash, voted_at)
-         VALUES ('${voteId}', '${GLOBAL_AWARDS_KEY}', '${categoryId.replace(/'/g, "''")}', '${nomineeId.replace(/'/g, "''")}', '${cleanHash}', ${now})`
-      )
+    if (existing && existing.length > 0) {
+      return {
+        success: false,
+        message: 'You have already cast your vote for this category from this device.',
+      }
     }
 
-    // Touch updated_at
+    const voteId = `b_${cleanHash}_${categoryId.slice(-8)}_${Date.now().toString(36)}`
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO choice_awards_ballots (id, awards_id, category_id, nominee_id, voter_hash, voted_at)
+       VALUES ('${voteId}', '${GLOBAL_AWARDS_KEY}', '${categoryId.replace(/'/g, "''")}', '${nomineeId.replace(/'/g, "''")}', '${cleanHash}', ${now})`
+    )
+
     await prisma.$executeRawUnsafe(
       `UPDATE choice_awards_state SET updated_at = ${now} WHERE id = '${GLOBAL_AWARDS_KEY}'`
     )
 
     const updated = await getChoiceAwards()
+    const thisCat = updated.categories.find(c => c.id === categoryId)
+
     return {
       success: true,
-      message: 'Your Choice Awards ballot has been recorded!',
+      message: 'Your vote has been recorded! Thank you for voting.',
+      categoryTotal: thisCat?.totalVotes ?? 1,
       totalBallots: updated.totalBallots,
     }
   } catch (err) {
-    console.error('Error recording Choice Awards ballot:', err)
+    console.error('Error submitting vote:', err)
     return { success: false, message: 'Failed to record vote. Please try again.' }
   }
+}
+
+// Backward-compatible multi-ballot submission
+export async function submitChoiceAwardsBallot(
+  votes: Record<string, string>,
+  voterHash: string
+): Promise<{ success: boolean; message: string; totalBallots?: number }> {
+  await ensureTables()
+  const entries = Object.entries(votes)
+  if (entries.length === 0) {
+    return { success: false, message: 'Please select nominees before submitting.' }
+  }
+
+  let lastRes = { success: false, message: 'Failed to vote' }
+  for (const [catId, nomId] of entries) {
+    lastRes = await submitChoiceAwardsVote({
+      categoryId: catId,
+      nomineeId: nomId,
+      voterHash,
+    })
+  }
+  return lastRes
 }
 
 export async function saveChoiceAwardsCategories(categories: AwardCategory[]): Promise<ChoiceAwardsState> {
@@ -387,13 +497,9 @@ export async function saveChoiceAwardsCategories(categories: AwardCategory[]): P
   const now = Date.now()
 
   try {
-    // Remove existing categories and nominees
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM choice_awards_nominees WHERE awards_id = '${GLOBAL_AWARDS_KEY}'`
-    )
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM choice_awards_categories WHERE awards_id = '${GLOBAL_AWARDS_KEY}'`
-    )
+    // Clean old
+    await prisma.$executeRawUnsafe(`DELETE FROM choice_awards_nominees WHERE awards_id = '${GLOBAL_AWARDS_KEY}'`)
+    await prisma.$executeRawUnsafe(`DELETE FROM choice_awards_categories WHERE awards_id = '${GLOBAL_AWARDS_KEY}'`)
 
     for (let cIdx = 0; cIdx < categories.length; cIdx++) {
       const cat = categories[cIdx]
@@ -406,15 +512,25 @@ export async function saveChoiceAwardsCategories(categories: AwardCategory[]): P
       for (let nIdx = 0; nIdx < cat.nominees.length; nIdx++) {
         const nom = cat.nominees[nIdx]
         const nomId = nom.id || `nom_${Date.now()}_${nIdx}`
+        const photoEscaped = nom.photoUrl ? `'${nom.photoUrl.replace(/'/g, "''")}'` : 'NULL'
+        const videoEscaped = nom.videoUrl ? `'${nom.videoUrl.replace(/'/g, "''")}'` : 'NULL'
+
         await prisma.$executeRawUnsafe(
-          `INSERT INTO choice_awards_nominees (id, category_id, awards_id, name, role, avatar, order_index)
-           VALUES ('${nomId}', '${catId}', '${GLOBAL_AWARDS_KEY}', '${(nom.name || 'Nominee').replace(/'/g, "''")}', '${(nom.role || '').replace(/'/g, "''")}', '${nom.avatar || '⭐'}', ${nIdx})`
+          `INSERT INTO choice_awards_nominees (id, category_id, awards_id, name, role, avatar, photo_url, video_url, order_index)
+           VALUES ('${nomId}', '${catId}', '${GLOBAL_AWARDS_KEY}', '${(nom.name || 'Nominee').replace(/'/g, "''")}', '${(nom.role || '').replace(/'/g, "''")}', '${nom.avatar || '⭐'}', ${photoEscaped}, ${videoEscaped}, ${nIdx})`
         )
       }
     }
 
+    const firstCatId = categories.length > 0 ? (categories[0].id || `cat_${Date.now()}_0`) : null
+    const firstCatEscaped = firstCatId ? `'${firstCatId}'` : 'NULL'
+
     await prisma.$executeRawUnsafe(
-      `UPDATE choice_awards_state SET updated_at = ${now} WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      `UPDATE choice_awards_state 
+       SET active_category_id = COALESCE(active_category_id, ${firstCatEscaped}),
+           ceremony_category_id = COALESCE(ceremony_category_id, ${firstCatEscaped}),
+           updated_at = ${now} 
+       WHERE id = '${GLOBAL_AWARDS_KEY}'`
     )
   } catch (err) {
     console.error('Error saving Choice Awards categories:', err)
@@ -428,11 +544,13 @@ export async function resetChoiceAwardsBallots(): Promise<ChoiceAwardsState> {
   const now = Date.now()
 
   try {
+    await prisma.$executeRawUnsafe(`DELETE FROM choice_awards_ballots WHERE awards_id = '${GLOBAL_AWARDS_KEY}'`)
     await prisma.$executeRawUnsafe(
-      `DELETE FROM choice_awards_ballots WHERE awards_id = '${GLOBAL_AWARDS_KEY}'`
-    )
-    await prisma.$executeRawUnsafe(
-      `UPDATE choice_awards_state SET updated_at = ${now} WHERE id = '${GLOBAL_AWARDS_KEY}'`
+      `UPDATE choice_awards_state 
+       SET question_voting_state = 'IDLE',
+           ceremony_revealed = FALSE,
+           updated_at = ${now} 
+       WHERE id = '${GLOBAL_AWARDS_KEY}'`
     )
   } catch (err) {
     console.error('Error resetting Choice Awards ballots:', err)

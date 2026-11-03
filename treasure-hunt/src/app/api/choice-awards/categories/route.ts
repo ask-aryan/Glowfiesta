@@ -19,13 +19,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const categories: AwardCategory[] = Array.isArray(body.categories) ? body.categories : []
 
-    if (categories.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: 'At least one category is required',
-      }, { status: 400, headers: NO_CACHE_HEADERS })
-    }
-
     const updated = await saveChoiceAwardsCategories(categories)
     return NextResponse.json({
       success: true,

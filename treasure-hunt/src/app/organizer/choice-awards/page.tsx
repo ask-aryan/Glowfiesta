@@ -1,1505 +1,1821 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { AwardCategory, AwardNominee, ChoiceAwardsState } from '@/lib/choiceAwards'
+import { ChoiceAwardsState, AwardCategory, AwardNominee, ChoiceAwardsMode, QuestionVotingState } from '@/lib/choiceAwards'
 
-const PRESET_EMOJIS = ['👑', '⭐', '🚀', '💡', '🔥', '🏆', '🎯', '🦁', '💎', '🕶️', '🧙', '🎨', '🤖', '⚡', '🌟', '🪄']
+const QUICK_EMOJIS = ['👑', '⭐', '🚀', '💡', '🔥', '🏆', '🎯', '🦁', '💎', '🕶️', '🧙', '🎨', '🤖', '⚡', '🎉', '🌟']
 
-const AWARD_TEMPLATES = [
-  { title: 'Best Code Ninja 🥷', subtitle: 'Excellence in clean architecture, speed & innovation' },
-  { title: 'Star Performer of the Year ⭐', subtitle: 'Outstanding contribution across key deliverables' },
-  { title: 'Best Team Player & Culture Champion 🤝', subtitle: 'Always ready to support and lift others up' },
-  { title: 'Rising Star 2026 🚀', subtitle: 'Fastest growing talent making massive impact' },
-  { title: 'Customer Delight Hero 💫', subtitle: 'Going above and beyond for user happiness' },
-]
-
-export default function ChoiceAwardsAdminPage() {
+export default function OrganizerChoiceAwardsPage() {
   const [data, setData] = useState<ChoiceAwardsState | null>(null)
   const [loading, setLoading] = useState(true)
-  const [actionLoading, setActionLoading] = useState(false)
-  const [statusMsg, setStatusMsg] = useState('')
-  const [showQrModal, setShowQrModal] = useState(false)
-  const [qrDataUrl, setQrDataUrl] = useState('')
-  const [copied, setCopied] = useState(false)
+  const [activeTab, setActiveTab] = useState<'SETUP' | 'LIVE_CONTROL'>('SETUP')
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState('')
 
-  // Award Modal state (Create & Edit)
-  const [showModal, setShowModal] = useState(false)
-  const [editingCatId, setEditingCatId] = useState<string | null>(null)
-  const [formTitle, setFormTitle] = useState('')
-  const [formSubtitle, setFormSubtitle] = useState('')
-  const [formNominees, setFormNominees] = useState<{ id?: string; name: string; role: string; avatar: string }[]>([])
-  const [formError, setFormError] = useState('')
+  // Setup Modal State
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<AwardCategory | null>(null)
+  const [modalTitle, setModalTitle] = useState('')
+  const [modalSubtitle, setModalSubtitle] = useState('')
+  const [modalNominees, setModalNominees] = useState<AwardNominee[]>([])
+  const [modalError, setModalError] = useState('')
 
-  // Quick Add Nominee inline modal state
+  // Quick Add Nominee Modal
   const [quickAddCatId, setQuickAddCatId] = useState<string | null>(null)
   const [quickNomName, setQuickNomName] = useState('')
   const [quickNomRole, setQuickNomRole] = useState('')
   const [quickNomAvatar, setQuickNomAvatar] = useState('⭐')
+  const [quickNomPhoto, setQuickNomPhoto] = useState<string | null>(null)
+  const [quickNomVideo, setQuickNomVideo] = useState<string | null>(null)
 
-  const fetchAwards = async () => {
+  // Polling for live sync
+  useEffect(() => {
+    let isMounted = true
+    async function loadData() {
+      try {
+        const res = await fetch(`/api/choice-awards?_t=${Date.now()}`, { cache: 'no-store' })
+        if (!res.ok) return
+        const json = await res.json()
+        if (isMounted && json.success && json.data) {
+          setData(json.data)
+          setLoading(false)
+        }
+      } catch {
+        // network error
+      }
+    }
+
+    loadData()
+    const timer = setInterval(loadData, 2000)
+    return () => {
+      isMounted = false
+      clearInterval(timer)
+    }
+  }, [])
+
+  // Auto-switch to LIVE_CONTROL if ceremony or live voting is in progress
+  useEffect(() => {
+    if (data?.mode === 'CEREMONY' || data?.questionVotingState === 'VOTING') {
+      // Keep host informed, but don't force if they are editing
+    }
+  }, [data?.mode, data?.questionVotingState])
+
+  // Live Control Action Dispatcher
+  async function handleLiveAction(action: string, extra?: Record<string, any>) {
+    setSaving(true)
     try {
-      const res = await fetch('/api/choice-awards')
+      const res = await fetch('/api/choice-awards/live-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ...extra }),
+      })
       const json = await res.json()
       if (json.success && json.data) {
         setData(json.data)
       }
-    } catch {
-      // network glitch
+    } catch (err) {
+      console.error('Error executing live action:', err)
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
-  useEffect(() => {
-    fetchAwards()
-    const timer = setInterval(fetchAwards, 2000)
-    return () => clearInterval(timer)
-  }, [])
+  // Open Edit/Create Modal
+  function handleOpenCreateModal() {
+    setEditingCategory(null)
+    setModalTitle('')
+    setModalSubtitle('')
+    setModalNominees([
+      { id: `nom_${Date.now()}_1`, name: '', role: '', avatar: '⭐', photoUrl: null, videoUrl: null, votesCount: 0 },
+      { id: `nom_${Date.now()}_2`, name: '', role: '', avatar: '🚀', photoUrl: null, videoUrl: null, votesCount: 0 },
+    ])
+    setModalError('')
+    setShowEditModal(true)
+  }
 
-  // Generate QR Code for /vote
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const voteUrl = `${window.location.origin}/vote`
-    import('qrcode')
-      .then(QRCode => {
-        QRCode.toDataURL(voteUrl, {
-          width: 360,
-          margin: 2,
-          color: { dark: '#000000', light: '#ffffff' },
+  function handleOpenEditModal(cat: AwardCategory) {
+    setEditingCategory(cat)
+    setModalTitle(cat.title)
+    setModalSubtitle(cat.subtitle || '')
+    setModalNominees(
+      cat.nominees.map(n => ({
+        ...n,
+        photoUrl: n.photoUrl || null,
+        videoUrl: n.videoUrl || null,
+      }))
+    )
+    setModalError('')
+    setShowEditModal(true)
+  }
+
+  // File Upload Helper (Photo / Video to Base64)
+  function handleFileUpload(
+    file: File,
+    type: 'photo' | 'video',
+    nomineeIndex: number,
+    isQuickAdd = false
+  ) {
+    if (type === 'video' && file.size > 25 * 1024 * 1024) {
+      alert('Video file is larger than 25MB. Please choose a smaller clip or paste an external video link.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = e => {
+      const result = e.target?.result as string
+      if (isQuickAdd) {
+        if (type === 'photo') setQuickNomPhoto(result)
+        else setQuickNomVideo(result)
+      } else {
+        setModalNominees(prev => {
+          const next = [...prev]
+          if (type === 'photo') next[nomineeIndex].photoUrl = result
+          else next[nomineeIndex].videoUrl = result
+          return next
         })
-          .then(url => setQrDataUrl(url))
-          .catch(() => {})
-      })
-      .catch(() => {})
-  }, [])
+      }
+    }
+    reader.readAsDataURL(file)
+  }
 
-  const handleToggleStatus = async () => {
-    if (!data || actionLoading) return
-    const nextStatus = data.status === 'LIVE' ? 'CLOSED' : 'LIVE'
-    setActionLoading(true)
+  // Save Modal
+  async function handleSaveModal() {
+    const title = modalTitle.trim()
+    if (!title) {
+      setModalError('Please enter an award question or category title.')
+      return
+    }
+
+    const validNominees = modalNominees.filter(n => n.name.trim() !== '')
+    if (validNominees.length < 2) {
+      setModalError('Please provide at least 2 nominees with valid names.')
+      return
+    }
+
+    setSaving(true)
+    setModalError('')
+
+    const updatedCategories: AwardCategory[] = [...(data?.categories || [])]
+    if (editingCategory) {
+      const idx = updatedCategories.findIndex(c => c.id === editingCategory.id)
+      if (idx !== -1) {
+        updatedCategories[idx] = {
+          ...editingCategory,
+          title,
+          subtitle: modalSubtitle.trim() || undefined,
+          nominees: validNominees.map((n, i) => ({
+            ...n,
+            name: n.name.trim(),
+            role: n.role?.trim() || undefined,
+            avatar: n.avatar || '⭐',
+            photoUrl: n.photoUrl || null,
+            videoUrl: n.videoUrl || null,
+          })),
+        }
+      }
+    } else {
+      const newCat: AwardCategory = {
+        id: `cat_${Date.now()}`,
+        orderIndex: updatedCategories.length,
+        title,
+        subtitle: modalSubtitle.trim() || undefined,
+        totalVotes: 0,
+        nominees: validNominees.map((n, i) => ({
+          id: n.id || `nom_${Date.now()}_${i}`,
+          name: n.name.trim(),
+          role: n.role?.trim() || undefined,
+          avatar: n.avatar || '⭐',
+          photoUrl: n.photoUrl || null,
+          videoUrl: n.videoUrl || null,
+          votesCount: 0,
+        })),
+      }
+      updatedCategories.push(newCat)
+    }
+
     try {
-      const res = await fetch('/api/choice-awards/status', {
+      const res = await fetch('/api/choice-awards/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify({ categories: updatedCategories }),
       })
       const json = await res.json()
-      if (json.success) {
+      if (json.success && json.data) {
         setData(json.data)
-        setStatusMsg(
-          nextStatus === 'LIVE'
-            ? '✅ Voting is now LIVE! Audience can submit ballots.'
-            : '🔒 Voting has been STOPPED. No new ballots will be accepted.'
-        )
-        setTimeout(() => setStatusMsg(''), 4000)
+        setShowEditModal(false)
+        setMsg(editingCategory ? 'Award updated successfully!' : 'New award created successfully!')
+        setTimeout(() => setMsg(''), 3000)
+      } else {
+        setModalError(json.message || 'Failed to save category.')
       }
     } catch {
-      alert('Failed to update status')
+      setModalError('Network error while saving.')
     } finally {
-      setActionLoading(false)
+      setSaving(false)
     }
   }
 
-  const handleResetBallots = async () => {
-    if (!confirm('Are you sure you want to CLEAR ALL BALLOTS? This will delete all votes cast so far!')) return
-    setActionLoading(true)
+  // Delete Category
+  async function handleDeleteCategory(catId: string, title: string) {
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) return
+    const updated = (data?.categories || []).filter(c => c.id !== catId)
+    setSaving(true)
+    try {
+      const res = await fetch('/api/choice-awards/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: updated }),
+      })
+      const json = await res.json()
+      if (json.success && json.data) setData(json.data)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Move Category Reorder
+  async function handleMove(index: number, direction: 'UP' | 'DOWN') {
+    if (!data?.categories) return
+    const targetIdx = direction === 'UP' ? index - 1 : index + 1
+    if (targetIdx < 0 || targetIdx >= data.categories.length) return
+
+    const cats = [...data.categories]
+    const temp = cats[index]
+    cats[index] = cats[targetIdx]
+    cats[targetIdx] = temp
+
+    const reordered = cats.map((c, i) => ({ ...c, orderIndex: i }))
+    setSaving(true)
+    try {
+      const res = await fetch('/api/choice-awards/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: reordered }),
+      })
+      const json = await res.json()
+      if (json.success && json.data) setData(json.data)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Clear All Categories
+  async function handleClearAll() {
+    if (!confirm('Are you sure you want to delete ALL award questions? This will provide a blank slate.')) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/choice-awards/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: [] }),
+      })
+      const json = await res.json()
+      if (json.success && json.data) setData(json.data)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Full Reset Ballots
+  async function handleResetAllBallots() {
+    if (!confirm('Reset all cast ballots across all categories? This will set all vote counts to zero.')) return
+    setSaving(true)
     try {
       const res = await fetch('/api/choice-awards/reset', { method: 'POST' })
       const json = await res.json()
-      if (json.success) {
+      if (json.success && json.data) {
         setData(json.data)
-        setStatusMsg('🧹 All ballots cleared successfully!')
-        setTimeout(() => setStatusMsg(''), 4000)
+        setMsg('All ballots successfully reset to 0!')
+        setTimeout(() => setMsg(''), 3000)
       }
-    } catch {
-      alert('Failed to reset ballots')
     } finally {
-      setActionLoading(false)
+      setSaving(false)
     }
   }
 
-  // Open modal to create brand new award
-  const handleOpenCreateModal = () => {
-    setEditingCatId(null)
-    setFormTitle('')
-    setFormSubtitle('')
-    setFormNominees([
-      { id: `nom_${Date.now()}_1`, name: '', role: '', avatar: '👑' },
-      { id: `nom_${Date.now()}_2`, name: '', role: '', avatar: '🚀' },
-    ])
-    setFormError('')
-    setShowModal(true)
-  }
+  const categories = data?.categories || []
+  const activeCatIndex = categories.findIndex(c => c.id === data?.activeCategoryId)
+  const currentActiveCat = activeCatIndex !== -1 ? categories[activeCatIndex] : categories[0] || null
 
-  // Open modal to edit existing award
-  const handleOpenEditModal = (cat: AwardCategory) => {
-    setEditingCatId(cat.id)
-    setFormTitle(cat.title)
-    setFormSubtitle(cat.subtitle || '')
-    setFormNominees(
-      cat.nominees.map(n => ({
-        id: n.id,
-        name: n.name,
-        role: n.role || '',
-        avatar: n.avatar || '⭐',
-      }))
-    )
-    setFormError('')
-    setShowModal(true)
-  }
-
-  // Save Award from Modal (Create or Update)
-  const handleSaveAwardModal = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setFormError('')
-
-    if (!formTitle.trim()) {
-      setFormError('Please enter an Award Title / Question.')
-      return
-    }
-
-    const validNominees = formNominees.filter(n => n.name.trim().length > 0)
-    if (validNominees.length < 2) {
-      setFormError('Please add at least 2 nominees for this award category.')
-      return
-    }
-
-    if (!data) return
-    setActionLoading(true)
-
-    try {
-      let updatedCategories: AwardCategory[] = []
-
-      if (editingCatId) {
-        // Edit existing
-        updatedCategories = data.categories.map(cat => {
-          if (cat.id !== editingCatId) return cat
-          return {
-            ...cat,
-            title: formTitle.trim(),
-            subtitle: formSubtitle.trim(),
-            nominees: validNominees.map((n, idx) => ({
-              id: n.id || `nom_${Date.now()}_${idx}`,
-              name: n.name.trim(),
-              role: n.role.trim(),
-              avatar: n.avatar || '⭐',
-              votesCount: (cat.nominees.find(old => old.id === n.id)?.votesCount) || 0,
-            })),
-          }
-        })
-      } else {
-        // Create new
-        const newCat: AwardCategory = {
-          id: `cat_${Date.now()}`,
-          orderIndex: data.categories.length,
-          title: formTitle.trim(),
-          subtitle: formSubtitle.trim(),
-          totalVotes: 0,
-          nominees: validNominees.map((n, idx) => ({
-            id: n.id || `nom_${Date.now()}_${idx}`,
-            name: n.name.trim(),
-            role: n.role.trim(),
-            avatar: n.avatar || '⭐',
-            votesCount: 0,
-          })),
-        }
-        updatedCategories = [...data.categories, newCat]
-      }
-
-      const res = await fetch('/api/choice-awards/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories: updatedCategories }),
-      })
-      const json = await res.json()
-
-      if (json.success) {
-        setData(json.data)
-        setShowModal(false)
-        setStatusMsg(editingCatId ? '✅ Award updated successfully!' : '🎉 New Award category created successfully!')
-        setTimeout(() => setStatusMsg(''), 4000)
-      } else {
-        setFormError(json.message || 'Failed to save award')
-      }
-    } catch {
-      setFormError('Network error while saving award')
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  // Delete an entire category
-  const handleDeleteCategory = async (catId: string, title: string) => {
-    if (!confirm(`Delete award category "${title}" and all its nominees?`)) return
-    if (!data) return
-    setActionLoading(true)
-
-    try {
-      const remaining = data.categories.filter(c => c.id !== catId)
-      if (remaining.length === 0) {
-        alert('You must have at least one award category.')
-        setActionLoading(false)
-        return
-      }
-
-      const res = await fetch('/api/choice-awards/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories: remaining }),
-      })
-      const json = await res.json()
-      if (json.success) {
-        setData(json.data)
-        setStatusMsg(`🗑️ Award category deleted`)
-        setTimeout(() => setStatusMsg(''), 4000)
-      }
-    } catch {
-      alert('Failed to delete category')
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  // Re-order category (move up or down)
-  const handleMoveCategory = async (idx: number, direction: 'UP' | 'DOWN') => {
-    if (!data) return
-    const targetIdx = direction === 'UP' ? idx - 1 : idx + 1
-    if (targetIdx < 0 || targetIdx >= data.categories.length) return
-
-    const copy = [...data.categories]
-    const temp = copy[idx]
-    copy[idx] = copy[targetIdx]
-    copy[targetIdx] = temp
-
-    setActionLoading(true)
-    try {
-      const res = await fetch('/api/choice-awards/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories: copy }),
-      })
-      const json = await res.json()
-      if (json.success) {
-        setData(json.data)
-      }
-    } catch {
-      alert('Failed to reorder categories')
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  // Quick Add Nominee directly to a category
-  const handleQuickAddNomineeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!quickNomName.trim() || !quickAddCatId || !data) return
-
-    const updatedCategories = data.categories.map(cat => {
-      if (cat.id !== quickAddCatId) return cat
-      const newNom: AwardNominee = {
-        id: `nom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        name: quickNomName.trim(),
-        role: quickNomRole.trim(),
-        avatar: quickNomAvatar || '⭐',
-        votesCount: 0,
-      }
-      return {
-        ...cat,
-        nominees: [...cat.nominees, newNom],
-      }
-    })
-
-    setActionLoading(true)
-    try {
-      const res = await fetch('/api/choice-awards/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories: updatedCategories }),
-      })
-      const json = await res.json()
-      if (json.success) {
-        setData(json.data)
-        setQuickAddCatId(null)
-        setQuickNomName('')
-        setQuickNomRole('')
-        setStatusMsg(`✅ Added "${quickNomName}" to nominees!`)
-        setTimeout(() => setStatusMsg(''), 4000)
-      }
-    } catch {
-      alert('Failed to add nominee')
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  // Remove single nominee from a category
-  const handleRemoveNominee = async (catId: string, nomId: string, nomName: string) => {
-    if (!data) return
-    const targetCat = data.categories.find(c => c.id === catId)
-    if (!targetCat) return
-
-    if (targetCat.nominees.length <= 2) {
-      alert('An award category must have at least 2 nominees for voting.')
-      return
-    }
-
-    if (!confirm(`Remove nominee "${nomName}"?`)) return
-
-    const updatedCategories = data.categories.map(cat => {
-      if (cat.id !== catId) return cat
-      return {
-        ...cat,
-        nominees: cat.nominees.filter(n => n.id !== nomId),
-      }
-    })
-
-    setActionLoading(true)
-    try {
-      const res = await fetch('/api/choice-awards/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categories: updatedCategories }),
-      })
-      const json = await res.json()
-      if (json.success) {
-        setData(json.data)
-      }
-    } catch {
-      alert('Failed to remove nominee')
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  const isLive = data?.status === 'LIVE'
+  const ceremonyCatIndex = categories.findIndex(c => c.id === data?.ceremonyCategoryId)
+  const currentCeremonyCat = ceremonyCatIndex !== -1 ? categories[ceremonyCatIndex] : categories[0] || null
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px 60px' }}>
-      {/* Top Banner */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 16,
-          background: 'linear-gradient(135deg, #181124 0%, #291b3f 50%, #150921 100%)',
-          border: '1px solid rgba(255,200,87,0.35)',
-          borderRadius: 20,
-          padding: '24px 28px',
-          color: '#fff',
-          boxShadow: '0 12px 36px rgba(0,0,0,0.3)',
-          marginBottom: 24,
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        <div style={{ position: 'absolute', right: -30, top: -40, width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,200,87,0.18), transparent 70%)', pointerEvents: 'none' }} />
-
-        <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderRadius: 999, background: 'rgba(255,200,87,0.15)', border: '1px solid rgba(255,200,87,0.35)', color: '#FFC857', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-            <span>🏆 OFFICIAL OSCARS EDITION</span>
-          </div>
-          <h1 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 28, fontWeight: 800, margin: '0 0 6px', background: 'linear-gradient(135deg, #ffffff 40%, #FFC857 85%, #FF6B35 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Choice Awards Control Center
-          </h1>
-          <p style={{ color: '#d8c7ed', fontSize: 14, margin: 0, maxWidth: 600 }}>
-            Create custom awards and nominees, collect audience ballots anonymously, and project the Oscars winner reveal on the stage big screen!
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <button
-            onClick={handleOpenCreateModal}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '11px 22px',
-              borderRadius: 12,
-              background: 'linear-gradient(135deg, #FFC857 0%, #FFA23A 60%, #FF6B35 100%)',
-              color: '#1a052e',
-              fontSize: 14,
-              fontWeight: 800,
-              cursor: 'pointer',
-              border: 0,
-              boxShadow: '0 6px 20px rgba(255,200,87,0.45)',
-            }}
-          >
-            <span>➕</span>
-            <span>Create New Award</span>
-          </button>
-
-          <button
-            onClick={() => setShowQrModal(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 18px',
-              borderRadius: 12,
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.18)',
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            <span>📱 Voting Link & QR</span>
-          </button>
-
-          <Link
-            href="/choice-awards/live"
-            target="_blank"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 18px',
-              borderRadius: 12,
-              background: 'rgba(255,200,87,0.15)',
-              border: '1px solid rgba(255,200,87,0.4)',
-              color: '#FFC857',
-              fontSize: 14,
-              fontWeight: 700,
-              textDecoration: 'none',
-            }}
-          >
-            <span>🏆 Oscars Stage ↗</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* 3-Step Flow Guide */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: 12,
-          marginBottom: 24,
-        }}
-      >
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: '#eef2ff', color: '#4f46e5', fontWeight: 800, fontSize: 16, display: 'grid', placeItems: 'center' }}>
-            1
-          </div>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0b0217 0%, #1a0826 40%, #2b0e3a 100%)',
+        color: '#fff',
+        fontFamily: 'Inter, system-ui, sans-serif',
+        padding: '28px 20px 80px',
+      }}
+    >
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        {/* Top Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 16,
+            marginBottom: 24,
+            paddingBottom: 20,
+            borderBottom: '1px solid rgba(255,255,255,0.1)',
+          }}
+        >
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>Setup Awards & Nominees</div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>{data?.categories.length || 0} questions configured</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 32 }}>🏆</span>
+              <div>
+                <h1
+                  style={{
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 'clamp(24px, 4vw, 32px)',
+                    margin: 0,
+                    background: 'linear-gradient(180deg, #fff0b3, #FFC857)',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    color: 'transparent',
+                    fontWeight: 700,
+                  }}
+                >
+                  Choice Awards Studio
+                </h1>
+                <div style={{ color: '#ffd9b8', fontSize: 13, marginTop: 2 }}>
+                  Set up questions, upload nominee photos & videos, run live voting one-by-one, and reveal Oscars ceremony results.
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: isLive ? '#dcfce7' : '#fef3c7', color: isLive ? '#15803d' : '#b45309', fontWeight: 800, fontSize: 16, display: 'grid', placeItems: 'center' }}>
-            2
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>Audience Voting ({isLive ? 'Active' : 'Closed'})</div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>{data?.totalBallots || 0} total ballots received</div>
-          </div>
-        </div>
-
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: '#fef3c7', color: '#d97706', fontWeight: 800, fontSize: 16, display: 'grid', placeItems: 'center' }}>
-            3
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>Oscars Reveal Night</div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>One-by-one card flip on projector</div>
-          </div>
-        </div>
-      </div>
-
-      {statusMsg && (
-        <div style={{ background: '#fef3c7', border: '1px solid #f59e0b', color: '#92400e', padding: '12px 18px', borderRadius: 12, fontWeight: 600, marginBottom: 20 }}>
-          {statusMsg}
-        </div>
-      )}
-
-      {/* Control Strip */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 16,
-          marginBottom: 28,
-        }}
-      >
-        {/* Status Card */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: '20px 22px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
-          <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
-            Audience Voting Status
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span
+          {/* Quick Screen Links */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <Link
+              href="/choice-awards/live"
+              target="_blank"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 6,
-                padding: '4px 12px',
-                borderRadius: 999,
-                fontSize: 13,
-                fontWeight: 700,
-                background: isLive ? '#dcfce7' : '#fee2e2',
-                color: isLive ? '#15803d' : '#b91c1c',
-              }}
-            >
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: isLive ? '#22c55e' : '#ef4444' }} />
-              {isLive ? 'ACCEPTING RESPONSES' : 'RESPONSES STOPPED'}
-            </span>
-            <button
-              onClick={handleToggleStatus}
-              disabled={actionLoading}
-              style={{
-                padding: '7px 14px',
-                borderRadius: 10,
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-                border: 0,
-                background: isLive ? '#ef4444' : '#16a34a',
+                gap: 8,
+                padding: '10px 18px',
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                 color: '#fff',
-              }}
-            >
-              {isLive ? 'Stop Accepting' : 'Start Accepting'}
-            </button>
-          </div>
-        </div>
-
-        {/* Total Ballots Card */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: '20px 22px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
-          <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>
-            Total Ballots Cast
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 32, fontWeight: 800, color: '#0f172a' }}>
-              {data?.totalBallots || 0}
-            </div>
-            <button
-              onClick={handleResetBallots}
-              disabled={actionLoading}
-              style={{
-                background: 'none',
-                border: '1px solid #cbd5e1',
-                padding: '4px 10px',
-                borderRadius: 8,
-                fontSize: 11,
-                color: '#64748b',
-                cursor: 'pointer',
-              }}
-            >
-              🧹 Clear All Ballots
-            </button>
-          </div>
-        </div>
-
-        {/* Total Questions Card */}
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, padding: '20px 22px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
-          <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>
-            Award Categories
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 32, fontWeight: 800, color: '#0f172a' }}>
-              {data?.categories.length || 0}
-            </div>
-            <button
-              onClick={handleOpenCreateModal}
-              style={{
-                background: '#0f172a',
-                color: '#fff',
-                border: 0,
-                padding: '6px 14px',
-                borderRadius: 8,
-                fontSize: 12,
                 fontWeight: 700,
-                cursor: 'pointer',
+                fontSize: 14,
+                textDecoration: 'none',
+                boxShadow: '0 6px 20px rgba(245,158,11,0.35)',
               }}
             >
-              ➕ Add Award
-            </button>
+              <span>📺</span>
+              <span>Open Big Screen Display</span>
+            </Link>
+
+            <Link
+              href="/vote"
+              target="_blank"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 16px',
+                borderRadius: 12,
+                background: 'rgba(168,85,247,0.2)',
+                border: '1.5px solid rgba(168,85,247,0.5)',
+                color: '#e9d5ff',
+                fontWeight: 700,
+                fontSize: 14,
+                textDecoration: 'none',
+              }}
+            >
+              <span>🗳️</span>
+              <span>Audience Ballot URL</span>
+            </Link>
           </div>
         </div>
-      </div>
 
-      {/* Categories & Nominees Section */}
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 20, padding: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 20 }}>
-          <div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px', color: '#0f172a' }}>
-              Award Questions & Nominees Lineup
-            </h2>
-            <div style={{ fontSize: 13, color: '#64748b' }}>
-              Audience sees these in the single voting form. Use the buttons on each card to edit, re-order, or add nominees.
-            </div>
-          </div>
-
-          <button
-            onClick={handleOpenCreateModal}
+        {/* Global Feedback Banner */}
+        {msg && (
+          <div
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '9px 18px',
-              borderRadius: 10,
-              background: '#0f172a',
-              color: '#fff',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-              border: 0,
-              boxShadow: '0 2px 8px rgba(15,23,42,0.15)',
+              padding: '12px 18px',
+              borderRadius: 12,
+              background: 'rgba(34,197,94,0.2)',
+              border: '1px solid #22c55e',
+              color: '#86efac',
+              marginBottom: 20,
+              fontSize: 14,
+              fontWeight: 600,
             }}
           >
-            <span>➕ Create New Award</span>
+            ✅ {msg}
+          </div>
+        )}
+
+        {/* Studio Tabs: 1. Award Setup vs 2. Live Host Control */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            marginBottom: 24,
+            background: 'rgba(255,255,255,0.05)',
+            padding: 6,
+            borderRadius: 16,
+            width: 'fit-content',
+            border: '1px solid rgba(255,255,255,0.1)',
+          }}
+        >
+          <button
+            onClick={() => setActiveTab('SETUP')}
+            style={{
+              padding: '10px 22px',
+              borderRadius: 12,
+              border: 0,
+              background: activeTab === 'SETUP' ? 'linear-gradient(135deg, #a855f7, #7c3aed)' : 'transparent',
+              color: activeTab === 'SETUP' ? '#fff' : '#cbd5e1',
+              fontFamily: 'Fredoka, sans-serif',
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              transition: 'all .15s ease',
+            }}
+          >
+            <span>🛠️</span>
+            <span>1. Award Setup ({categories.length} Questions)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('LIVE_CONTROL')}
+            style={{
+              padding: '10px 22px',
+              borderRadius: 12,
+              border: 0,
+              background: activeTab === 'LIVE_CONTROL' ? 'linear-gradient(135deg, #e11d48, #be123c)' : 'transparent',
+              color: activeTab === 'LIVE_CONTROL' ? '#fff' : '#cbd5e1',
+              fontFamily: 'Fredoka, sans-serif',
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              transition: 'all .15s ease',
+            }}
+          >
+            <span>🎙️</span>
+            <span>2. Live Host & Ceremony Control</span>
+            {data?.questionVotingState === 'VOTING' && (
+              <span style={{ background: '#22c55e', color: '#000', fontSize: 10, padding: '2px 6px', borderRadius: 999, fontWeight: 900 }}>
+                LIVE
+              </span>
+            )}
+            {data?.mode === 'CEREMONY' && (
+              <span style={{ background: '#FFC857', color: '#000', fontSize: 10, padding: '2px 6px', borderRadius: 999, fontWeight: 900 }}>
+                CEREMONY
+              </span>
+            )}
           </button>
         </div>
 
-        {/* Categories List */}
-        {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>
-            Loading Choice Awards configuration…
-          </div>
-        ) : (data?.categories || []).length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', border: '1px dashed #cbd5e1', borderRadius: 16 }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>🏆</div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a', marginBottom: 6 }}>No Awards Configured Yet</div>
-            <p style={{ color: '#64748b', fontSize: 13, marginBottom: 16 }}>
-              Click the button below to create your first award category and nominees!
-            </p>
-            <button
-              onClick={handleOpenCreateModal}
-              style={{
-                padding: '10px 20px',
-                borderRadius: 10,
-                background: '#0f172a',
-                color: '#fff',
-                fontSize: 14,
-                fontWeight: 700,
-                border: 0,
-                cursor: 'pointer',
-              }}
-            >
-              ➕ Create First Award
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {data?.categories.map((cat, cIdx) => (
-              <div
-                key={cat.id || cIdx}
-                style={{
-                  border: '1.5px solid #e2e8f0',
-                  borderRadius: 18,
-                  padding: '22px 24px',
-                  background: '#fafafa',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
-                }}
-              >
-                {/* Category Header Bar */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, color: '#d97706', letterSpacing: '.06em', textTransform: 'uppercase', background: '#fef3c7', padding: '2px 8px', borderRadius: 6 }}>
-                        QUESTION {cIdx + 1} OF {data.categories.length}
-                      </span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b' }}>
-                        • {cat.totalVotes} votes cast
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>{cat.title}</div>
-                    {cat.subtitle && <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{cat.subtitle}</div>}
-                  </div>
-
-                  {/* Actions for this category */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    {/* Reorder Buttons */}
-                    <button
-                      onClick={() => handleMoveCategory(cIdx, 'UP')}
-                      disabled={cIdx === 0}
-                      title="Move Up in Oscars sequence"
-                      style={{
-                        padding: '5px 9px',
-                        borderRadius: 6,
-                        border: '1px solid #cbd5e1',
-                        background: '#fff',
-                        cursor: cIdx === 0 ? 'not-allowed' : 'pointer',
-                        opacity: cIdx === 0 ? 0.4 : 1,
-                        fontSize: 12,
-                      }}
-                    >
-                      ▲
-                    </button>
-                    <button
-                      onClick={() => handleMoveCategory(cIdx, 'DOWN')}
-                      disabled={cIdx === data.categories.length - 1}
-                      title="Move Down in Oscars sequence"
-                      style={{
-                        padding: '5px 9px',
-                        borderRadius: 6,
-                        border: '1px solid #cbd5e1',
-                        background: '#fff',
-                        cursor: cIdx === data.categories.length - 1 ? 'not-allowed' : 'pointer',
-                        opacity: cIdx === data.categories.length - 1 ? 0.4 : 1,
-                        fontSize: 12,
-                      }}
-                    >
-                      ▼
-                    </button>
-
-                    {/* Quick Add Nominee */}
-                    <button
-                      onClick={() => {
-                        setQuickAddCatId(cat.id)
-                        setQuickNomName('')
-                        setQuickNomRole('')
-                        setQuickNomAvatar('⭐')
-                      }}
-                      style={{
-                        background: '#eef2ff',
-                        color: '#4f46e5',
-                        border: '1px solid #c7d2fe',
-                        borderRadius: 8,
-                        padding: '6px 12px',
-                        fontSize: 12,
-                        cursor: 'pointer',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      <span>+ Add Nominee</span>
-                    </button>
-
-                    {/* Edit Award Modal Button */}
-                    <button
-                      onClick={() => handleOpenEditModal(cat)}
-                      style={{
-                        background: '#fff',
-                        color: '#0f172a',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: 8,
-                        padding: '6px 12px',
-                        fontSize: 12,
-                        cursor: 'pointer',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      <span>✏️ Edit Award</span>
-                    </button>
-
-                    {/* Delete Award */}
-                    <button
-                      onClick={() => handleDeleteCategory(cat.id, cat.title)}
-                      title="Delete category"
-                      style={{
-                        background: '#fee2e2',
-                        color: '#b91c1c',
-                        border: '1px solid #fca5a5',
-                        borderRadius: 8,
-                        padding: '6px 10px',
-                        fontSize: 12,
-                        cursor: 'pointer',
-                        fontWeight: 700,
-                      }}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-
-                {/* Nominees Grid */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                    gap: 12,
-                    marginTop: 12,
-                  }}
-                >
-                  {cat.nominees.map((nom, nIdx) => (
-                    <div
-                      key={nom.id || nIdx}
-                      style={{
-                        background: '#fff',
-                        border: nom.id === cat.winnerNomineeId && cat.totalVotes > 0
-                          ? '2px solid #f59e0b'
-                          : '1px solid #e2e8f0',
-                        borderRadius: 14,
-                        padding: '14px 16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        position: 'relative',
-                        boxShadow: nom.id === cat.winnerNomineeId && cat.totalVotes > 0
-                          ? '0 4px 14px rgba(245,158,11,0.18)'
-                          : 'none',
-                      }}
-                    >
-                      <div style={{ fontSize: 26, width: 38, height: 38, borderRadius: 10, background: '#f8fafc', display: 'grid', placeItems: 'center', border: '1px solid #e2e8f0', flexShrink: 0 }}>
-                        {nom.avatar || '⭐'}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {nom.name}
-                          </div>
-                          {cat.nominees.length > 2 && (
-                            <button
-                              onClick={() => handleRemoveNominee(cat.id, nom.id, nom.name)}
-                              title="Remove nominee"
-                              style={{
-                                background: 'none',
-                                border: 0,
-                                color: '#94a3b8',
-                                cursor: 'pointer',
-                                fontSize: 14,
-                                padding: '2px 4px',
-                              }}
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
-
-                        {nom.role && <div style={{ fontSize: 12, color: '#64748b' }}>{nom.role}</div>}
-
-                        {/* Vote bar */}
-                        <div style={{ marginTop: 6 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b', marginBottom: 2 }}>
-                            <span>{nom.votesCount} {nom.votesCount === 1 ? 'vote' : 'votes'}</span>
-                            <span style={{ fontWeight: 600 }}>{nom.percentage || 0}%</span>
-                          </div>
-                          <div style={{ height: 6, width: '100%', background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
-                            <div
-                              style={{
-                                height: '100%',
-                                width: `${nom.percentage || 0}%`,
-                                background: nom.id === cat.winnerNomineeId && cat.totalVotes > 0 ? '#f59e0b' : '#3b82f6',
-                                borderRadius: 999,
-                                transition: 'width .4s ease',
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* CREATE / EDIT AWARD MODAL */}
-      {showModal && (
-        <div
-          onClick={() => setShowModal(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.65)',
-            backdropFilter: 'blur(6px)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: '#fff',
-              borderRadius: 24,
-              padding: '28px',
-              maxWidth: 600,
-              width: '100%',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: '0 24px 60px rgba(0,0,0,0.3)',
-            }}
-          >
-            {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+        {/* TAB 1: AWARD SETUP */}
+        {activeTab === 'SETUP' && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
               <div>
-                <span style={{ fontSize: 11, fontWeight: 800, color: '#d97706', textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                  {editingCatId ? 'EDIT AWARD QUESTION' : 'CREATE NEW AWARD'}
-                </span>
-                <h2 style={{ fontSize: 22, fontWeight: 800, margin: '4px 0 0', color: '#0f172a' }}>
-                  {editingCatId ? 'Edit Award & Nominees' : 'Create New Award Question'}
+                <h2 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 20, margin: 0 }}>
+                  Award Categories & Nominee Media
                 </h2>
-                <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
-                  Set up the question and the nominees the audience can choose from.
+                <div style={{ fontSize: 13, color: '#94a3b8' }}>
+                  Add your custom award questions. Upload photos and nominee videos to play on the split-screen display.
                 </div>
               </div>
-              <button
-                onClick={() => setShowModal(false)}
-                style={{
-                  background: '#f1f5f9',
-                  border: 0,
-                  width: 32,
-                  height: 32,
-                  borderRadius: '50%',
-                  fontWeight: 700,
-                  fontSize: 16,
-                  cursor: 'pointer',
-                  color: '#64748b',
-                }}
-              >
-                ✕
-              </button>
-            </div>
 
-            {/* Template Presets (when creating new) */}
-            {!editingCatId && (
-              <div style={{ marginBottom: 18, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>
-                  Quick Fill Preset Examples:
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {AWARD_TEMPLATES.map(tpl => (
-                    <button
-                      key={tpl.title}
-                      type="button"
-                      onClick={() => {
-                        setFormTitle(tpl.title)
-                        setFormSubtitle(tpl.subtitle)
-                      }}
-                      style={{
-                        fontSize: 12,
-                        padding: '4px 10px',
-                        borderRadius: 6,
-                        border: '1px solid #cbd5e1',
-                        background: '#fff',
-                        cursor: 'pointer',
-                        color: '#334155',
-                      }}
-                    >
-                      {tpl.title}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {formError && (
-              <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#b91c1c', padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
-                ⚠️ {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleSaveAwardModal}>
-              {/* Question / Title */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                  AWARD QUESTION / TITLE <span style={{ color: '#ef4444' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Star Performer of the Year ⭐"
-                  value={formTitle}
-                  onChange={e => setFormTitle(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '11px 14px',
-                    borderRadius: 10,
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: 15,
-                    fontWeight: 700,
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              {/* Subtitle / Description */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                  DESCRIPTION / CRITERIA (OPTIONAL)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Celebrated for exceptional leadership and high-impact deliverables"
-                  value={formSubtitle}
-                  onChange={e => setFormSubtitle(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: 10,
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: 13,
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              {/* Nominees Builder */}
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>
-                    NOMINEES ({formNominees.length}) <span style={{ color: '#ef4444' }}>* (Minimum 2)</span>
-                  </label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {categories.length > 0 && (
                   <button
-                    type="button"
-                    onClick={() => {
-                      setFormNominees(prev => [
-                        ...prev,
-                        { id: `nom_${Date.now()}_${prev.length + 1}`, name: '', role: '', avatar: '⭐' },
-                      ])
-                    }}
+                    onClick={handleClearAll}
                     style={{
-                      background: '#eef2ff',
-                      color: '#4f46e5',
-                      border: '1px solid #c7d2fe',
-                      borderRadius: 6,
-                      padding: '4px 10px',
-                      fontSize: 12,
-                      fontWeight: 700,
+                      padding: '10px 16px',
+                      borderRadius: 12,
+                      border: '1px solid rgba(239,68,68,0.4)',
+                      background: 'rgba(239,68,68,0.1)',
+                      color: '#fca5a5',
+                      fontSize: 13,
+                      fontWeight: 600,
                       cursor: 'pointer',
                     }}
                   >
-                    + Add Nominee
+                    🗑️ Clear All
                   </button>
-                </div>
+                )}
+                <button
+                  onClick={handleOpenCreateModal}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: 12,
+                    border: 0,
+                    background: 'linear-gradient(135deg, #FFA23A, #FF6B35)',
+                    color: '#fff',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 16px rgba(255,107,53,0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <span>➕</span>
+                  <span>Create New Award</span>
+                </button>
+              </div>
+            </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {formNominees.map((nom, nIdx) => (
-                    <div
-                      key={nom.id || nIdx}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: 12,
-                        padding: '10px 12px',
-                      }}
-                    >
-                      {/* Avatar Picker */}
-                      <input
-                        type="text"
-                        value={nom.avatar}
-                        onChange={e => {
-                          const val = e.target.value
-                          setFormNominees(prev => {
-                            const copy = [...prev]
-                            copy[nIdx].avatar = val
-                            return copy
-                          })
-                        }}
-                        title="Emoji Avatar"
-                        style={{
-                          width: 38,
-                          height: 38,
-                          textAlign: 'center',
-                          fontSize: 18,
-                          borderRadius: 8,
-                          border: '1px solid #cbd5e1',
-                          background: '#fff',
-                        }}
-                      />
+            {/* Empty State */}
+            {categories.length === 0 && (
+              <div
+                style={{
+                  padding: '60px 24px',
+                  borderRadius: 20,
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '2px dashed rgba(255,255,255,0.15)',
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ fontSize: 48, marginBottom: 16 }}>🎬</div>
+                <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, margin: '0 0 8px' }}>
+                  No Award Categories Yet
+                </h3>
+                <p style={{ color: '#94a3b8', maxWidth: 460, margin: '0 auto 24px', fontSize: 14 }}>
+                  Start fresh with your company or team awards. Click below to add your first award question, nominees, photos, and videos.
+                </p>
+                <button
+                  onClick={handleOpenCreateModal}
+                  style={{
+                    padding: '12px 28px',
+                    borderRadius: 14,
+                    border: 0,
+                    background: 'linear-gradient(135deg, #FFA23A, #FF6B35)',
+                    color: '#fff',
+                    fontFamily: 'Fredoka, sans-serif',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 6px 20px rgba(255,107,53,0.4)',
+                  }}
+                >
+                  ➕ Create First Award
+                </button>
+              </div>
+            )}
 
-                      {/* Name */}
-                      <input
-                        type="text"
-                        placeholder={`Nominee ${nIdx + 1} Name *`}
-                        value={nom.name}
-                        onChange={e => {
-                          const val = e.target.value
-                          setFormNominees(prev => {
-                            const copy = [...prev]
-                            copy[nIdx].name = val
-                            return copy
-                          })
-                        }}
-                        style={{
-                          flex: 1,
-                          padding: '8px 12px',
-                          borderRadius: 8,
-                          border: '1px solid #cbd5e1',
-                          fontSize: 13,
-                          fontWeight: 600,
-                          background: '#fff',
-                        }}
-                      />
-
-                      {/* Role */}
-                      <input
-                        type="text"
-                        placeholder="Role / Team (e.g. Backend)"
-                        value={nom.role}
-                        onChange={e => {
-                          const val = e.target.value
-                          setFormNominees(prev => {
-                            const copy = [...prev]
-                            copy[nIdx].role = val
-                            return copy
-                          })
-                        }}
-                        style={{
-                          width: 150,
-                          padding: '8px 12px',
-                          borderRadius: 8,
-                          border: '1px solid #cbd5e1',
-                          fontSize: 13,
-                          background: '#fff',
-                        }}
-                      />
-
-                      {/* Delete Nominee */}
-                      {formNominees.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setFormNominees(prev => prev.filter((_, i) => i !== nIdx))
-                          }}
+            {/* List of Category Cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {categories.map((cat, idx) => (
+                <div
+                  key={cat.id}
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1.5px solid rgba(255,255,255,0.1)',
+                    borderRadius: 20,
+                    padding: '22px 24px',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span
                           style={{
-                            background: '#fee2e2',
-                            color: '#b91c1c',
-                            border: 0,
-                            borderRadius: 6,
-                            width: 28,
-                            height: 28,
-                            cursor: 'pointer',
-                            fontSize: 13,
+                            background: 'rgba(255,200,87,0.15)',
+                            color: '#FFC857',
+                            padding: '3px 10px',
+                            borderRadius: 999,
+                            fontSize: 12,
                             fontWeight: 700,
                           }}
                         >
-                          ✕
-                        </button>
+                          Question #{idx + 1}
+                        </span>
+                        <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 19, margin: 0, color: '#fff' }}>
+                          {cat.title}
+                        </h3>
+                      </div>
+                      {cat.subtitle && (
+                        <div style={{ fontSize: 13, color: '#ffd9b8', marginTop: 4 }}>{cat.subtitle}</div>
                       )}
                     </div>
-                  ))}
-                </div>
 
-                {/* Quick Emoji Bar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11, color: '#64748b' }}>Quick Emojis:</span>
-                  {PRESET_EMOJIS.map(em => (
-                    <button
-                      key={em}
-                      type="button"
-                      onClick={() => {
-                        // Apply to the first nominee with empty or default avatar
-                        setFormNominees(prev => {
-                          const copy = [...prev]
-                          if (copy.length > 0) copy[copy.length - 1].avatar = em
-                          return copy
-                        })
-                      }}
+                    {/* Category Controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <button
+                        onClick={() => handleMove(idx, 'UP')}
+                        disabled={idx === 0}
+                        title="Move Up"
+                        style={{
+                          background: 'rgba(255,255,255,0.08)',
+                          border: 0,
+                          color: '#fff',
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                          opacity: idx === 0 ? 0.3 : 1,
+                        }}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleMove(idx, 'DOWN')}
+                        disabled={idx === categories.length - 1}
+                        title="Move Down"
+                        style={{
+                          background: 'rgba(255,255,255,0.08)',
+                          border: 0,
+                          color: '#fff',
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          cursor: idx === categories.length - 1 ? 'not-allowed' : 'pointer',
+                          opacity: idx === categories.length - 1 ? 0.3 : 1,
+                        }}
+                      >
+                        ▼
+                      </button>
+                      <button
+                        onClick={() => handleOpenEditModal(cat)}
+                        style={{
+                          padding: '6px 14px',
+                          borderRadius: 10,
+                          background: 'rgba(255,255,255,0.12)',
+                          border: 0,
+                          color: '#fff',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✏️ Edit Award
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCategory(cat.id, cat.title)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 10,
+                          background: 'rgba(239,68,68,0.15)',
+                          border: '1px solid rgba(239,68,68,0.3)',
+                          color: '#fca5a5',
+                          fontSize: 13,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Nominees Grid */}
+                  <div style={{ marginTop: 18 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 10, letterSpacing: '.06em' }}>
+                      Nominees ({cat.nominees.length})
+                    </div>
+                    <div
                       style={{
-                        background: '#fff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: 6,
-                        padding: '2px 6px',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                        gap: 12,
+                      }}
+                    >
+                      {cat.nominees.map(nom => (
+                        <div
+                          key={nom.id}
+                          style={{
+                            background: 'rgba(10,3,20,0.5)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: 14,
+                            padding: '12px 14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                          }}
+                        >
+                          {nom.photoUrl ? (
+                            <img
+                              src={nom.photoUrl}
+                              alt={nom.name}
+                              style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1.5px solid #FFC857' }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: 10,
+                                background: 'rgba(255,255,255,0.1)',
+                                display: 'grid',
+                                placeItems: 'center',
+                                fontSize: 22,
+                              }}
+                            >
+                              {nom.avatar || '⭐'}
+                            </div>
+                          )}
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {nom.name}
+                            </div>
+                            {nom.role && (
+                              <div style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {nom.role}
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                              {nom.photoUrl && (
+                                <span style={{ fontSize: 10, background: 'rgba(34,197,94,0.2)', color: '#86efac', padding: '1px 5px', borderRadius: 4 }}>
+                                  📷 Photo
+                                </span>
+                              )}
+                              {nom.videoUrl && (
+                                <span style={{ fontSize: 10, background: 'rgba(59,130,246,0.2)', color: '#93c5fd', padding: '1px 5px', borderRadius: 4 }}>
+                                  📹 Video
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: LIVE HOST & CEREMONY CONTROL */}
+        {activeTab === 'LIVE_CONTROL' && (
+          <div>
+            {categories.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: 20 }}>
+                <h3>No categories set up yet.</h3>
+                <p style={{ color: '#94a3b8' }}>Please switch to the "Award Setup" tab and add at least one award question first.</p>
+                <button
+                  onClick={() => setActiveTab('SETUP')}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: 12,
+                    border: 0,
+                    background: '#a855f7',
+                    color: '#fff',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Go to Award Setup
+                </button>
+              </div>
+            ) : (
+              <div>
+                {/* Mode Selector (Live Question Voting vs Ceremony Oscars Reveal) */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 16,
+                    padding: '18px 24px',
+                    background: 'rgba(255,255,255,0.06)',
+                    borderRadius: 18,
+                    marginBottom: 24,
+                    border: '1.5px solid rgba(255,255,255,0.12)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#ffd9b8', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                      Current Stage Mode
+                    </div>
+                    <div style={{ fontSize: 20, fontFamily: 'Fredoka, sans-serif', fontWeight: 700, marginTop: 2 }}>
+                      {data?.mode === 'CEREMONY' ? '🏆 The Oscars Ceremony (Results Reveal)' : '🗳️ Live Audience Voting (One-by-One)'}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      onClick={() => handleLiveAction('SET_MODE', { mode: 'LIVE_VOTING' })}
+                      style={{
+                        padding: '10px 18px',
+                        borderRadius: 12,
+                        border: 0,
+                        background: data?.mode === 'LIVE_VOTING' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : 'rgba(255,255,255,0.1)',
+                        color: '#fff',
+                        fontWeight: 700,
                         fontSize: 14,
                         cursor: 'pointer',
                       }}
                     >
-                      {em}
+                      🗳️ Switch to Live Voting Mode
                     </button>
-                  ))}
+
+                    <button
+                      onClick={() => handleLiveAction('SET_MODE', { mode: 'CEREMONY' })}
+                      style={{
+                        padding: '10px 22px',
+                        borderRadius: 12,
+                        border: 0,
+                        background: data?.mode === 'CEREMONY' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'rgba(245,158,11,0.2)',
+                        color: data?.mode === 'CEREMONY' ? '#fff' : '#fbbf24',
+                        fontWeight: 700,
+                        fontSize: 14,
+                        cursor: 'pointer',
+                        boxShadow: data?.mode === 'CEREMONY' ? '0 4px 16px rgba(245,158,11,0.4)' : 'none',
+                      }}
+                    >
+                      👑 Switch to Ceremony Reveal Mode
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Submit Buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: '1px solid #e2e8f0', paddingTop: 16 }}>
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: 10,
-                    border: '1px solid #cbd5e1',
-                    background: '#fff',
-                    color: '#475569',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Cancel
-                </button>
+                {/* SUB-SECTION A: LIVE QUESTION VOTING CONTROLS */}
+                {data?.mode === 'LIVE_VOTING' && currentActiveCat && (
+                  <div
+                    style={{
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '2px solid rgba(255,107,53,0.4)',
+                      borderRadius: 24,
+                      padding: '28px 24px',
+                      boxShadow: '0 20px 50px rgba(0,0,0,0.4)',
+                    }}
+                  >
+                    {/* Active Question Bar & Navigation */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, marginBottom: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 28 }}>🎯</span>
+                        <div>
+                          <div style={{ fontSize: 13, color: '#FFC857', fontWeight: 700 }}>
+                            ACTIVE QUESTION {activeCatIndex + 1} OF {categories.length}
+                          </div>
+                          <h2 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 24, margin: '2px 0 0' }}>
+                            {currentActiveCat.title}
+                          </h2>
+                          {currentActiveCat.subtitle && (
+                            <div style={{ fontSize: 13, color: '#ffd9b8', marginTop: 3 }}>{currentActiveCat.subtitle}</div>
+                          )}
+                        </div>
+                      </div>
 
-                <button
-                  type="submit"
-                  disabled={actionLoading}
-                  style={{
-                    padding: '10px 22px',
-                    borderRadius: 10,
-                    border: 0,
-                    background: 'linear-gradient(135deg, #FFC857, #FFA23A)',
-                    color: '#1a052e',
-                    fontSize: 14,
-                    fontWeight: 800,
-                    cursor: actionLoading ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 14px rgba(255,200,87,0.4)',
-                  }}
-                >
-                  {actionLoading ? 'Saving Award…' : editingCatId ? 'Save Changes 🏆' : 'Create & Save Award 🏆'}
-                </button>
+                      {/* Question Navigation */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button
+                          onClick={() => {
+                            if (activeCatIndex > 0) {
+                              handleLiveAction('SET_ACTIVE_CATEGORY', { categoryId: categories[activeCatIndex - 1].id })
+                            }
+                          }}
+                          disabled={activeCatIndex === 0}
+                          style={{
+                            padding: '8px 14px',
+                            borderRadius: 10,
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 0,
+                            color: '#fff',
+                            cursor: activeCatIndex === 0 ? 'not-allowed' : 'pointer',
+                            opacity: activeCatIndex === 0 ? 0.3 : 1,
+                            fontWeight: 700,
+                          }}
+                        >
+                          ◀ Previous Question
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (activeCatIndex < categories.length - 1) {
+                              handleLiveAction('SET_ACTIVE_CATEGORY', { categoryId: categories[activeCatIndex + 1].id })
+                            }
+                          }}
+                          disabled={activeCatIndex === categories.length - 1}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: 10,
+                            background: 'linear-gradient(135deg, #FF9E2C, #FF6B35)',
+                            border: 0,
+                            color: '#fff',
+                            cursor: activeCatIndex === categories.length - 1 ? 'not-allowed' : 'pointer',
+                            opacity: activeCatIndex === categories.length - 1 ? 0.3 : 1,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Next Question ▶
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Voting State Controller */}
+                    <div
+                      style={{
+                        background: 'rgba(10,3,20,0.6)',
+                        borderRadius: 18,
+                        padding: '20px 24px',
+                        border: '1.5px solid rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 16,
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
+                          Question Status on Audience Phones
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              width: 12,
+                              height: 12,
+                              borderRadius: '50%',
+                              background:
+                                data?.questionVotingState === 'VOTING'
+                                  ? '#22c55e'
+                                  : data?.questionVotingState === 'PAUSED'
+                                  ? '#f59e0b'
+                                  : data?.questionVotingState === 'STOPPED'
+                                  ? '#ef4444'
+                                  : '#94a3b8',
+                              boxShadow:
+                                data?.questionVotingState === 'VOTING' ? '0 0 10px #22c55e' : 'none',
+                            }}
+                          />
+                          <span style={{ fontSize: 18, fontFamily: 'Fredoka, sans-serif', fontWeight: 700 }}>
+                            {data?.questionVotingState === 'VOTING' && 'VOTING IS OPEN (Audience Voting Now)'}
+                            {data?.questionVotingState === 'PAUSED' && 'VOTING IS PAUSED'}
+                            {data?.questionVotingState === 'STOPPED' && 'VOTING IS STOPPED'}
+                            {data?.questionVotingState === 'IDLE' && 'IDLE (Waiting for Host to Start)'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons: Start, Pause, Resume, Stop, Reset */}
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        {data?.questionVotingState === 'IDLE' && (
+                          <button
+                            onClick={() => handleLiveAction('START_VOTE')}
+                            style={{
+                              padding: '12px 24px',
+                              borderRadius: 12,
+                              border: 0,
+                              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                              color: '#fff',
+                              fontFamily: 'Fredoka, sans-serif',
+                              fontSize: 16,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              boxShadow: '0 4px 16px rgba(34,197,94,0.4)',
+                            }}
+                          >
+                            ▶️ Start Vote
+                          </button>
+                        )}
+
+                        {data?.questionVotingState === 'VOTING' && (
+                          <>
+                            <button
+                              onClick={() => handleLiveAction('PAUSE_VOTE')}
+                              style={{
+                                padding: '12px 20px',
+                                borderRadius: 12,
+                                border: 0,
+                                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                color: '#fff',
+                                fontFamily: 'Fredoka, sans-serif',
+                                fontSize: 15,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ⏸️ Pause Vote
+                            </button>
+                            <button
+                              onClick={() => handleLiveAction('STOP_VOTE')}
+                              style={{
+                                padding: '12px 20px',
+                                borderRadius: 12,
+                                border: 0,
+                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                color: '#fff',
+                                fontFamily: 'Fredoka, sans-serif',
+                                fontSize: 15,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              🛑 Stop Vote
+                            </button>
+                          </>
+                        )}
+
+                        {data?.questionVotingState === 'PAUSED' && (
+                          <>
+                            <button
+                              onClick={() => handleLiveAction('RESUME_VOTE')}
+                              style={{
+                                padding: '12px 20px',
+                                borderRadius: 12,
+                                border: 0,
+                                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                color: '#fff',
+                                fontFamily: 'Fredoka, sans-serif',
+                                fontSize: 15,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ▶️ Resume Vote
+                            </button>
+                            <button
+                              onClick={() => handleLiveAction('STOP_VOTE')}
+                              style={{
+                                padding: '12px 20px',
+                                borderRadius: 12,
+                                border: 0,
+                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                color: '#fff',
+                                fontFamily: 'Fredoka, sans-serif',
+                                fontSize: 15,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              🛑 Stop Vote
+                            </button>
+                          </>
+                        )}
+
+                        {data?.questionVotingState === 'STOPPED' && (
+                          <button
+                            onClick={() => handleLiveAction('START_VOTE')}
+                            style={{
+                              padding: '12px 20px',
+                              borderRadius: 12,
+                              border: 0,
+                              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                              color: '#fff',
+                              fontFamily: 'Fredoka, sans-serif',
+                              fontSize: 15,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            🔄 Re-open Voting
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            if (confirm('Reset votes for this specific question? Audience can revote.')) {
+                              handleLiveAction('RESET_QUESTION_VOTES', { categoryId: currentActiveCat.id })
+                            }
+                          }}
+                          style={{
+                            padding: '12px 16px',
+                            borderRadius: 12,
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            background: 'rgba(255,255,255,0.08)',
+                            color: '#cbd5e1',
+                            fontSize: 14,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Reset This Question
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Real-time Combined Vote Counter & Breakdown */}
+                    <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+                      <div
+                        style={{
+                          background: 'rgba(255,200,87,0.12)',
+                          border: '1.5px solid rgba(255,200,87,0.4)',
+                          borderRadius: 16,
+                          padding: '14px 22px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 14,
+                        }}
+                      >
+                        <div style={{ fontSize: 32 }}>🔥</div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: '#FFC857', textTransform: 'uppercase' }}>
+                            Combined Ballots Cast for this Question
+                          </div>
+                          <div style={{ fontSize: 28, fontFamily: 'Fredoka, sans-serif', fontWeight: 700, color: '#fff' }}>
+                            {currentActiveCat.totalVotes} Votes
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic', maxWidth: 400 }}>
+                        💡 On the big screen preview, only this combined count is shown. Individual nominee votes remain sealed until you start the ceremony!
+                      </div>
+                    </div>
+
+                    {/* Nominees overview with videos/photos */}
+                    <div style={{ marginTop: 24 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#cbd5e1', marginBottom: 12 }}>
+                        Nominees in this Question:
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+                        {currentActiveCat.nominees.map(n => (
+                          <div
+                            key={n.id}
+                            style={{
+                              background: 'rgba(255,255,255,0.04)',
+                              borderRadius: 16,
+                              padding: 16,
+                              border: '1px solid rgba(255,255,255,0.1)',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                              {n.photoUrl ? (
+                                <img src={n.photoUrl} alt={n.name} style={{ width: 48, height: 48, borderRadius: 12, objectFit: 'cover' }} />
+                              ) : (
+                                <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(255,255,255,0.1)', display: 'grid', placeItems: 'center', fontSize: 24 }}>
+                                  {n.avatar || '⭐'}
+                                </div>
+                              )}
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 700, fontSize: 15 }}>{n.name}</div>
+                                {n.role && <div style={{ fontSize: 12, color: '#94a3b8' }}>{n.role}</div>}
+                              </div>
+                            </div>
+
+                            {/* Host-only Vote Insight */}
+                            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                              <span style={{ color: '#94a3b8' }}>Host Eye Count:</span>
+                              <span style={{ fontWeight: 700, color: '#FFC857' }}>
+                                {n.votesCount} votes ({n.percentage}%)
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-SECTION B: CEREMONY OSCARS REVEAL CONTROLS */}
+                {data?.mode === 'CEREMONY' && currentCeremonyCat && (
+                  <div
+                    style={{
+                      background: 'radial-gradient(circle at 50% 0%, rgba(245,158,11,0.2) 0%, rgba(20,5,30,0.9) 70%)',
+                      border: '2px solid rgba(245,158,11,0.5)',
+                      borderRadius: 24,
+                      padding: '30px 24px',
+                      boxShadow: '0 20px 60px rgba(245,158,11,0.25)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, marginBottom: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontSize: 36 }}>👑</span>
+                        <div>
+                          <div style={{ fontSize: 13, color: '#FFC857', fontWeight: 700 }}>
+                            CEREMONY REVEAL {ceremonyCatIndex + 1} OF {categories.length}
+                          </div>
+                          <h2 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 26, margin: '2px 0 0', color: '#fff' }}>
+                            {currentCeremonyCat.title}
+                          </h2>
+                          {currentCeremonyCat.subtitle && (
+                            <div style={{ fontSize: 14, color: '#ffd9b8', marginTop: 4 }}>{currentCeremonyCat.subtitle}</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Ceremony Category Switcher */}
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => {
+                            if (ceremonyCatIndex > 0) {
+                              handleLiveAction('SET_CEREMONY_CATEGORY', { categoryId: categories[ceremonyCatIndex - 1].id })
+                            }
+                          }}
+                          disabled={ceremonyCatIndex === 0}
+                          style={{
+                            padding: '8px 14px',
+                            borderRadius: 10,
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 0,
+                            color: '#fff',
+                            cursor: ceremonyCatIndex === 0 ? 'not-allowed' : 'pointer',
+                            opacity: ceremonyCatIndex === 0 ? 0.3 : 1,
+                            fontWeight: 700,
+                          }}
+                        >
+                          ◀ Previous Award
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (ceremonyCatIndex < categories.length - 1) {
+                              handleLiveAction('SET_CEREMONY_CATEGORY', { categoryId: categories[ceremonyCatIndex + 1].id })
+                            }
+                          }}
+                          disabled={ceremonyCatIndex === categories.length - 1}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: 10,
+                            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                            border: 0,
+                            color: '#fff',
+                            cursor: ceremonyCatIndex === categories.length - 1 ? 'not-allowed' : 'pointer',
+                            opacity: ceremonyCatIndex === categories.length - 1 ? 0.3 : 1,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Next Award ▶
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* The Grand Reveal Action Bar */}
+                    <div
+                      style={{
+                        padding: '24px 20px',
+                        background: 'rgba(10,3,20,0.7)',
+                        borderRadius: 20,
+                        border: '1.5px solid rgba(255,255,255,0.15)',
+                        textAlign: 'center',
+                        marginBottom: 24,
+                      }}
+                    >
+                      {!data?.ceremonyRevealed ? (
+                        <div>
+                          <div style={{ fontSize: 16, color: '#ffd9b8', marginBottom: 14 }}>
+                            Envelope is currently sealed. Big screen is showing suspense cards.
+                          </div>
+                          <button
+                            onClick={() => handleLiveAction('REVEAL_CEREMONY')}
+                            style={{
+                              padding: '16px 36px',
+                              borderRadius: 16,
+                              border: 0,
+                              background: 'linear-gradient(135deg, #FFC857 0%, #FFA23A 50%, #e8962a 100%)',
+                              color: '#000',
+                              fontFamily: 'Fredoka, sans-serif',
+                              fontSize: 20,
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              boxShadow: '0 8px 30px rgba(255,200,87,0.5)',
+                              letterSpacing: '.02em',
+                            }}
+                          >
+                            🎉 REVEAL WINNER NOW! 🏆
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: 18, color: '#86efac', fontWeight: 700, marginBottom: 8 }}>
+                            ✅ Results are revealed on the big screen!
+                          </div>
+                          <div style={{ color: '#cbd5e1', fontSize: 14, marginBottom: 14 }}>
+                            Audience and projector are displaying the winner and full vote transparency breakdown.
+                          </div>
+                          <button
+                            onClick={() => handleLiveAction('SET_CEREMONY_CATEGORY', { categoryId: currentCeremonyCat.id })}
+                            style={{
+                              padding: '8px 18px',
+                              borderRadius: 10,
+                              background: 'rgba(255,255,255,0.1)',
+                              border: '1px solid rgba(255,255,255,0.2)',
+                              color: '#cbd5e1',
+                              fontSize: 13,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            🔄 Re-seal Envelope
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Breakdown & Winner Stats preview */}
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#FFC857', marginBottom: 12 }}>
+                        Current Award Rankings & Vote Transparency:
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+                        {[...currentCeremonyCat.nominees]
+                          .sort((a, b) => b.votesCount - a.votesCount)
+                          .map((n, rankIdx) => {
+                            const isWinner = rankIdx === 0 && n.votesCount > 0
+                            return (
+                              <div
+                                key={n.id}
+                                style={{
+                                  background: isWinner ? 'rgba(245,158,11,0.18)' : 'rgba(255,255,255,0.04)',
+                                  border: isWinner ? '2px solid #FFC857' : '1px solid rgba(255,255,255,0.1)',
+                                  borderRadius: 16,
+                                  padding: 16,
+                                  boxShadow: isWinner ? '0 8px 24px rgba(245,158,11,0.25)' : 'none',
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                  <span
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 800,
+                                      padding: '2px 8px',
+                                      borderRadius: 999,
+                                      background: isWinner ? '#FFC857' : 'rgba(255,255,255,0.1)',
+                                      color: isWinner ? '#000' : '#fff',
+                                    }}
+                                  >
+                                    {isWinner ? '👑 1st (WINNER)' : `#${rankIdx + 1} PLACE`}
+                                  </span>
+                                  <span style={{ fontWeight: 800, fontSize: 16, color: '#FFC857' }}>
+                                    {n.votesCount} votes
+                                  </span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  {n.photoUrl ? (
+                                    <img src={n.photoUrl} alt={n.name} style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover' }} />
+                                  ) : (
+                                    <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(255,255,255,0.1)', display: 'grid', placeItems: 'center', fontSize: 22 }}>
+                                      {n.avatar || '⭐'}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <div style={{ fontWeight: 700, fontSize: 15 }}>{n.name}</div>
+                                    {n.role && <div style={{ fontSize: 12, color: '#94a3b8' }}>{n.role}</div>}
+                                  </div>
+                                </div>
+
+                                <div style={{ marginTop: 12 }}>
+                                  <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                                    <div
+                                      style={{
+                                        height: '100%',
+                                        width: `${n.percentage}%`,
+                                        background: isWinner ? 'linear-gradient(90deg, #FFC857, #FFA23A)' : '#a855f7',
+                                      }}
+                                    />
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+                                    <span>Turnout Share</span>
+                                    <span style={{ fontWeight: 700, color: '#fff' }}>{n.percentage}%</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </form>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* QUICK ADD NOMINEE MODAL */}
-      {quickAddCatId && (
+      {/* CREATE / EDIT CATEGORY MODAL */}
+      {showEditModal && (
         <div
-          onClick={() => setQuickAddCatId(null)}
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.65)',
-            backdropFilter: 'blur(6px)',
-            zIndex: 9999,
+            background: 'rgba(5,1,10,0.85)',
+            backdropFilter: 'blur(10px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 20,
+            padding: 16,
+            zIndex: 100,
+          }}
+          onClick={e => {
+            if (e.target === e.currentTarget) setShowEditModal(false)
           }}
         >
           <div
-            onClick={e => e.stopPropagation()}
             style={{
-              background: '#fff',
-              borderRadius: 20,
-              padding: '24px',
-              maxWidth: 440,
               width: '100%',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              maxWidth: 720,
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              background: 'linear-gradient(145deg, #1f0b2e 0%, #10031a 100%)',
+              border: '1.5px solid rgba(255,200,87,0.3)',
+              borderRadius: 24,
+              padding: '28px 24px',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.7)',
+              color: '#fff',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: '#0f172a' }}>
-                Add Nominee to Award
-              </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 26 }}>🏆</span>
+                <div>
+                  <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, margin: 0 }}>
+                    {editingCategory ? 'Edit Award Question & Nominees' : 'Create New Award Question'}
+                  </h3>
+                  <div style={{ fontSize: 13, color: '#ffd9b8' }}>
+                    Configure the award title, nominees, and attach photos or videos.
+                  </div>
+                </div>
+              </div>
               <button
-                onClick={() => setQuickAddCatId(null)}
+                onClick={() => setShowEditModal(false)}
                 style={{
-                  background: '#f1f5f9',
+                  background: 'rgba(255,255,255,0.1)',
                   border: 0,
-                  width: 28,
-                  height: 28,
+                  width: 32,
+                  height: 32,
                   borderRadius: '50%',
-                  fontWeight: 700,
+                  color: '#fff',
+                  fontSize: 16,
                   cursor: 'pointer',
-                  color: '#64748b',
+                  display: 'grid',
+                  placeItems: 'center',
                 }}
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleQuickAddNomineeSubmit}>
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                  NOMINEE NAME *
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. John Doe / Team Alpha"
-                  value={quickNomName}
-                  onChange={e => setQuickNomName(e.target.value)}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: 8,
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: 14,
-                    boxSizing: 'border-box',
-                  }}
-                />
+            {modalError && (
+              <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#fca5a5', fontSize: 13, marginBottom: 16 }}>
+                {modalError}
               </div>
+            )}
 
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                  ROLE / DEPARTMENT (OPTIONAL)
+            {/* Award Title */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#ffd9b8', marginBottom: 6, textTransform: 'uppercase' }}>
+                Award Question / Category Title *
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Star Performer of the Year 🌟"
+                value={modalTitle}
+                onChange={e => setModalTitle(e.target.value)}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: '1.5px solid rgba(255,255,255,0.2)',
+                  background: 'rgba(10,3,20,0.6)',
+                  color: '#fff',
+                  fontSize: 15,
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Award Subtitle */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#ffd9b8', marginBottom: 6, textTransform: 'uppercase' }}>
+                Subtitle / Question Description (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Consistently delivered outstanding excellence and team spirit"
+                value={modalSubtitle}
+                onChange={e => setModalSubtitle(e.target.value)}
+                style={{
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: '1.5px solid rgba(255,255,255,0.2)',
+                  background: 'rgba(10,3,20,0.6)',
+                  color: '#fff',
+                  fontSize: 14,
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Nominees List */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <label style={{ fontSize: 13, fontWeight: 700, color: '#ffd9b8', textTransform: 'uppercase' }}>
+                  Nominees List (Minimum 2)
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Frontend Engineering"
-                  value={quickNomRole}
-                  onChange={e => setQuickNomRole(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: 8,
-                    border: '1.5px solid #cbd5e1',
-                    fontSize: 14,
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: 18 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                  AVATAR EMOJI
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="text"
-                    value={quickNomAvatar}
-                    onChange={e => setQuickNomAvatar(e.target.value)}
-                    style={{
-                      width: 44,
-                      height: 40,
-                      textAlign: 'center',
-                      fontSize: 20,
-                      borderRadius: 8,
-                      border: '1.5px solid #cbd5e1',
-                    }}
-                  />
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {PRESET_EMOJIS.slice(0, 8).map(em => (
-                      <button
-                        key={em}
-                        type="button"
-                        onClick={() => setQuickNomAvatar(em)}
-                        style={{
-                          background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: 6,
-                          padding: '4px 8px',
-                          fontSize: 15,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {em}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <button
                   type="button"
-                  onClick={() => setQuickAddCatId(null)}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 8,
-                    border: '1px solid #cbd5e1',
-                    background: '#fff',
-                    color: '#475569',
-                    fontSize: 13,
-                    cursor: 'pointer',
+                  onClick={() => {
+                    setModalNominees(prev => [
+                      ...prev,
+                      {
+                        id: `nom_${Date.now()}_${prev.length + 1}`,
+                        name: '',
+                        role: '',
+                        avatar: QUICK_EMOJIS[prev.length % QUICK_EMOJIS.length],
+                        photoUrl: null,
+                        videoUrl: null,
+                        votesCount: 0,
+                      },
+                    ])
                   }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={actionLoading}
                   style={{
-                    padding: '8px 18px',
+                    padding: '6px 14px',
                     borderRadius: 8,
-                    border: 0,
-                    background: '#0f172a',
-                    color: '#fff',
-                    fontSize: 13,
+                    background: 'rgba(34,197,94,0.2)',
+                    border: '1px solid #22c55e',
+                    color: '#86efac',
+                    fontSize: 12,
                     fontWeight: 700,
                     cursor: 'pointer',
                   }}
                 >
-                  {actionLoading ? 'Adding…' : 'Add Nominee'}
+                  ➕ Add Another Nominee
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* QR Code Modal for Audience Voting Link */}
-      {showQrModal && (
-        <div
-          onClick={() => setShowQrModal(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.65)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 1000,
-            display: 'grid',
-            placeItems: 'center',
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              background: '#fff',
-              borderRadius: 24,
-              padding: 32,
-              maxWidth: 420,
-              width: '100%',
-              textAlign: 'center',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.35)',
-            }}
-          >
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🗳️</div>
-            <h3 style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, fontWeight: 700, margin: '0 0 6px', color: '#0f172a' }}>
-              Choice Awards Voting QR
-            </h3>
-            <p style={{ color: '#64748b', fontSize: 13, margin: '0 0 20px' }}>
-              Project this QR or print it on tables for the audience to vote anonymously on their mobile phones!
-            </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {modalNominees.map((nom, nIdx) => (
+                  <div
+                    key={nom.id || nIdx}
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: 16,
+                      padding: 16,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#FFC857' }}>
+                        Nominee #{nIdx + 1}
+                      </span>
+                      {modalNominees.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModalNominees(prev => prev.filter((_, i) => i !== nIdx))
+                          }}
+                          style={{
+                            background: 'transparent',
+                            border: 0,
+                            color: '#f87171',
+                            fontSize: 12,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ✕ Remove Nominee
+                        </button>
+                      )}
+                    </div>
 
-            {qrDataUrl && (
-              <div style={{ display: 'inline-block', padding: 12, borderRadius: 16, border: '2px solid #e2e8f0', background: '#fff', marginBottom: 18 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={qrDataUrl} alt="Voting QR Code" width={240} height={240} style={{ display: 'block' }} />
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 12 }}>
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Nominee Name (e.g. John Doe / Team Alpha)"
+                          value={nom.name}
+                          onChange={e => {
+                            const val = e.target.value
+                            setModalNominees(prev => {
+                              const next = [...prev]
+                              next[nIdx].name = val
+                              return next
+                            })
+                          }}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '10px 12px',
+                            borderRadius: 10,
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            background: 'rgba(10,3,20,0.6)',
+                            color: '#fff',
+                            fontSize: 14,
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Role / Title (e.g. Senior Architect)"
+                          value={nom.role || ''}
+                          onChange={e => {
+                            const val = e.target.value
+                            setModalNominees(prev => {
+                              const next = [...prev]
+                              next[nIdx].role = val
+                              return next
+                            })
+                          }}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '10px 12px',
+                            borderRadius: 10,
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            background: 'rgba(10,3,20,0.6)',
+                            color: '#fff',
+                            fontSize: 14,
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Media Uploads: Photo & Video */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                      {/* Photo Uploader */}
+                      <div
+                        style={{
+                          background: 'rgba(0,0,0,0.25)',
+                          borderRadius: 12,
+                          padding: 10,
+                          border: '1px dashed rgba(255,255,255,0.15)',
+                        }}
+                      >
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#ffd9b8', marginBottom: 6 }}>
+                          📷 Nominee Photo (JPG/PNG)
+                        </div>
+                        {nom.photoUrl ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <img src={nom.photoUrl} alt="Preview" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModalNominees(prev => {
+                                  const next = [...prev]
+                                  next[nIdx].photoUrl = null
+                                  return next
+                                })
+                              }}
+                              style={{ background: 'rgba(239,68,68,0.2)', border: 0, color: '#fca5a5', fontSize: 11, padding: '4px 8px', borderRadius: 6, cursor: 'pointer' }}
+                            >
+                              Remove Photo
+                            </button>
+                          </div>
+                        ) : (
+                          <label
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '6px 12px',
+                              borderRadius: 8,
+                              background: 'rgba(255,255,255,0.1)',
+                              fontSize: 12,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <span>Upload Photo</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              onChange={e => {
+                                if (e.target.files?.[0]) {
+                                  handleFileUpload(e.target.files[0], 'photo', nIdx)
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+
+                      {/* Video Uploader / URL */}
+                      <div
+                        style={{
+                          background: 'rgba(0,0,0,0.25)',
+                          borderRadius: 12,
+                          padding: 10,
+                          border: '1px dashed rgba(255,255,255,0.15)',
+                        }}
+                      >
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#ffd9b8', marginBottom: 6 }}>
+                          📹 Nominee Video (MP4/WebM)
+                        </div>
+                        {nom.videoUrl ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <video src={nom.videoUrl} style={{ width: 64, height: 40, borderRadius: 6, objectFit: 'cover' }} autoPlay muted loop />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModalNominees(prev => {
+                                  const next = [...prev]
+                                  next[nIdx].videoUrl = null
+                                  return next
+                                })
+                              }}
+                              style={{ background: 'rgba(239,68,68,0.2)', border: 0, color: '#fca5a5', fontSize: 11, padding: '4px 8px', borderRadius: 6, cursor: 'pointer' }}
+                            >
+                              Remove Video
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <label
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '6px 12px',
+                                borderRadius: 8,
+                                background: 'rgba(59,130,246,0.2)',
+                                border: '1px solid rgba(59,130,246,0.4)',
+                                color: '#bfdbfe',
+                                fontSize: 12,
+                                cursor: 'pointer',
+                                width: 'fit-content',
+                              }}
+                            >
+                              <span>Upload Video Clip</span>
+                              <input
+                                type="file"
+                                accept="video/*"
+                                style={{ display: 'none' }}
+                                onChange={e => {
+                                  if (e.target.files?.[0]) {
+                                    handleFileUpload(e.target.files[0], 'video', nIdx)
+                                  }
+                                }}
+                              />
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Or paste video link (mp4/webm)"
+                              value={nom.videoUrl || ''}
+                              onChange={e => {
+                                const val = e.target.value
+                                setModalNominees(prev => {
+                                  const next = [...prev]
+                                  next[nIdx].videoUrl = val || null
+                                  return next
+                                })
+                              }}
+                              style={{
+                                width: '100%',
+                                boxSizing: 'border-box',
+                                padding: '6px 10px',
+                                borderRadius: 8,
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                background: 'rgba(10,3,20,0.6)',
+                                color: '#fff',
+                                fontSize: 12,
+                                outline: 'none',
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Modal Action Buttons */}
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
               <button
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    navigator.clipboard.writeText(`${window.location.origin}/vote`)
-                    setCopied(true)
-                    setTimeout(() => setCopied(false), 2500)
-                  }
-                }}
+                type="button"
+                onClick={() => setShowEditModal(false)}
                 style={{
-                  height: 44,
+                  padding: '12px 20px',
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  background: 'transparent',
+                  color: '#cbd5e1',
+                  fontFamily: 'Fredoka, sans-serif',
+                  fontSize: 15,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={handleSaveModal}
+                style={{
+                  padding: '12px 28px',
                   borderRadius: 12,
                   border: 0,
-                  background: copied ? '#16a34a' : '#0f172a',
+                  background: 'linear-gradient(135deg, #FFA23A, #FF6B35)',
                   color: '#fff',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: 'pointer',
+                  fontFamily: 'Fredoka, sans-serif',
+                  fontSize: 16,
+                  fontWeight: 700,
+                  cursor: saving ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 16px rgba(255,107,53,0.4)',
                 }}
               >
-                {copied ? '✓ Link Copied to Clipboard!' : '📋 Copy Voting Link'}
-              </button>
-
-              <button
-                onClick={() => setShowQrModal(false)}
-                style={{
-                  height: 40,
-                  borderRadius: 12,
-                  border: '1px solid #cbd5e1',
-                  background: '#f8fafc',
-                  color: '#475569',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                }}
-              >
-                Close
+                {saving ? 'Saving...' : editingCategory ? 'Save Changes' : 'Create Award'}
               </button>
             </div>
           </div>
