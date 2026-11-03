@@ -529,8 +529,8 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                   border: '1px solid rgba(99,102,241,0.35)',
                 }}
               >
-                <span>🤖</span>
-                <span>3D Mascots</span>
+                <span>🎨</span>
+                <span>Artverse</span>
               </Link>
             </div>
           )}

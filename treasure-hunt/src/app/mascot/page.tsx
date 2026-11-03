@@ -177,9 +177,9 @@ export default function MascotSubmissionPage() {
             gap: 8,
           }}
         >
-          <span style={{ fontSize: 24 }}>🤖</span>
+          <span style={{ fontSize: 24 }}>🎨</span>
           <span>
-            Glow<span style={{ color: '#FFC857' }}>Fiesta</span> 3D Mascot
+            Glow<span style={{ color: '#FFC857' }}>Fiesta</span> Artverse
           </span>
         </Link>
 
@@ -287,7 +287,7 @@ export default function MascotSubmissionPage() {
                 WebkitTextFillColor: 'transparent',
               }}
             >
-              Mascot Submitted Successfully! 🚀
+              Artverse Mascot Submitted! 🚀
             </h1>
 
             <p style={{ color: '#d8c7ed', fontSize: 15, maxWidth: 500, margin: '0 auto 28px', lineHeight: 1.5 }}>
@@ -395,7 +395,7 @@ export default function MascotSubmissionPage() {
                   letterSpacing: '.06em',
                 }}
               >
-                <span>🎨 EMPLOYEE DESIGN CHALLENGE</span>
+                <span>🎨 ARTVERSE 2026 • 3D MASCOT CHALLENGE</span>
               </div>
 
               <h1
@@ -410,11 +410,11 @@ export default function MascotSubmissionPage() {
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                Submit Company 3D Mascot
+                Artverse: 3D Mascot Submission
               </h1>
 
               <p style={{ color: '#c4b5d4', fontSize: 15, maxWidth: 580, margin: '0 auto', lineHeight: 1.5 }}>
-                Management invites you to design the official company 3D mascot! Upload your 3D model file (<b>.stl</b>, <b>.obj</b>, <b>.glb</b>) and share the story behind your creation.
+                Welcome to <b>Artverse</b>! Management invites you to design the official company 3D mascot. Upload your 3D model file (<b>.stl</b>, <b>.obj</b>, <b>.glb</b>) and share the story behind your creation.
               </p>
             </div>
 
@@ -693,7 +693,7 @@ export default function MascotSubmissionPage() {
                   </>
                 ) : (
                   <>
-                    <span>SUBMIT 3D MASCOT</span>
+                    <span>SUBMIT TO ARTVERSE</span>
                     <span>🚀</span>
                   </>
                 )}

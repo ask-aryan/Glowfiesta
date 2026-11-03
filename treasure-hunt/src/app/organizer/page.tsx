@@ -139,19 +139,19 @@ export default async function OrganizerPage() {
 
         <div style={{ maxWidth: 640 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(129,140,248,0.4)', color: '#a5b4fc', fontSize: 11, fontWeight: 700, marginBottom: 8, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-            <span>🤖 EMPLOYEE 3D CONTEST</span>
+            <span>🎨 ARTVERSE 2026</span>
           </div>
           <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 24, fontWeight: 800, margin: '0 0 6px', background: 'linear-gradient(135deg, #ffffff 40%, #c7d2fe 85%, #818cf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Company 3D Mascot Challenge
+            Artverse: 3D Mascot Challenge
           </div>
           <div style={{ color: '#c7d2fe', fontSize: 13, lineHeight: 1.45 }}>
-            Employees submit their custom-designed 3D mascot models (.STL / .OBJ / .GLB) with the story and symbolism behind their creation.
+            Management's Artverse creative contest: Employees submit custom-designed 3D mascot models (.STL / .OBJ / .GLB) with the story and symbolism behind their creation.
           </div>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
           <Link
-            href="/mascot"
+            href="/artverse"
             target="_blank"
             style={{
               padding: '9px 16px',
@@ -179,7 +179,7 @@ export default async function OrganizerPage() {
               boxShadow: '0 4px 16px rgba(99,102,241,0.35)',
             }}
           >
-            View Submissions & STL →
+            View Artverse Entries →
           </Link>
         </div>
       </div>

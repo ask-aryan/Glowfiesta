@@ -28,7 +28,7 @@ export default function OrganizerMascotsPage() {
   useEffect(() => {
     fetchMascots()
     if (typeof window !== 'undefined') {
-      const url = `${window.location.origin}/mascot`
+      const url = `${window.location.origin}/artverse`
       setShareUrl(url)
       QRCode.toDataURL(url, { width: 320, margin: 2 }).then(setQrDataUrl).catch(() => {})
     }
@@ -101,13 +101,13 @@ export default function OrganizerMascotsPage() {
       >
         <div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#6366f1', background: '#eef2ff', padding: '3px 10px', borderRadius: 999, marginBottom: 6 }}>
-            <span>🤖 EMPLOYEE CREATIVE CONTEST</span>
+            <span>🎨 ARTVERSE 2026</span>
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: '-.02em', color: '#0f172a' }}>
-            3D Mascot Submissions
+            Artverse: 3D Mascot Submissions
           </h1>
           <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 14 }}>
-            Review and download 3D models (.STL) submitted by employees for the official company mascot.
+            Review and download 3D models (.STL) submitted by employees for the Artverse company mascot contest.
           </p>
         </div>
 
@@ -550,7 +550,7 @@ export default function OrganizerMascotsPage() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ fontWeight: 800, fontSize: 18, color: '#0f172a' }}>
-                📱 Mascot Contest QR Code
+                📱 Artverse Contest QR Code
               </div>
               <button
                 onClick={() => setShowQrModal(false)}

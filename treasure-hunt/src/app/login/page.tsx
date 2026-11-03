@@ -196,7 +196,7 @@ function LoginForm() {
         </a>
 
         <a
-          href="/mascot"
+          href="/artverse"
           style={{
             padding: '8px 16px',
             borderRadius: 999,
@@ -215,8 +215,8 @@ function LoginForm() {
             transition: 'all .15s ease',
           }}
         >
-          <span>🤖</span>
-          <span>Submit 3D Mascot</span>
+          <span>🎨</span>
+          <span>Artverse</span>
         </a>
       </div>
       <div
@@ -504,7 +504,7 @@ function LoginForm() {
             </a>
 
             <a
-              href="/mascot"
+              href="/artverse"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -520,8 +520,8 @@ function LoginForm() {
                 transition: 'all .15s ease',
               }}
             >
-              <span>🤖</span>
-              <span>3D Mascot Contest</span>
+              <span>🎨</span>
+              <span>Artverse (3D Mascot)</span>
             </a>
           </div>
         </div>
