@@ -172,7 +172,7 @@ function LoginForm() {
         </button>
 
         <a
-          href="/poll"
+          href="/vote"
           style={{
             padding: '8px 16px',
             borderRadius: 999,
@@ -191,8 +191,8 @@ function LoginForm() {
             transition: 'all .15s ease',
           }}
         >
-          <span>📊</span>
-          <span>Live Polls</span>
+          <span>🗳️</span>
+          <span>Vote Choice Awards</span>
         </a>
       </div>
       <div
@@ -459,7 +459,7 @@ function LoginForm() {
             </a>
 
             <a
-              href="/poll"
+              href="/vote"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -475,8 +475,8 @@ function LoginForm() {
                 transition: 'all .15s ease',
               }}
             >
-              <span>📊</span>
-              <span>Live Polls & Awards</span>
+              <span>🗳️</span>
+              <span>Vote Choice Awards</span>
             </a>
           </div>
         </div>
