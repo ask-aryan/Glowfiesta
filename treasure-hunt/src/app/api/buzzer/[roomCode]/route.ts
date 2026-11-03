@@ -56,6 +56,7 @@ export async function GET(
       participants: participantsList,
       buzzes: formattedBuzzes,
       myBuzz,
+      updatedAt: room.updatedAt,
       serverTime: Date.now(),
     }, { headers: NO_CACHE_HEADERS })
   } catch (err: any) {

@@ -199,6 +199,19 @@ export async function getRoom(roomCode: string): Promise<BuzzerRoom | null> {
         rank: idx + 1,
       }))
 
+      // Guard against stale DB reads regressing memory state
+      const memRoom = rooms.get(code)
+      if (memRoom && memRoom.updatedAt > dbRoom.updatedAt) {
+        dbRoom.status = memRoom.status
+        dbRoom.roundNumber = memRoom.roundNumber
+        dbRoom.liveAt = memRoom.liveAt
+        dbRoom.firstBuzzAt = memRoom.firstBuzzAt
+        dbRoom.updatedAt = memRoom.updatedAt
+        if (memRoom.presses.length > dbRoom.presses.length) {
+          dbRoom.presses = memRoom.presses
+        }
+      }
+
       rooms.set(code, dbRoom)
       return dbRoom
     }

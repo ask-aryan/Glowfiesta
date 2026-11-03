@@ -27,6 +27,7 @@ interface RoomData {
   isHost: boolean
   participants: Participant[]
   buzzes: FormattedBuzz[]
+  updatedAt?: number
   serverTime: number
 }
 
@@ -50,6 +51,8 @@ export default function HostBuzzerRoomPage() {
   // Timer state
   const [elapsedMs, setElapsedMs] = useState(0)
   const prevBuzzesCountRef = useRef(0)
+  const lastUpdatedRef = useRef<number>(0)
+  const reqSeqRef = useRef<number>(0)
 
   // Generate QR Code for the shared link
   useEffect(() => {
@@ -82,12 +85,13 @@ export default function HostBuzzerRoomPage() {
     }
   }, [searchParams, roomCode])
 
-  // Poll room data every 350ms
+  // Poll room data every 400ms
   useEffect(() => {
     if (!roomCode) return
     let active = true
 
     async function fetchRoom() {
+      const seq = ++reqSeqRef.current
       try {
         const url = `/api/buzzer/${roomCode}?_t=${Date.now()}${hostKey ? `&hostKey=${encodeURIComponent(hostKey)}` : ''}`
         const res = await fetch(url, { cache: 'no-store' })
@@ -96,7 +100,14 @@ export default function HostBuzzerRoomPage() {
           return
         }
         const data: RoomData = await res.json()
-        if (active) {
+        if (active && seq === reqSeqRef.current) {
+          // Discard stale out-of-order poll responses
+          if (data.updatedAt && lastUpdatedRef.current && data.updatedAt < lastUpdatedRef.current) {
+            return
+          }
+          if (data.updatedAt) {
+            lastUpdatedRef.current = Math.max(lastUpdatedRef.current, data.updatedAt)
+          }
           setRoom(data)
           setLoading(false)
 
@@ -112,7 +123,7 @@ export default function HostBuzzerRoomPage() {
     }
 
     fetchRoom()
-    const timer = setInterval(fetchRoom, 350)
+    const timer = setInterval(fetchRoom, 400)
     return () => {
       active = false
       clearInterval(timer)
@@ -147,6 +158,12 @@ export default function HostBuzzerRoomPage() {
   async function handleSetStatus(newStatus: 'DRAFT' | 'READY' | 'LIVE') {
     if (!hostKey || actionLoading) return
     setActionLoading(true)
+    const now = Date.now()
+    lastUpdatedRef.current = now
+    reqSeqRef.current++
+    if (room) {
+      setRoom({ ...room, status: newStatus, liveAt: newStatus === 'LIVE' ? now : null, updatedAt: now })
+    }
     try {
       const res = await fetch(`/api/buzzer/${roomCode}/status`, {
         method: 'POST',
@@ -155,7 +172,10 @@ export default function HostBuzzerRoomPage() {
       })
       const data = await res.json()
       if (data.success && room) {
-        setRoom({ ...room, status: newStatus, liveAt: data.liveAt })
+        if (data.updatedAt) {
+          lastUpdatedRef.current = Math.max(lastUpdatedRef.current, data.updatedAt)
+        }
+        setRoom(prev => prev ? { ...prev, status: newStatus, liveAt: data.liveAt, updatedAt: data.updatedAt || now } : prev)
       }
     } catch {}
     setActionLoading(false)
@@ -166,6 +186,9 @@ export default function HostBuzzerRoomPage() {
     if (!hostKey || actionLoading) return
     setActionLoading(true)
     playResetSound()
+    const now = Date.now()
+    lastUpdatedRef.current = now
+    reqSeqRef.current++
     try {
       const res = await fetch(`/api/buzzer/${roomCode}/reset`, {
         method: 'POST',
@@ -174,14 +197,18 @@ export default function HostBuzzerRoomPage() {
       })
       const data = await res.json()
       if (data.success && room) {
-        setRoom({
-          ...room,
+        if (data.updatedAt) {
+          lastUpdatedRef.current = Math.max(lastUpdatedRef.current, data.updatedAt)
+        }
+        setRoom(prev => prev ? {
+          ...prev,
           status: data.status,
           roundNumber: data.roundNumber,
           buzzes: [],
           firstBuzzAt: null,
-          liveAt: data.status === 'LIVE' ? Date.now() : null,
-        })
+          liveAt: data.status === 'LIVE' ? now : null,
+          updatedAt: data.updatedAt || now,
+        } : prev)
         setElapsedMs(0)
         prevBuzzesCountRef.current = 0
       }

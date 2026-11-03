@@ -20,6 +20,7 @@ interface RoomData {
   liveAt: number | null
   firstBuzzAt: number | null
   myBuzz: MyBuzz | null
+  updatedAt?: number
   serverTime: number
 }
 
@@ -46,6 +47,8 @@ export default function ParticipantBuzzerPage() {
   // Timer state
   const [elapsedMs, setElapsedMs] = useState(0)
   const prevRoundRef = useRef<number>(1)
+  const lastUpdatedRef = useRef<number>(0)
+  const reqSeqRef = useRef<number>(0)
 
   // Load saved team name for this room from localStorage
   useEffect(() => {
@@ -60,12 +63,13 @@ export default function ParticipantBuzzerPage() {
   // Stopwatch timer logic with clock offset compensation
   const serverOffsetRef = useRef<number>(0)
 
-  // Poll room every 250ms
+  // Poll room every 400ms
   useEffect(() => {
     if (!roomCode || !hasJoined) return
     let active = true
 
     async function poll() {
+      const seq = ++reqSeqRef.current
       try {
         const url = `/api/buzzer/${roomCode}?_t=${Date.now()}${teamName ? `&teamName=${encodeURIComponent(teamName)}` : ''}`
         const res = await fetch(url, { cache: 'no-store' })
@@ -74,7 +78,15 @@ export default function ParticipantBuzzerPage() {
           return
         }
         const data: RoomData = await res.json()
-        if (active) {
+        if (active && seq === reqSeqRef.current) {
+          // Drop stale out-of-order poll responses
+          if (data.updatedAt && lastUpdatedRef.current && data.updatedAt < lastUpdatedRef.current) {
+            return
+          }
+          if (data.updatedAt) {
+            lastUpdatedRef.current = Math.max(lastUpdatedRef.current, data.updatedAt)
+          }
+
           if (data.serverTime) {
             serverOffsetRef.current = Date.now() - data.serverTime
           }
@@ -96,7 +108,7 @@ export default function ParticipantBuzzerPage() {
     }
 
     poll()
-    const timer = setInterval(poll, 250)
+    const timer = setInterval(poll, 400)
     return () => {
       active = false
       clearInterval(timer)

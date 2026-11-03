@@ -36,6 +36,7 @@ export async function POST(
       status: room.status,
       liveAt: room.liveAt,
       roundNumber: room.roundNumber,
+      updatedAt: room.updatedAt,
     }, { headers: NO_CACHE_HEADERS })
   } catch (err: any) {
     console.error('Error updating buzzer room status:', err)
