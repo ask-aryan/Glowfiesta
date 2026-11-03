@@ -20,7 +20,13 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const cleanToken = token.trim()
+  let cleanToken = token.trim()
+
+  // If a full URL was scanned/sent, extract the token segment after /scan/
+  const urlMatch = cleanToken.match(/scan\/([a-zA-Z0-9_-]+)/)
+  if (urlMatch) {
+    cleanToken = urlMatch[1]
+  }
 
   // 1. Direct check for FUN DUMMY DIWALI QR (by token string or prefix)
   const isDiwaliToken =

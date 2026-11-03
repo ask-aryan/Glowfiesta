@@ -6,11 +6,15 @@ import PDFDocument from 'pdfkit'
 import { PassThrough } from 'stream'
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { eventId: string } }
 ) {
   const { error } = await requireOrganizer()
   if (error) return error
+
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host')
+  const proto = req.headers.get('x-forwarded-proto') || (host?.includes('localhost') ? 'http' : 'https')
+  const requestBaseUrl = host ? `${proto}://${host}` : undefined
 
   const eventId = parseInt(params.eventId)
   if (isNaN(eventId)) return NextResponse.json({ error: 'Invalid event ID' }, { status: 400 })
@@ -90,7 +94,7 @@ export async function GET(
 
     // Generate QR image — encode tokenHash in the URL
     try {
-      const scanUrl = buildScanUrl(qr.tokenHash)
+      const scanUrl = buildScanUrl(qr.tokenHash, requestBaseUrl)
       const dataUrl = await generateQrDataUrl(scanUrl)
       const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '')
       const imgBuffer = Buffer.from(base64Data, 'base64')

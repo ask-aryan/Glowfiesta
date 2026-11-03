@@ -13,10 +13,18 @@ interface QrItem {
 export default function QrGrid({ qrCodes, eventId }: { qrCodes: QrItem[]; eventId: number }) {
   const [images, setImages] = useState<Record<number, string>>({})
   const [activeTeam, setActiveTeam] = useState<string>('ALL')
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const [appUrl, setAppUrl] = useState('')
 
   useEffect(() => {
+    const origin =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : (process.env.NEXT_PUBLIC_APP_URL || 'https://glowfiesta2026.e-connectsolutions.com')
+    setAppUrl(origin.replace(/\/+$/, ''))
+  }, [])
+
+  useEffect(() => {
+    if (!appUrl) return
     import('qrcode').then(QRCode => {
       qrCodes.forEach(qr => {
         const url = `${appUrl}/scan/${qr.tokenHash}`

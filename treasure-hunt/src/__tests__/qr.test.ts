@@ -26,4 +26,9 @@ describe('QR lib', () => {
     const url = buildScanUrl('mytoken')
     expect(url).toBe('https://office.local/scan/mytoken')
   })
+
+  test('buildScanUrl builds correct URL with explicit baseUrl', () => {
+    const url = buildScanUrl('mytoken', 'https://glowfiesta2026.e-connectsolutions.com')
+    expect(url).toBe('https://glowfiesta2026.e-connectsolutions.com/scan/mytoken')
+  })
 })

@@ -13,7 +13,17 @@ export async function generateQrDataUrl(url: string): Promise<string> {
   return QRCode.toDataURL(url, { width: 300, margin: 2 })
 }
 
-export function buildScanUrl(token: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  return `${base}/scan/${token}`
+export function buildScanUrl(token: string, explicitBaseUrl?: string): string {
+  let base = explicitBaseUrl
+  if (!base && typeof window !== 'undefined' && window.location?.origin) {
+    base = window.location.origin
+  }
+  if (!base) {
+    base =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
+      'https://glowfiesta2026.e-connectsolutions.com'
+  }
+  const cleanBase = base.replace(/\/+$/, '')
+  return `${cleanBase}/scan/${token}`
 }
