@@ -184,6 +184,90 @@ export default async function OrganizerPage() {
         </div>
       </div>
 
+      {/* Diwali Bay & Desk Decoration Event Hero Card */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #091a2b 0%, #0d2847 55%, #081726 100%)',
+          border: '1.5px solid rgba(56,189,248,0.35)',
+          borderRadius: 20,
+          padding: '22px 26px',
+          color: '#fff',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 18,
+          marginBottom: 32,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ position: 'absolute', right: -20, top: -30, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(56,189,248,0.2), transparent 70%)', pointerEvents: 'none' }} />
+
+        <div style={{ maxWidth: 640 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 999, background: 'rgba(56,189,248,0.2)', border: '1px solid rgba(56,189,248,0.4)', color: '#7dd3fc', fontSize: 11, fontWeight: 700, marginBottom: 8, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+            <span>✨ DECORATION CONTEST 2026</span>
+          </div>
+          <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 24, fontWeight: 800, margin: '0 0 6px', background: 'linear-gradient(135deg, #ffffff 40%, #bae6fd 85%, #38bdf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Diwali Desk & Bay Decoration Event
+          </div>
+          <div style={{ color: '#bae6fd', fontSize: 13, lineHeight: 1.45 }}>
+            Setup team decoration counters and scoring factors. Audience visits each counter, grades on N factors, and casts 1 vote for all teams with real-time pause/resume/stop controls.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <Link
+            href="/decoration/live"
+            target="_blank"
+            style={{
+              padding: '9px 16px',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            📺 Live Screen ↗
+          </Link>
+          <Link
+            href="/decoration"
+            target="_blank"
+            style={{
+              padding: '9px 16px',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            📱 Audience Ballot ↗
+          </Link>
+          <Link
+            href="/organizer/decoration"
+            style={{
+              padding: '9px 20px',
+              borderRadius: 10,
+              background: 'linear-gradient(135deg, #38bdf8, #0284c7)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 800,
+              textDecoration: 'none',
+              boxShadow: '0 4px 16px rgba(56,189,248,0.35)',
+            }}
+          >
+            Manage Decoration →
+          </Link>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em' }}>Events</div>

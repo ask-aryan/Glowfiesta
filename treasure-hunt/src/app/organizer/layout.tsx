@@ -532,6 +532,28 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
                 <span>🎨</span>
                 <span>Artverse</span>
               </Link>
+
+              <Link
+                href="/organizer/decoration"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 14px',
+                  borderRadius: 8,
+                  fontWeight: pathname.includes('/decoration') ? 700 : 600,
+                  fontSize: 13,
+                  textDecoration: 'none',
+                  color: '#38bdf8',
+                  background: pathname.includes('/decoration')
+                    ? 'linear-gradient(135deg, rgba(56,189,248,0.3), rgba(37,99,235,0.3))'
+                    : 'rgba(56,189,248,0.12)',
+                  border: '1px solid rgba(56,189,248,0.35)',
+                }}
+              >
+                <span>✨</span>
+                <span>Decoration Event</span>
+              </Link>
             </div>
           )}
         </nav>
