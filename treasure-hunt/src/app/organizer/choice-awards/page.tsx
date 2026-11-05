@@ -94,6 +94,12 @@ export default function OrganizerChoiceAwardsPage() {
     setShowEditModal(true)
   }
 
+  function handleCloseEditModal() {
+    setShowEditModal(false)
+    setEditingCategory(null)
+    setModalError('')
+  }
+
   function handleOpenEditModal(cat: AwardCategory) {
     setEditingCategory(cat)
     setModalTitle(cat.title)
@@ -173,6 +179,22 @@ export default function OrganizerChoiceAwardsPage() {
             videoUrl: n.videoUrl || null,
           })),
         }
+      } else {
+        updatedCategories.push({
+          id: editingCategory.id || `cat_${Date.now()}`,
+          orderIndex: updatedCategories.length,
+          title,
+          subtitle: modalSubtitle.trim() || undefined,
+          totalVotes: editingCategory.totalVotes || 0,
+          nominees: validNominees.map(n => ({
+            ...n,
+            name: n.name.trim(),
+            role: n.role?.trim() || undefined,
+            avatar: n.avatar || '⭐',
+            photoUrl: n.photoUrl || null,
+            videoUrl: n.videoUrl || null,
+          })),
+        })
       }
     } else {
       const newCat: AwardCategory = {
@@ -204,7 +226,9 @@ export default function OrganizerChoiceAwardsPage() {
       if (json.success && json.data) {
         setData(json.data)
         setShowEditModal(false)
-        setMsg(editingCategory ? 'Award updated successfully!' : 'New award created successfully!')
+        const wasEditing = Boolean(editingCategory)
+        setEditingCategory(null)
+        setMsg(wasEditing ? 'Award updated successfully!' : 'New award created successfully!')
         setTimeout(() => setMsg(''), 3000)
       } else {
         setModalError(json.message || 'Failed to save category.')
@@ -1401,7 +1425,7 @@ export default function OrganizerChoiceAwardsPage() {
             zIndex: 100,
           }}
           onClick={e => {
-            if (e.target === e.currentTarget) setShowEditModal(false)
+            if (e.target === e.currentTarget) handleCloseEditModal()
           }}
         >
           <div
@@ -1431,7 +1455,7 @@ export default function OrganizerChoiceAwardsPage() {
                 </div>
               </div>
               <button
-                onClick={() => setShowEditModal(false)}
+                onClick={handleCloseEditModal}
                 style={{
                   background: 'rgba(255,255,255,0.1)',
                   border: 0,
@@ -1784,7 +1808,7 @@ export default function OrganizerChoiceAwardsPage() {
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 24 }}>
               <button
                 type="button"
-                onClick={() => setShowEditModal(false)}
+                onClick={handleCloseEditModal}
                 style={{
                   padding: '12px 20px',
                   borderRadius: 12,

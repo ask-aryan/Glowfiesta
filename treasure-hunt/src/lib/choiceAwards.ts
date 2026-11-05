@@ -47,6 +47,21 @@ const globalAwardsStore = globalThis as unknown as {
   choiceAwardsTablesReady?: boolean
 }
 
+async function addColumnIfMissing(table: string, column: string, def: string) {
+  try {
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = '${table}' AND column_name = '${column}' LIMIT 1`
+    )
+    if (!rows || rows.length === 0) {
+      await prisma.$executeRawUnsafe(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`)
+    }
+  } catch {
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`)
+    } catch {}
+  }
+}
+
 async function ensureTables() {
   if (globalAwardsStore.choiceAwardsTablesReady) return
   try {
@@ -80,8 +95,8 @@ async function ensureTables() {
         name VARCHAR(255) NOT NULL,
         role VARCHAR(255) NULL,
         avatar VARCHAR(50) NULL,
-        photo_url TEXT NULL,
-        video_url TEXT NULL,
+        photo_url LONGTEXT NULL,
+        video_url LONGTEXT NULL,
         order_index INT NOT NULL DEFAULT 0
       )
     `)
@@ -96,18 +111,20 @@ async function ensureTables() {
       )
     `)
 
-    // Ensure columns exist on legacy tables
+    // Ensure columns exist on legacy tables safely without 'IF NOT EXISTS' (fails on MySQL 8.0.26)
+    await addColumnIfMissing('choice_awards_nominees', 'photo_url', 'LONGTEXT NULL')
+    await addColumnIfMissing('choice_awards_nominees', 'video_url', 'LONGTEXT NULL')
+    await addColumnIfMissing('choice_awards_state', 'mode', "VARCHAR(30) DEFAULT 'LIVE_VOTING'")
+    await addColumnIfMissing('choice_awards_state', 'active_category_id', 'VARCHAR(100) NULL')
+    await addColumnIfMissing('choice_awards_state', 'question_voting_state', "VARCHAR(30) DEFAULT 'IDLE'")
+    await addColumnIfMissing('choice_awards_state', 'ceremony_category_id', 'VARCHAR(100) NULL')
+    await addColumnIfMissing('choice_awards_state', 'ceremony_revealed', 'BOOLEAN DEFAULT FALSE')
+
+    // If photo_url or video_url is TEXT, upgrade to LONGTEXT
     try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_nominees ADD COLUMN IF NOT EXISTS photo_url TEXT;`)
-      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_nominees ADD COLUMN IF NOT EXISTS video_url TEXT;`)
-      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_state ADD COLUMN IF NOT EXISTS mode VARCHAR(30) DEFAULT 'LIVE_VOTING';`)
-      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_state ADD COLUMN IF NOT EXISTS active_category_id VARCHAR(100);`)
-      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_state ADD COLUMN IF NOT EXISTS question_voting_state VARCHAR(30) DEFAULT 'IDLE';`)
-      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_state ADD COLUMN IF NOT EXISTS ceremony_category_id VARCHAR(100);`)
-      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_state ADD COLUMN IF NOT EXISTS ceremony_revealed BOOLEAN DEFAULT FALSE;`)
-    } catch {
-      // Safe fallback if columns already present
-    }
+      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_nominees MODIFY COLUMN photo_url LONGTEXT`)
+      await prisma.$executeRawUnsafe(`ALTER TABLE choice_awards_nominees MODIFY COLUMN video_url LONGTEXT`)
+    } catch {}
 
     globalAwardsStore.choiceAwardsTablesReady = true
   } catch (err) {
@@ -497,43 +514,46 @@ export async function saveChoiceAwardsCategories(categories: AwardCategory[]): P
   const now = Date.now()
 
   try {
-    // Clean old
-    await prisma.$executeRawUnsafe(`DELETE FROM choice_awards_nominees WHERE awards_id = '${GLOBAL_AWARDS_KEY}'`)
-    await prisma.$executeRawUnsafe(`DELETE FROM choice_awards_categories WHERE awards_id = '${GLOBAL_AWARDS_KEY}'`)
+    await prisma.$transaction(async (tx) => {
+      // Clean old
+      await tx.$executeRaw`DELETE FROM choice_awards_nominees WHERE awards_id = ${GLOBAL_AWARDS_KEY}`
+      await tx.$executeRaw`DELETE FROM choice_awards_categories WHERE awards_id = ${GLOBAL_AWARDS_KEY}`
 
-    for (let cIdx = 0; cIdx < categories.length; cIdx++) {
-      const cat = categories[cIdx]
-      const catId = cat.id || `cat_${Date.now()}_${cIdx}`
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO choice_awards_categories (id, awards_id, order_index, title, subtitle)
-         VALUES ('${catId}', '${GLOBAL_AWARDS_KEY}', ${cIdx}, '${(cat.title || 'Untitled Category').replace(/'/g, "''")}', '${(cat.subtitle || '').replace(/'/g, "''")}')`
-      )
+      for (let cIdx = 0; cIdx < categories.length; cIdx++) {
+        const cat = categories[cIdx]
+        const catId = cat.id || `cat_${Date.now()}_${cIdx}`
+        await tx.$executeRaw`
+          INSERT INTO choice_awards_categories (id, awards_id, order_index, title, subtitle)
+          VALUES (${catId}, ${GLOBAL_AWARDS_KEY}, ${cIdx}, ${cat.title || 'Untitled Category'}, ${cat.subtitle || null})
+        `
 
-      for (let nIdx = 0; nIdx < cat.nominees.length; nIdx++) {
-        const nom = cat.nominees[nIdx]
-        const nomId = nom.id || `nom_${Date.now()}_${nIdx}`
-        const photoEscaped = nom.photoUrl ? `'${nom.photoUrl.replace(/'/g, "''")}'` : 'NULL'
-        const videoEscaped = nom.videoUrl ? `'${nom.videoUrl.replace(/'/g, "''")}'` : 'NULL'
+        const nomList = Array.isArray(cat.nominees) ? cat.nominees : []
+        for (let nIdx = 0; nIdx < nomList.length; nIdx++) {
+          const nom = nomList[nIdx]
+          const nomId = nom.id || `nom_${Date.now()}_${nIdx}`
+          const photo = nom.photoUrl ?? (nom as any).photo_url ?? null
+          const video = nom.videoUrl ?? (nom as any).video_url ?? null
 
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO choice_awards_nominees (id, category_id, awards_id, name, role, avatar, photo_url, video_url, order_index)
-           VALUES ('${nomId}', '${catId}', '${GLOBAL_AWARDS_KEY}', '${(nom.name || 'Nominee').replace(/'/g, "''")}', '${(nom.role || '').replace(/'/g, "''")}', '${nom.avatar || '⭐'}', ${photoEscaped}, ${videoEscaped}, ${nIdx})`
-        )
+          await tx.$executeRaw`
+            INSERT INTO choice_awards_nominees (id, category_id, awards_id, name, role, avatar, photo_url, video_url, order_index)
+            VALUES (${nomId}, ${catId}, ${GLOBAL_AWARDS_KEY}, ${nom.name || 'Nominee'}, ${nom.role || null}, ${nom.avatar || '⭐'}, ${photo}, ${video}, ${nIdx})
+          `
+        }
       }
-    }
 
-    const firstCatId = categories.length > 0 ? (categories[0].id || `cat_${Date.now()}_0`) : null
-    const firstCatEscaped = firstCatId ? `'${firstCatId}'` : 'NULL'
+      const firstCatId = categories.length > 0 ? (categories[0].id || `cat_${Date.now()}_0`) : null
 
-    await prisma.$executeRawUnsafe(
-      `UPDATE choice_awards_state 
-       SET active_category_id = COALESCE(active_category_id, ${firstCatEscaped}),
-           ceremony_category_id = COALESCE(ceremony_category_id, ${firstCatEscaped}),
-           updated_at = ${now} 
-       WHERE id = '${GLOBAL_AWARDS_KEY}'`
-    )
+      await tx.$executeRaw`
+        UPDATE choice_awards_state 
+        SET active_category_id = COALESCE(active_category_id, ${firstCatId}),
+            ceremony_category_id = COALESCE(ceremony_category_id, ${firstCatId}),
+            updated_at = ${now} 
+        WHERE id = ${GLOBAL_AWARDS_KEY}
+      `
+    })
   } catch (err) {
     console.error('Error saving Choice Awards categories:', err)
+    throw err
   }
 
   return await getChoiceAwards()
