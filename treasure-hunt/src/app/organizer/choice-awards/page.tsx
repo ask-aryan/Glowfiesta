@@ -1282,7 +1282,7 @@ export default function OrganizerChoiceAwardsPage() {
                       {!data?.ceremonyRevealed ? (
                         <div>
                           <div style={{ fontSize: 16, color: '#ffd9b8', marginBottom: 14 }}>
-                            Envelope is currently sealed. Big screen is showing suspense cards.
+                            ✉️ Golden Envelope is sealed on the live screen. Click below to open it!
                           </div>
                           <button
                             onClick={() => handleLiveAction('REVEAL_CEREMONY')}
@@ -1300,16 +1300,16 @@ export default function OrganizerChoiceAwardsPage() {
                               letterSpacing: '.02em',
                             }}
                           >
-                            🎉 REVEAL WINNER NOW! 🏆
+                            ✉️ OPEN GOLDEN ENVELOPE & REVEAL WINNER! 🏆
                           </button>
                         </div>
                       ) : (
                         <div>
                           <div style={{ fontSize: 18, color: '#86efac', fontWeight: 700, marginBottom: 8 }}>
-                            ✅ Results are revealed on the big screen!
+                            ✅ Golden Envelope is opened on the live screen!
                           </div>
                           <div style={{ color: '#cbd5e1', fontSize: 14, marginBottom: 14 }}>
-                            Audience and projector are displaying the winner and full vote transparency breakdown.
+                            Audience and projector are displaying the opened envelope, winner reveal, and vote breakdown.
                           </div>
                           <button
                             onClick={() => handleLiveAction('SET_CEREMONY_CATEGORY', { categoryId: currentCeremonyCat.id })}

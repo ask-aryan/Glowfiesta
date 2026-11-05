@@ -153,20 +153,6 @@ export default function ChoiceAwardsLivePreviewPage() {
 
   // Check if any nominee in active category has a video
   const hasVideos = Boolean(currentActiveCat?.nominees?.some(n => Boolean(n.videoUrl)))
-
-  // Ceremony reveal trigger (can also be clicked directly on preview screen)
-  async function triggerCeremonyReveal() {
-    playFanfare()
-    fireConfetti()
-    try {
-      await fetch('/api/choice-awards/live-control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'REVEAL_CEREMONY' }),
-      })
-    } catch {}
-  }
-
   const isCeremonyRevealed = Boolean(data?.ceremonyRevealed)
 
   return (
@@ -184,6 +170,31 @@ export default function ChoiceAwardsLivePreviewPage() {
         position: 'relative',
       }}
     >
+      {/* Oscars Golden Envelope Keyframe Styles */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes envelopeFloat {
+              0% { transform: translateY(0px) rotate(-0.3deg); }
+              50% { transform: translateY(-7px) rotate(0.3deg); }
+              100% { transform: translateY(0px) rotate(-0.3deg); }
+            }
+            @keyframes waxSealPulse {
+              0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 4px 18px rgba(239, 68, 68, 0.6); }
+              50% { transform: translate(-50%, -50%) scale(1.06); box-shadow: 0 6px 30px rgba(255, 200, 87, 0.8), 0 0 20px rgba(239, 68, 68, 0.9); }
+            }
+            @keyframes haloGlow {
+              0%, 100% { filter: drop-shadow(0 0 15px rgba(255, 200, 87, 0.4)); }
+              50% { filter: drop-shadow(0 0 35px rgba(255, 200, 87, 0.85)); }
+            }
+            @keyframes letterRise {
+              0% { transform: translateY(0px) scale(0.95); opacity: 0; }
+              40% { opacity: 1; }
+              100% { transform: translateY(-180px) scale(1.06); opacity: 1; }
+            }
+          `,
+        }}
+      />
       {/* Top Oscars Navigation Bar */}
       <div
         style={{
@@ -761,43 +772,140 @@ export default function ChoiceAwardsLivePreviewPage() {
                 ))}
               </div>
 
-              {/* Reveal Suspense Box */}
+              {/* THE 3D GOLDEN ENVELOPE (SEALED) */}
               <div
                 style={{
-                  background: 'linear-gradient(145deg, rgba(255,200,87,0.18), rgba(255,107,53,0.1))',
-                  border: '2px solid rgba(255,200,87,0.5)',
-                  borderRadius: 24,
-                  padding: '30px 24px',
-                  maxWidth: 600,
-                  margin: '0 auto',
-                  boxShadow: '0 10px 40px rgba(255,200,87,0.2)',
+                  position: 'relative',
+                  width: 480,
+                  maxWidth: '92vw',
+                  height: 280,
+                  margin: '24px auto 32px',
+                  perspective: 1200,
+                  animation: 'envelopeFloat 3.5s ease-in-out infinite',
                 }}
               >
-                <div style={{ fontSize: 48, marginBottom: 8 }}>✉️</div>
-                <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, fontWeight: 700, color: '#FFC857' }}>
-                  The Golden Envelope is Sealed
-                </div>
-                <div style={{ color: '#ffd9b8', fontSize: 14, marginTop: 4, marginBottom: 20 }}>
-                  Host will open the envelope to reveal the winner and official vote breakdown.
-                </div>
-
-                <button
-                  onClick={triggerCeremonyReveal}
+                {/* Envelope Back & Interior */}
+                <div
                   style={{
-                    padding: '14px 34px',
-                    borderRadius: 14,
-                    border: 0,
-                    background: 'linear-gradient(135deg, #FFC857, #FFA23A)',
-                    color: '#000',
-                    fontFamily: 'Fredoka, sans-serif',
-                    fontSize: 18,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    boxShadow: '0 6px 24px rgba(255,200,87,0.4)',
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: 18,
+                    overflow: 'hidden',
+                    boxShadow: '0 20px 60px rgba(0,0,0,0.6), 0 0 30px rgba(255,200,87,0.25)',
                   }}
                 >
-                  🎉 Click to Reveal Winner Now!
-                </button>
+                  <svg width="100%" height="100%" viewBox="0 0 480 280" style={{ display: 'block' }}>
+                    <defs>
+                      <linearGradient id="envGoldBackSealed" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#4a2800" />
+                        <stop offset="40%" stopColor="#805400" />
+                        <stop offset="100%" stopColor="#2b1400" />
+                      </linearGradient>
+                    </defs>
+                    <rect width="480" height="280" rx="18" fill="url(#envGoldBackSealed)" stroke="#FFE082" strokeWidth="2.5" />
+                  </svg>
+                </div>
+
+                {/* Envelope Front Pocket (Left, Right, Bottom folds) */}
+                <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none' }}>
+                  <svg width="100%" height="100%" viewBox="0 0 480 280" style={{ display: 'block' }}>
+                    <defs>
+                      <linearGradient id="envGoldLeftSealed" x1="0%" y1="0%" x2="100%" y2="50%">
+                        <stop offset="0%" stopColor="#ffd97d" />
+                        <stop offset="50%" stopColor="#e5b839" />
+                        <stop offset="100%" stopColor="#ba8b1e" />
+                      </linearGradient>
+                      <linearGradient id="envGoldRightSealed" x1="100%" y1="0%" x2="0%" y2="50%">
+                        <stop offset="0%" stopColor="#ffd97d" />
+                        <stop offset="50%" stopColor="#e5b839" />
+                        <stop offset="100%" stopColor="#ba8b1e" />
+                      </linearGradient>
+                      <linearGradient id="envGoldBottomSealed" x1="50%" y1="100%" x2="50%" y2="0%">
+                        <stop offset="0%" stopColor="#ffe699" />
+                        <stop offset="40%" stopColor="#f3c647" />
+                        <stop offset="100%" stopColor="#c8961d" />
+                      </linearGradient>
+                    </defs>
+                    <polygon points="0,0 240,140 0,280" fill="url(#envGoldLeftSealed)" opacity="0.95" />
+                    <polygon points="480,0 240,140 480,280" fill="url(#envGoldRightSealed)" opacity="0.95" />
+                    <polygon points="0,280 240,140 480,280" fill="url(#envGoldBottomSealed)" stroke="#FFE082" strokeWidth="1" />
+                  </svg>
+                </div>
+
+                {/* Top Flap (Closed with Wax Seal) */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: 145,
+                    zIndex: 6,
+                    filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.5))',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <svg width="100%" height="100%" viewBox="0 0 480 145" style={{ display: 'block' }}>
+                    <defs>
+                      <linearGradient id="envGoldFlapSealed" x1="50%" y1="0%" x2="50%" y2="100%">
+                        <stop offset="0%" stopColor="#fff3b0" />
+                        <stop offset="40%" stopColor="#f5c742" />
+                        <stop offset="100%" stopColor="#bf8915" />
+                      </linearGradient>
+                    </defs>
+                    <polygon points="0,0 240,140 480,0" fill="url(#envGoldFlapSealed)" stroke="#FFF2B2" strokeWidth="2" />
+                  </svg>
+
+                  {/* Crimson Wax Seal Stamp */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 140,
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      width: 60,
+                      height: 60,
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle at 35% 35%, #ef4444 0%, #b91c1c 65%, #7f1d1d 100%)',
+                      border: '2.5px solid #fca5a5',
+                      boxShadow: '0 4px 18px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,255,0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 28,
+                      color: '#FFD700',
+                      animation: 'waxSealPulse 2.5s infinite',
+                    }}
+                  >
+                    👑
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Notice: Waiting for Host to Open Envelope (NO reveal button) */}
+              <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    padding: '14px 32px',
+                    borderRadius: 999,
+                    background: 'linear-gradient(135deg, rgba(255,200,87,0.15) 0%, rgba(255,107,53,0.1) 100%)',
+                    border: '1.5px solid rgba(255,200,87,0.4)',
+                    boxShadow: '0 6px 24px rgba(255,200,87,0.15)',
+                  }}
+                >
+                  <span style={{ fontSize: 24, animation: 'haloGlow 2s infinite' }}>✉️</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 18, fontWeight: 700, color: '#FFC857' }}>
+                      The Golden Envelope is Sealed
+                    </div>
+                    <div style={{ fontSize: 13, color: '#ffd9b8' }}>
+                      Awaiting host to open envelope from the control panel...
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
@@ -812,6 +920,204 @@ export default function ChoiceAwardsLivePreviewPage() {
 
                 return (
                   <div>
+                    {/* OPENED 3D GOLDEN ENVELOPE (Flap flipped open, letter card elevated) */}
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: 480,
+                        maxWidth: '92vw',
+                        height: 280,
+                        margin: '180px auto 44px',
+                        perspective: 1200,
+                      }}
+                    >
+                      {/* Envelope Back & Interior */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          borderRadius: 18,
+                          overflow: 'hidden',
+                          boxShadow: '0 25px 70px rgba(255,200,87,0.35), 0 10px 30px rgba(0,0,0,0.7)',
+                        }}
+                      >
+                        <svg width="100%" height="100%" viewBox="0 0 480 280" style={{ display: 'block' }}>
+                          <defs>
+                            <linearGradient id="envGoldBackOpen" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#4a2800" />
+                              <stop offset="40%" stopColor="#805400" />
+                              <stop offset="100%" stopColor="#2b1400" />
+                            </linearGradient>
+                          </defs>
+                          <rect width="480" height="280" rx="18" fill="url(#envGoldBackOpen)" stroke="#FFE082" strokeWidth="2.5" />
+                        </svg>
+                      </div>
+
+                      {/* Inside Award Card (Glided up out of the envelope) */}
+                      {winner && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: 18,
+                            left: 24,
+                            right: 24,
+                            height: 244,
+                            background: 'linear-gradient(145deg, #240c35 0%, #11021c 100%)',
+                            border: '2.5px solid #FFC857',
+                            borderRadius: 16,
+                            padding: '16px 20px',
+                            boxSizing: 'border-box',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            animation: 'letterRise 1.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                            boxShadow: '0 16px 50px rgba(255,200,87,0.55), 0 0 35px rgba(255,107,53,0.35)',
+                            zIndex: 5,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 900,
+                              color: '#FFC857',
+                              letterSpacing: '.14em',
+                              textTransform: 'uppercase',
+                              marginBottom: 6,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                          >
+                            <span>🏆</span>
+                            <span>OFFICIAL WINNER</span>
+                            <span>🏆</span>
+                          </div>
+
+                          {winner.photoUrl ? (
+                            <img
+                              src={winner.photoUrl}
+                              alt={winner.name}
+                              style={{
+                                width: 74,
+                                height: 74,
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                border: '3px solid #FFC857',
+                                boxShadow: '0 4px 16px rgba(255,200,87,0.5)',
+                                marginBottom: 8,
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: 74,
+                                height: 74,
+                                borderRadius: '50%',
+                                background: 'rgba(255,200,87,0.2)',
+                                border: '3px solid #FFC857',
+                                display: 'grid',
+                                placeItems: 'center',
+                                fontSize: 36,
+                                marginBottom: 8,
+                              }}
+                            >
+                              {winner.avatar || '⭐'}
+                            </div>
+                          )}
+
+                          <div
+                            style={{
+                              fontFamily: 'Fredoka, sans-serif',
+                              fontSize: 'clamp(20px, 3vw, 26px)',
+                              fontWeight: 800,
+                              color: '#fff',
+                              textShadow: '0 2px 10px rgba(255,200,87,0.6)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: '100%',
+                            }}
+                          >
+                            {winner.name}
+                          </div>
+
+                          {winner.role && (
+                            <div style={{ fontSize: 13, color: '#ffd9b8', marginTop: 2 }}>{winner.role}</div>
+                          )}
+
+                          <div
+                            style={{
+                              marginTop: 8,
+                              fontSize: 12,
+                              fontWeight: 800,
+                              color: '#86efac',
+                              background: 'rgba(34,197,94,0.15)',
+                              border: '1px solid rgba(34,197,94,0.3)',
+                              padding: '2px 14px',
+                              borderRadius: 999,
+                            }}
+                          >
+                            👑 {winner.votesCount} Votes ({winner.percentage}%)
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Envelope Front Pocket (Left, Right, Bottom folds) */}
+                      <div style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none' }}>
+                        <svg width="100%" height="100%" viewBox="0 0 480 280" style={{ display: 'block' }}>
+                          <defs>
+                            <linearGradient id="envGoldLeftOpen" x1="0%" y1="0%" x2="100%" y2="50%">
+                              <stop offset="0%" stopColor="#ffd97d" />
+                              <stop offset="50%" stopColor="#e5b839" />
+                              <stop offset="100%" stopColor="#ba8b1e" />
+                            </linearGradient>
+                            <linearGradient id="envGoldRightOpen" x1="100%" y1="0%" x2="0%" y2="50%">
+                              <stop offset="0%" stopColor="#ffd97d" />
+                              <stop offset="50%" stopColor="#e5b839" />
+                              <stop offset="100%" stopColor="#ba8b1e" />
+                            </linearGradient>
+                            <linearGradient id="envGoldBottomOpen" x1="50%" y1="100%" x2="50%" y2="0%">
+                              <stop offset="0%" stopColor="#ffe699" />
+                              <stop offset="40%" stopColor="#f3c647" />
+                              <stop offset="100%" stopColor="#c8961d" />
+                            </linearGradient>
+                          </defs>
+                          <polygon points="0,0 240,140 0,280" fill="url(#envGoldLeftOpen)" opacity="0.95" />
+                          <polygon points="480,0 240,140 480,280" fill="url(#envGoldRightOpen)" opacity="0.95" />
+                          <polygon points="0,280 240,140 480,280" fill="url(#envGoldBottomOpen)" stroke="#FFE082" strokeWidth="1" />
+                        </svg>
+                      </div>
+
+                      {/* Top Flap (Flipped backwards - opened!) */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: 145,
+                          transformOrigin: 'top center',
+                          transform: 'rotateX(180deg)',
+                          zIndex: 2,
+                          filter: 'drop-shadow(0 -4px 10px rgba(0,0,0,0.4))',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        <svg width="100%" height="100%" viewBox="0 0 480 145" style={{ display: 'block' }}>
+                          <defs>
+                            <linearGradient id="envGoldFlapOpen" x1="50%" y1="0%" x2="50%" y2="100%">
+                              <stop offset="0%" stopColor="#fff3b0" />
+                              <stop offset="40%" stopColor="#f5c742" />
+                              <stop offset="100%" stopColor="#bf8915" />
+                            </linearGradient>
+                          </defs>
+                          <polygon points="0,0 240,140 480,0" fill="url(#envGoldFlapOpen)" stroke="#FFF2B2" strokeWidth="2" />
+                        </svg>
+                      </div>
+                    </div>
+
                     {/* Grand Winner Trophy Banner */}
                     <div
                       style={{
