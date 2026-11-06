@@ -248,22 +248,6 @@ export default function ChoiceAwardsLivePreviewPage() {
           >
             {isFullscreen ? '⤢ Exit Fullscreen' : '⤢ Fullscreen (F)'}
           </button>
-
-          <Link
-            href="/organizer/choice-awards"
-            style={{
-              padding: '8px 16px',
-              borderRadius: 10,
-              background: 'rgba(255,200,87,0.15)',
-              border: '1px solid rgba(255,200,87,0.4)',
-              color: '#FFC857',
-              fontSize: 13,
-              fontWeight: 700,
-              textDecoration: 'none',
-            }}
-          >
-            ⚙️ Host Control
-          </Link>
         </div>
       </div>
 
