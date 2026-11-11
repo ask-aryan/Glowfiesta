@@ -8,7 +8,7 @@ export async function GET() {
 
   const team = await prisma.team.findUnique({
     where: { id: session!.teamId },
-    include: { event: { select: { status: true, name: true, stagesPerTeam: true } } },
+    include: { event: { select: { status: true, name: true, stagesPerTeam: true, clueMode: true } } },
   })
 
   if (!team) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
@@ -25,6 +25,7 @@ export async function GET() {
     eventStatus: team.event.status,
     eventName: team.event.name,
     stagesPerTeam: team.event.stagesPerTeam,
+    clueMode: team.event.clueMode ?? 'QR_CODE',
     stages: stageProgress.map(p => ({
       stageNumber: p.stageNumber,
       status: p.status,

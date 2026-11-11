@@ -26,6 +26,7 @@ async function getTeamInfo(teamId: number) {
           maxHintsPerTeam: true,
           hintDelayMinutes: true,
           startsAt: true,
+          clueMode: true,
         },
       },
       stageProgress: { orderBy: { stageNumber: 'asc' } },
@@ -460,7 +461,13 @@ export default async function PlayerPage() {
               ⏳ AT RECEPTION DESK
             </div>
           ) : (
-            <ScanQrButton isLive={isLive} isPaused={isPaused} eventStatus={team.event.status} isFinal={isFinalClueStage} />
+            <ScanQrButton
+              isLive={isLive}
+              isPaused={isPaused}
+              eventStatus={team.event.status}
+              isFinal={isFinalClueStage}
+              clueMode={team.event.clueMode}
+            />
           )}
         </div>
       )}

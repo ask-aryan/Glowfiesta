@@ -1,6 +1,20 @@
-import { generateToken, hashToken, buildScanUrl } from '@/lib/qr'
+import { generateToken, hashToken, buildScanUrl, generateSixCharCode } from '@/lib/qr'
 
 describe('QR lib', () => {
+  test('generateSixCharCode returns 6-char uppercase alphanumeric string', () => {
+    const code = generateSixCharCode()
+    expect(code).toHaveLength(6)
+    expect(code).toMatch(/^[2-9A-HJ-NP-Z]{6}$/)
+  })
+
+  test('generateSixCharCode produces unique codes across calls', () => {
+    const set = new Set<string>()
+    for (let i = 0; i < 50; i++) {
+      set.add(generateSixCharCode())
+    }
+    expect(set.size).toBe(50)
+  })
+
   test('generateToken returns 64-char hex string', () => {
     const token = generateToken()
     expect(token).toHaveLength(64)

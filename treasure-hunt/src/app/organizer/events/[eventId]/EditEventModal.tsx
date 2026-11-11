@@ -9,6 +9,7 @@ interface Props {
     description?: string | null
     status: string
     gameType: string
+    clueMode?: string
     teamCount: number
     stagesPerTeam: number
     membersPerTeam?: number | null
@@ -34,6 +35,7 @@ export default function EditEventModal({
   const [form, setForm] = useState({
     name: initialData.name,
     description: initialData.description || '',
+    clueMode: (initialData.clueMode as 'QR_CODE' | 'CODE') || 'QR_CODE',
     teamCount: initialData.teamCount,
     stagesPerTeam: initialData.stagesPerTeam,
     membersPerTeam: initialData.membersPerTeam || 4,
@@ -65,6 +67,7 @@ export default function EditEventModal({
     setForm({
       name: initialData.name,
       description: initialData.description || '',
+      clueMode: (initialData.clueMode as 'QR_CODE' | 'CODE') || 'QR_CODE',
       teamCount: initialData.teamCount,
       stagesPerTeam: initialData.stagesPerTeam,
       membersPerTeam: initialData.membersPerTeam || 4,
@@ -100,6 +103,7 @@ export default function EditEventModal({
       payload.teamCount = Number(form.teamCount)
       payload.membersPerTeam = Number(form.membersPerTeam)
       if (!isScoreGame) {
+        payload.clueMode = form.clueMode
         payload.stagesPerTeam = Number(form.stagesPerTeam)
         payload.hasCommonFinalQr = Boolean(form.hasCommonFinalQr)
       }
@@ -334,6 +338,56 @@ export default function EditEventModal({
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', color: '#475569', textTransform: 'uppercase', marginBottom: 12 }}>
                     Event Structure & Configuration
                   </div>
+
+                  {!isScoreGame && (
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 6 }}>
+                        CLUE CHECK-IN MODE
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, clueMode: 'QR_CODE' }))}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '8px 12px',
+                            borderRadius: 8,
+                            border: `2px solid ${form.clueMode === 'QR_CODE' ? '#FF6B35' : '#cbd5e1'}`,
+                            background: form.clueMode === 'QR_CODE' ? '#fff7ed' : '#fff',
+                            cursor: 'pointer',
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            color: form.clueMode === 'QR_CODE' ? '#c2410c' : '#334155',
+                          }}
+                        >
+                          <span>📱</span>
+                          <span>QR Code Scan</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, clueMode: 'CODE' }))}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '8px 12px',
+                            borderRadius: 8,
+                            border: `2px solid ${form.clueMode === 'CODE' ? '#FF6B35' : '#cbd5e1'}`,
+                            background: form.clueMode === 'CODE' ? '#fff7ed' : '#fff',
+                            cursor: 'pointer',
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            color: form.clueMode === 'CODE' ? '#c2410c' : '#334155',
+                          }}
+                        >
+                          <span>🔢</span>
+                          <span>6-Char Code</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div style={{ display: 'grid', gridTemplateColumns: isScoreGame ? '1fr 1fr' : '1fr 1fr', gap: 12, marginBottom: 12 }}>
                     <div>

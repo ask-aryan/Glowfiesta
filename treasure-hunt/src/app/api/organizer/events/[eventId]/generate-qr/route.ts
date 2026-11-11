@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireOrganizer } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { generateToken, hashToken } from '@/lib/qr'
+import { generateToken, hashToken, generateSixCharCode } from '@/lib/qr'
 
 export async function POST(
   req: NextRequest,
@@ -34,7 +34,7 @@ export async function POST(
     const repClue = event.clues[0]
     if (!repClue) return NextResponse.json({ error: 'Add at least one clue before generating QR' }, { status: 400 })
 
-    const token = `fun_diwali_${generateToken().substring(0, 36)}`
+    const token = generateSixCharCode()
     await prisma.qrCode.create({
       data: {
         eventId,
@@ -59,6 +59,22 @@ export async function POST(
     await prisma.qrCode.deleteMany({ where: { eventId } })
   }
 
+  const isCodeMode = event.clueMode === 'CODE'
+
+  // Pre-fetch any existing token_hashes so we never collide
+  const existingTokens = new Set(
+    (await prisma.qrCode.findMany({ select: { tokenHash: true } })).map(q => q.tokenHash.toUpperCase())
+  )
+
+  function getUniqueCode(): string {
+    let code = generateSixCharCode()
+    while (existingTokens.has(code)) {
+      code = generateSixCharCode()
+    }
+    existingTokens.add(code)
+    return code
+  }
+
   const stageClues = event.clues.filter(c => !c.isCommonFinal)
   const commonFinalClue = event.clues.find(c => c.isCommonFinal)
 
@@ -80,12 +96,11 @@ export async function POST(
 
   let displayCounter = 1
 
-  // 1. One QR per stage per team
+  // 1. One QR / code per stage per team
   for (const team of event.teams) {
     for (const stageNum of stageNumbers) {
       const representativeClue = stageClues.find(c => c.stageNumber === stageNum)!
-      const token = generateToken()
-      const tokenHash = hashToken(token)
+      const tokenHash = getUniqueCode()
       qrCodeData.push({
         eventId,
         clueId: representativeClue.id,
@@ -98,10 +113,9 @@ export async function POST(
     }
   }
 
-  // 2. Common final QR (one shared for all teams)
+  // 2. Common final QR / code (one shared for all teams)
   if (event.hasCommonFinalQr && commonFinalClue) {
-    const token = generateToken()
-    const tokenHash = hashToken(token)
+    const tokenHash = getUniqueCode()
     qrCodeData.push({
       eventId,
       clueId: commonFinalClue.id,
@@ -113,12 +127,12 @@ export async function POST(
     })
   }
 
-  // 3. Fun Dummy Diwali QRs (Decoys)
-  // Automatically generate 3 festive Diwali dummy QRs for fun surprises!
+  // 3. Fun Dummy Diwali Decoys
+  // Automatically generate 3 festive Diwali dummy clues for fun surprises!
   const repClue = stageClues[0] || commonFinalClue || event.clues[0]
   if (repClue) {
     for (let d = 1; d <= 3; d++) {
-      const token = `fun_diwali_${generateToken().substring(0, 36)}`
+      const token = getUniqueCode()
       qrCodeData.push({
         eventId,
         clueId: repClue.id,

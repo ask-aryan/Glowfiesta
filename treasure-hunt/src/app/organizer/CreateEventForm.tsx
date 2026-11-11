@@ -6,6 +6,7 @@ export default function CreateEventPanel() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [gameType, setGameType] = useState<'TREASURE_HUNT' | 'QUIZ' | 'FUNTAKSHARI'>('TREASURE_HUNT')
+  const [clueMode, setClueMode] = useState<'QR_CODE' | 'CODE'>('QR_CODE')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [teamCount, setTeamCount] = useState(4)
@@ -25,6 +26,7 @@ export default function CreateEventPanel() {
       name,
       description,
       gameType,
+      clueMode: gameType === 'TREASURE_HUNT' ? clueMode : 'QR_CODE',
       teamCount,
       membersPerTeam,
       stagesPerTeam: gameType === 'TREASURE_HUNT' ? stagesPerTeam : 0,
@@ -231,6 +233,55 @@ export default function CreateEventPanel() {
               {gameType === 'TREASURE_HUNT' && (
                 <>
                   <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
+                    <label style={labelStyle}>Clue Check-in Mode</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                      <button
+                        type="button"
+                        onClick={() => setClueMode('QR_CODE')}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '12px 10px',
+                          borderRadius: 10,
+                          border: `2px solid ${clueMode === 'QR_CODE' ? '#FF6B35' : '#e2e8f0'}`,
+                          background: clueMode === 'QR_CODE' ? '#fff7ed' : '#fff',
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          transition: 'all .15s ease',
+                        }}
+                      >
+                        <span style={{ fontSize: 22 }}>📱</span>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: clueMode === 'QR_CODE' ? '#c2410c' : '#1e293b' }}>QR Code Scanning</div>
+                        <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.25 }}>Players scan printed QR via camera</div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setClueMode('CODE')}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '12px 10px',
+                          borderRadius: 10,
+                          border: `2px solid ${clueMode === 'CODE' ? '#FF6B35' : '#e2e8f0'}`,
+                          background: clueMode === 'CODE' ? '#fff7ed' : '#fff',
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          transition: 'all .15s ease',
+                        }}
+                      >
+                        <span style={{ fontSize: 22 }}>🔢</span>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: clueMode === 'CODE' ? '#c2410c' : '#1e293b' }}>6-Character Code</div>
+                        <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.25 }}>Players enter 6-char code per clue</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
                     <label style={labelStyle}>Stages per Team <span style={{ color: '#FF6B35' }}>*</span></label>
                     <input
                       type="number"

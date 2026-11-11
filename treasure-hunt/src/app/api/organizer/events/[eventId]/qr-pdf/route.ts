@@ -98,36 +98,105 @@ export async function GET(
       .text(stageLabel, x + 6, y + 21, { width: cardWidth - 12, align: 'center', ellipsis: true })
 
     // Display number (organizer reference)
+    const isCodeMode = event.clueMode === 'CODE'
     doc
       .fontSize(7)
       .font('Helvetica')
       .fillColor('#6b7280')
-      .text(`QR #${qr.displayNumber}`, x + 6, y + 32, { width: cardWidth - 12, align: 'center' })
+      .text(`${isCodeMode ? 'CODE' : 'QR'} #${qr.displayNumber}`, x + 6, y + 32, { width: cardWidth - 12, align: 'center' })
 
-    // Generate QR image — encode tokenHash in the URL
-    try {
-      const scanUrl = buildScanUrl(qr.tokenHash, requestBaseUrl)
-      const dataUrl = await generateQrDataUrl(scanUrl)
-      const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '')
-      const imgBuffer = Buffer.from(base64Data, 'base64')
+    if (isCodeMode) {
+      const boxWidth = cardWidth - 20
+      const boxHeight = 90
+      const boxX = x + 10
+      const boxY = y + 50
 
-      const qrSize = Math.min(cardWidth - 20, 155)
-      const qrX = x + (cardWidth - qrSize) / 2
-      const qrY = y + 44
-
-      doc.image(imgBuffer, qrX, qrY, { width: qrSize, height: qrSize })
-
-      // Clean footer label
+      // Background rounded passcode badge
       doc
-        .fontSize(6)
+        .roundedRect(boxX, boxY, boxWidth, boxHeight, 8)
+        .lineWidth(1.2)
+        .fillAndStroke(isFunDiwali ? '#FEF3C7' : '#FFF7ED', isFunDiwali ? '#F59E0B' : '#FF6B35')
+
+      doc
+        .fontSize(8)
+        .font('Helvetica-Bold')
+        .fillColor(isFunDiwali ? '#B45309' : '#C2410C')
+        .text(isFunDiwali ? 'SURPRISE PASSCODE' : 'CLUE PASSCODE', boxX, boxY + 14, { width: boxWidth, align: 'center' })
+
+      doc
+        .fontSize(28)
+        .font('Courier-Bold')
+        .fillColor('#111827')
+        .text(qr.tokenHash, boxX, boxY + 32, { width: boxWidth, align: 'center', characterSpacing: 4 })
+
+      doc
+        .fontSize(7)
         .font('Helvetica')
-        .fillColor('#9ca3af')
-        .text('Scan with GlowFiesta Camera', x + 6, qrY + qrSize + 3, {
+        .fillColor(isFunDiwali ? '#B45309' : '#9A3412')
+        .text(isFunDiwali ? 'Festive Diwali Decoy Code' : 'Enter 6-char code in your team dashboard', x + 6, boxY + boxHeight + 14, {
           width: cardWidth - 12,
           align: 'center',
         })
-    } catch (err) {
-      console.warn('Notice: PDF QR image generation error:', err)
+    } else {
+      // Generate QR image — encode tokenHash in the URL
+      try {
+        const scanUrl = buildScanUrl(qr.tokenHash, requestBaseUrl)
+        const dataUrl = await generateQrDataUrl(scanUrl)
+        const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '')
+        const imgBuffer = Buffer.from(base64Data, 'base64')
+
+        const qrSize = Math.min(cardWidth - 30, 132)
+        const qrX = x + (cardWidth - qrSize) / 2
+        const qrY = y + 40
+
+        doc.image(imgBuffer, qrX, qrY, { width: qrSize, height: qrSize })
+
+        // Fallback Passcode Box printed directly on every QR card
+        const isShortCode = qr.tokenHash.length <= 8
+        if (isShortCode) {
+          const codeBoxWidth = cardWidth - 28
+          const codeBoxHeight = 28
+          const codeBoxX = x + 14
+          const codeBoxY = qrY + qrSize + 4
+
+          doc
+            .roundedRect(codeBoxX, codeBoxY, codeBoxWidth, codeBoxHeight, 6)
+            .lineWidth(0.9)
+            .fillAndStroke(isFunDiwali ? '#FEF3C7' : '#FFF7ED', isFunDiwali ? '#F59E0B' : '#FF6B35')
+
+          doc
+            .fontSize(6.5)
+            .font('Helvetica-Bold')
+            .fillColor(isFunDiwali ? '#B45309' : '#C2410C')
+            .text(isFunDiwali ? 'DECOY CODE:' : 'CLUE PASSCODE:', codeBoxX, codeBoxY + 5, { width: codeBoxWidth, align: 'center' })
+
+          doc
+            .fontSize(13)
+            .font('Courier-Bold')
+            .fillColor('#111827')
+            .text(qr.tokenHash, codeBoxX, codeBoxY + 13, { width: codeBoxWidth, align: 'center', characterSpacing: 2.5 })
+
+          doc
+            .fontSize(6)
+            .font('Helvetica')
+            .fillColor('#64748b')
+            .text('Scan QR or enter 6-char code in app', x + 6, codeBoxY + codeBoxHeight + 5, {
+              width: cardWidth - 12,
+              align: 'center',
+            })
+        } else {
+          doc
+            .fontSize(6)
+            .font('Helvetica')
+            .fillColor('#9ca3af')
+            .text('Scan with GlowFiesta Camera', x + 6, qrY + qrSize + 4, {
+              width: cardWidth - 12,
+              align: 'center',
+            })
+        }
+      } catch (err) {
+        console.warn('Notice: PDF QR image generation error:', err)
+      }
     }
   }
 
@@ -141,7 +210,7 @@ export async function GET(
   return new NextResponse(pdfBuffer as any, {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="qr-codes-3x3-${event.name.toLowerCase().replace(/\s+/g, '-')}.pdf"`,
+      'Content-Disposition': `attachment; filename="${event.clueMode === 'CODE' ? 'clue-codes' : 'qr-codes'}-3x3-${event.name.toLowerCase().replace(/\s+/g, '-')}.pdf"`,
       'Content-Length': String(pdfBuffer.length),
       'Cache-Control': 'no-store, no-cache, must-revalidate',
     },

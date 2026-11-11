@@ -47,11 +47,18 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // Look up QrCode by direct tokenHash or hash of raw token
+  // Look up QrCode by direct tokenHash or hash of raw token (supports 6-character codes and 64-char QR hashes)
   let qrCode = await prisma.qrCode.findUnique({
     where: { tokenHash: cleanToken },
     include: { event: true, assignedTeam: true },
   })
+
+  if (!qrCode && cleanToken !== cleanToken.toUpperCase()) {
+    qrCode = await prisma.qrCode.findUnique({
+      where: { tokenHash: cleanToken.toUpperCase() },
+      include: { event: true, assignedTeam: true },
+    })
+  }
 
   if (!qrCode) {
     const tokenHash = hashToken(cleanToken)

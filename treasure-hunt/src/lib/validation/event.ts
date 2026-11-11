@@ -4,6 +4,7 @@ export const createEventSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().optional(),
   gameType: z.enum(['TREASURE_HUNT', 'QUIZ', 'FUNTAKSHARI']).default('TREASURE_HUNT'),
+  clueMode: z.enum(['QR_CODE', 'CODE']).default('QR_CODE'),
   teamCount: z.number().int().min(1).max(50),
   stagesPerTeam: z.number().int().min(0).max(20).default(5),
   membersPerTeam: z.number().int().min(1).max(50).default(4),
@@ -17,6 +18,7 @@ export const createEventSchema = z.object({
 export const updateEventSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().optional().nullable(),
+  clueMode: z.enum(['QR_CODE', 'CODE']).optional(),
   teamCount: z.number().int().min(1).max(50).optional(),
   stagesPerTeam: z.number().int().min(0).max(20).optional(),
   membersPerTeam: z.number().int().min(1).max(50).optional(),

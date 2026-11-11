@@ -33,6 +33,7 @@ model Event {
   name             String              @db.VarChar(200)
   description      String?             @db.Text
   gameType         String              @default("TREASURE_HUNT") @map("game_type") @db.VarChar(50)
+  clueMode         String              @default("QR_CODE") @map("clue_mode") @db.VarChar(20)
   teamCount        Int                 @map("team_count")
   stagesPerTeam    Int                 @default(5) @map("stages_per_team")
   membersPerTeam   Int                 @default(4) @map("members_per_team")

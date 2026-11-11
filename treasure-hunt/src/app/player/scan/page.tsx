@@ -49,7 +49,7 @@ interface ScanResult {
 }
 
 // ── Selfie screen ──────────────────────────────────────────────────────────
-function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void }) {
+function SelfieScreen({ onConfirm, isCodeMode = false }: { onConfirm: (imageData: string) => void; isCodeMode?: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [preview, setPreview] = useState(false)
@@ -183,7 +183,9 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
 
       <div style={{ textAlign: 'center', padding: '0 32px' }}>
         <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 22, lineHeight: 1.2 }}>Everyone in the frame! 📸</div>
-        <div style={{ fontSize: 13, color: '#ffd9b8', marginTop: 6 }}>Selfie is mandatory before each QR scan.</div>
+        <div style={{ fontSize: 13, color: '#ffd9b8', marginTop: 6 }}>
+          {isCodeMode ? 'Selfie is mandatory before entering your clue code.' : 'Selfie is mandatory before each QR scan.'}
+        </div>
       </div>
 
       {camError ? (
@@ -274,7 +276,7 @@ function SelfieScreen({ onConfirm }: { onConfirm: (imageData: string) => void })
                       <span>Saving selfie…</span>
                     </>
                   ) : (
-                    'Use selfie & Scan QR'
+                    isCodeMode ? 'Use selfie & Enter Code' : 'Use selfie & Scan QR'
                   )}
                 </button>
                 <button onClick={retake} disabled={uploading} style={{ background: 'none', border: 0, color: '#ffd9b8', fontSize: 14, cursor: 'pointer', padding: 6 }}>Retake</button>
@@ -296,9 +298,26 @@ function ScanPageInner() {
   const [result, setResult] = useState<ScanResult | null>(null)
   const [scanning, setScanning] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [clueMode, setClueMode] = useState<string>('QR_CODE')
+  const [isManualEntry, setIsManualEntry] = useState(false)
+  const [manualCode, setManualCode] = useState('')
   const isHandlingRef = useRef(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scannerInstanceRef = useRef<any>(null)
+
+  useEffect(() => {
+    fetch('/api/player/progress')
+      .then(res => res.json())
+      .then(data => {
+        if (data.clueMode) {
+          setClueMode(data.clueMode)
+          if (data.clueMode === 'CODE') {
+            setIsManualEntry(true)
+          }
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   async function stopScanner(instance: any) {
     if (!instance) return
@@ -471,7 +490,7 @@ function ScanPageInner() {
 
   // Start QR scanner after selfie done
   useEffect(() => {
-    if (!selfieDone || result || tokenFromUrl) return
+    if (!selfieDone || result || tokenFromUrl || isManualEntry || clueMode === 'CODE') return
     isHandlingRef.current = false
     let isCancelled = false
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -552,12 +571,13 @@ function ScanPageInner() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selfieDone, result, tokenFromUrl])
+  }, [selfieDone, result, tokenFromUrl, isManualEntry, clueMode])
 
   // Mandatory selfie screen first (even if token is passed via external QR scan)
   if (!selfieDone) {
     return (
       <SelfieScreen
+        isCodeMode={clueMode === 'CODE'}
         onConfirm={() => {
           setSelfieDone(true)
           if (tokenFromUrl) {
@@ -692,7 +712,7 @@ function ScanPageInner() {
           </div>
 
           <button
-            onClick={() => { setResult(null); setSelfieDone(false) }}
+            onClick={() => { setResult(null); setManualCode('') }}
             style={{
               width: '100%',
               maxWidth: 300,
@@ -709,7 +729,7 @@ function ScanPageInner() {
               marginBottom: 14,
             }}
           >
-            Keep Hunting 🔍
+            {isManualEntry || clueMode === 'CODE' ? 'Try Another Code 🔢' : 'Keep Hunting 🔍'}
           </button>
           <Link href="/player" style={{ color: '#ffd9b8', fontSize: 14 }}>Back to Dashboard</Link>
         </div>
@@ -804,7 +824,7 @@ function ScanPageInner() {
         )}
 
         <button
-          onClick={() => { setResult(null); setSelfieDone(false) }}
+          onClick={() => { setResult(null); setManualCode('') }}
           style={{
             width: '100%',
             maxWidth: 300,
@@ -821,9 +841,162 @@ function ScanPageInner() {
             marginBottom: 14,
           }}
         >
-          Scan Again 📷
+          {isManualEntry || clueMode === 'CODE' ? 'Try Another Code 🔢' : 'Scan Again 📷'}
         </button>
         <Link href="/player" style={{ color: '#ffd9b8', fontSize: 14 }}>Back to Dashboard</Link>
+      </div>
+    )
+  }
+
+  // 6-Character Manual Code Entry view (Primary in CODE mode, or fallback in QR_CODE mode)
+  if (clueMode === 'CODE' || isManualEntry) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'radial-gradient(ellipse at 50% 35%,#2a1238,#0a0414 75%)', display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '16px 18px' }}>
+          <button
+            onClick={() => setSelfieDone(false)}
+            aria-label="Back to selfie"
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 14,
+              border: '1.5px solid rgba(255,255,255,0.22)',
+              background: 'rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(10px)',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+              transition: 'all .15s ease',
+            }}
+          >
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <div style={{ flex: 1, textAlign: 'center', fontFamily: 'Fredoka, sans-serif', fontSize: 19, marginRight: 42, fontWeight: 700 }}>
+            Enter Clue Code
+          </div>
+        </div>
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', maxWidth: 420, margin: '0 auto', width: '100%' }}>
+          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(255,200,87,0.2), rgba(255,107,53,0.25))', border: '2px solid #FFC857', display: 'grid', placeItems: 'center', fontSize: 34, marginBottom: 18, boxShadow: '0 0 25px rgba(255,200,87,0.35)' }}>
+            🔢
+          </div>
+
+          <div style={{ fontFamily: 'Fredoka, sans-serif', fontSize: 24, fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>
+            Enter 6-Character Passcode
+          </div>
+          <div style={{ fontSize: 13, color: '#ffd9b8', textAlign: 'center', maxWidth: 280, marginBottom: 26, lineHeight: 1.4 }}>
+            Look at the card at your clue location for the unique 6-character code.
+          </div>
+
+          <form
+            onSubmit={e => {
+              e.preventDefault()
+              const clean = manualCode.trim().toUpperCase()
+              if (clean.length > 0) submitToken(clean)
+            }}
+            style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}
+          >
+            <div style={{ position: 'relative', width: '100%' }}>
+              <input
+                type="text"
+                autoFocus
+                maxLength={6}
+                value={manualCode}
+                onChange={e => setManualCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                placeholder="••••••"
+                style={{
+                  width: '100%',
+                  height: 64,
+                  borderRadius: 18,
+                  border: '2.5px solid #FFC857',
+                  background: 'rgba(255,255,255,0.08)',
+                  backdropFilter: 'blur(10px)',
+                  color: '#FFC857',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontWeight: 800,
+                  fontSize: 32,
+                  textAlign: 'center',
+                  letterSpacing: '0.28em',
+                  outline: 'none',
+                  boxShadow: '0 0 24px rgba(255,200,87,0.3), inset 0 2px 8px rgba(0,0,0,0.3)',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              {Array.from({ length: 6 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: idx < manualCode.length ? '#FFC857' : 'rgba(255,255,255,0.2)',
+                    boxShadow: idx < manualCode.length ? '0 0 8px #FFC857' : 'none',
+                    transition: 'all .2s ease',
+                  }}
+                />
+              ))}
+            </div>
+
+            <button
+              type="submit"
+              disabled={manualCode.length !== 6 || submitting}
+              style={{
+                width: '100%',
+                height: 56,
+                marginTop: 8,
+                borderRadius: 16,
+                border: 0,
+                background: manualCode.length === 6
+                  ? 'linear-gradient(135deg,#FFA23A,#FF6B35 60%,#e8431a)'
+                  : 'rgba(255,255,255,0.12)',
+                color: '#fff',
+                fontFamily: 'Fredoka, sans-serif',
+                fontWeight: 700,
+                fontSize: 18,
+                cursor: manualCode.length === 6 ? 'pointer' : 'not-allowed',
+                boxShadow: manualCode.length === 6 ? '0 8px 28px rgba(255,107,53,.5)' : 'none',
+                opacity: manualCode.length === 6 ? 1 : 0.5,
+                transition: 'all .2s ease',
+              }}
+            >
+              Verify Passcode 🚀
+            </button>
+          </form>
+
+          {clueMode === 'QR_CODE' && (
+            <button
+              type="button"
+              onClick={() => setIsManualEntry(false)}
+              style={{
+                marginTop: 22,
+                background: 'transparent',
+                border: 0,
+                color: '#ffd9b8',
+                fontSize: 13,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span>📷 Switch to Camera Scanner</span>
+            </button>
+          )}
+
+          <div style={{ marginTop: 18 }}>
+            <Link href="/player" style={{ color: '#8b7fa8', fontSize: 13, textDecoration: 'none' }}>
+              ← Return to Dashboard
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
@@ -902,31 +1075,54 @@ function ScanPageInner() {
             Keep the QR code inside the golden brackets
           </div>
 
-          {cameraList.length > 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 14 }}>
+            {cameraList.length > 1 && (
+              <button
+                onClick={handleSwitchCamera}
+                disabled={isSwitching}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: 999,
+                  background: 'rgba(255,255,255,0.12)',
+                  border: '1.5px solid rgba(255,200,87,0.5)',
+                  color: '#FFC857',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: isSwitching ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                  transition: 'all .15s ease',
+                }}
+              >
+                <span style={{ fontSize: 16 }}>🔄</span>
+                <span>{isSwitching ? 'Switching…' : `Switch Lens (${cameraList.findIndex(c => c.id === selectedCameraId) + 1}/${cameraList.length})`}</span>
+              </button>
+            )}
+
             <button
-              onClick={handleSwitchCamera}
-              disabled={isSwitching}
+              type="button"
+              onClick={() => {
+                stopScanner(scannerInstanceRef.current)
+                setIsManualEntry(true)
+              }}
               style={{
-                marginTop: 14,
-                padding: '8px 20px',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.2)',
                 borderRadius: 999,
-                background: 'rgba(255,255,255,0.12)',
-                border: '1.5px solid rgba(255,200,87,0.5)',
-                color: '#FFC857',
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: isSwitching ? 'not-allowed' : 'pointer',
+                padding: '7px 16px',
+                color: '#ffd9b8',
+                fontSize: 12,
+                cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                transition: 'all .15s ease',
               }}
             >
-              <span style={{ fontSize: 16 }}>🔄</span>
-              <span>{isSwitching ? 'Switching…' : `Switch Lens (${cameraList.findIndex(c => c.id === selectedCameraId) + 1}/${cameraList.length})`}</span>
+              <span>⌨️ Having trouble scanning? Enter 6-char code</span>
             </button>
-          )}
+          </div>
         </div>
       </div>
     </div>

@@ -2,8 +2,17 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-export default function QrActions({ eventId, hasExistingQr }: { eventId: number; hasExistingQr: boolean }) {
+export default function QrActions({
+  eventId,
+  hasExistingQr,
+  clueMode = 'QR_CODE',
+}: {
+  eventId: number
+  hasExistingQr: boolean
+  clueMode?: string
+}) {
   const router = useRouter()
+  const isCode = clueMode === 'CODE'
   const [loading, setLoading] = useState(false)
   const [dummyLoading, setDummyLoading] = useState(false)
   const [error, setError] = useState('')
@@ -11,7 +20,11 @@ export default function QrActions({ eventId, hasExistingQr }: { eventId: number;
 
   async function handleGenerate(force = false) {
     const msg = force
-      ? 'This will DELETE all existing QR codes and regenerate fresh ones (including festive Dummy Diwali QRs). All printed QRs will stop working. Continue?'
+      ? isCode
+        ? 'This will DELETE all existing clue codes and regenerate fresh 6-character codes (including festive Diwali Decoys). All old codes will stop working. Continue?'
+        : 'This will DELETE all existing QR codes and regenerate fresh ones (including festive Dummy Diwali QRs). All printed QRs will stop working. Continue?'
+      : isCode
+      ? 'Generate 6-character clue codes for all teams, stages, and festive Dummy Diwali Decoys?'
       : 'Generate QR codes for all teams, stages, and festive Dummy Diwali QRs?'
     if (!confirm(msg)) return
     setLoading(true); setError(''); setSuccess('')
@@ -22,11 +35,11 @@ export default function QrActions({ eventId, hasExistingQr }: { eventId: number;
         body: JSON.stringify({ force }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error ?? 'Failed to generate QR codes'); return }
-      setSuccess(`Generated ${data.created} QR codes (including Diwali decoys)!`)
+      if (!res.ok) { setError(data.error ?? 'Failed to generate codes'); return }
+      setSuccess(`Generated ${data.created} ${isCode ? 'clue codes' : 'QR codes'} (including Diwali decoys)!`)
       router.refresh()
     } catch {
-      setError('Network error generating QR codes')
+      setError(isCode ? 'Network error generating clue codes' : 'Network error generating QR codes')
     } finally {
       setLoading(false)
     }
@@ -41,11 +54,11 @@ export default function QrActions({ eventId, hasExistingQr }: { eventId: number;
         body: JSON.stringify({ addDummy: true }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error ?? 'Failed to add dummy QR'); return }
-      setSuccess('Added a new Fun Dummy Diwali Decoy QR!')
+      if (!res.ok) { setError(data.error ?? 'Failed to add decoy'); return }
+      setSuccess(`Added a new Fun Dummy Diwali Decoy ${isCode ? 'Code' : 'QR'}!`)
       router.refresh()
     } catch {
-      setError('Network error adding dummy QR')
+      setError(isCode ? 'Network error adding decoy code' : 'Network error adding dummy QR')
     } finally {
       setDummyLoading(false)
     }
@@ -67,7 +80,7 @@ export default function QrActions({ eventId, hasExistingQr }: { eventId: number;
               cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
             }}
           >
-            {loading ? 'Generating…' : 'Generate QR Codes (With Diwali Decoys)'}
+            {loading ? 'Generating…' : isCode ? 'Generate 6-Char Codes (With Decoys)' : 'Generate QR Codes (With Diwali Decoys)'}
           </button>
         ) : (
           <>
@@ -81,7 +94,7 @@ export default function QrActions({ eventId, hasExistingQr }: { eventId: number;
                 cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
               }}
             >
-              {loading ? 'Regenerating…' : '↺ Regenerate All QRs'}
+              {loading ? 'Regenerating…' : isCode ? '↺ Regenerate All Codes' : '↺ Regenerate All QRs'}
             </button>
 
             <button
@@ -96,7 +109,7 @@ export default function QrActions({ eventId, hasExistingQr }: { eventId: number;
               }}
             >
               <span>🪔</span>
-              <span>{dummyLoading ? 'Adding…' : '+ Add Dummy Diwali QR'}</span>
+              <span>{dummyLoading ? 'Adding…' : isCode ? '+ Add Dummy Decoy Code' : '+ Add Dummy Diwali QR'}</span>
             </button>
           </>
         )}
@@ -114,7 +127,7 @@ export default function QrActions({ eventId, hasExistingQr }: { eventId: number;
             <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
             </svg>
-            Download all as PDF
+            Download {isCode ? 'Codes' : 'QR'} PDF (3x3)
           </a>
         )}
       </div>

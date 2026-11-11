@@ -15,6 +15,13 @@ describe('createEventSchema', () => {
   test('accepts valid event', () => {
     expect(createEventSchema.safeParse(valid).success).toBe(true)
   })
+  test('accepts clueMode CODE and QR_CODE', () => {
+    expect(createEventSchema.safeParse({ ...valid, clueMode: 'CODE' }).success).toBe(true)
+    expect(createEventSchema.safeParse({ ...valid, clueMode: 'QR_CODE' }).success).toBe(true)
+  })
+  test('rejects invalid clueMode', () => {
+    expect(createEventSchema.safeParse({ ...valid, clueMode: 'BARCODE' }).success).toBe(false)
+  })
   test('rejects teamCount of 0', () => {
     expect(createEventSchema.safeParse({ ...valid, teamCount: 0 }).success).toBe(false)
   })

@@ -7,13 +7,16 @@ export default function ScanQrButton({
   isPaused,
   eventStatus = 'DRAFT',
   isFinal = false,
+  clueMode = 'QR_CODE',
 }: {
   isLive: boolean
   isPaused: boolean
   eventStatus?: string
   isFinal?: boolean
+  clueMode?: string
 }) {
   const router = useRouter()
+  const isCode = clueMode === 'CODE'
   const [loading, setLoading] = useState(false)
 
   function handleClick() {
@@ -28,8 +31,8 @@ export default function ScanQrButton({
     ? 'PAUSED'
     : isLive
     ? isFinal
-      ? '🏆 TEAM SELFIE & FINAL QR'
-      : 'TEAM SELFIE & SCAN QR'
+      ? isCode ? '🏆 TEAM SELFIE & FINAL CODE' : '🏆 TEAM SELFIE & FINAL QR'
+      : isCode ? 'TEAM SELFIE & ENTER CODE' : 'TEAM SELFIE & SCAN QR'
     : eventStatus === 'COMPLETED'
     ? '🏁 HUNT HAS ENDED'
     : eventStatus === 'READY'

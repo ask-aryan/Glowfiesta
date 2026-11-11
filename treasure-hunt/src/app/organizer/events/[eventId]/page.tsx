@@ -132,7 +132,9 @@ export default async function EventDetailPage({
               <>
                 <span><strong>{event.stagesPerTeam}</strong> Stages/Team</span>
                 <span>·</span>
-                <span>{event.hasCommonFinalQr ? '🎯 Common Final QR Included' : 'Team-Only QR'}</span>
+                <span>{event.clueMode === 'CODE' ? '🔢 6-Char Code Clues' : '📱 QR Code Scans'}</span>
+                <span>·</span>
+                <span>{event.hasCommonFinalQr ? '🎯 Common Final Included' : 'Team-Only Final'}</span>
                 <span>·</span>
                 <span>💡 {event.maxHintsPerTeam ?? 2} Hints/Team ({event.hintDelayMinutes ?? 5}m delay)</span>
               </>
@@ -150,6 +152,7 @@ export default async function EventDetailPage({
             description: event.description,
             status: event.status,
             gameType: event.gameType,
+            clueMode: event.clueMode,
             teamCount: event.teamCount,
             stagesPerTeam: event.stagesPerTeam,
             membersPerTeam: event.membersPerTeam,

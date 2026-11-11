@@ -5,6 +5,17 @@ export function generateToken(): string {
   return crypto.randomBytes(32).toString('hex')
 }
 
+const SIX_CHAR_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'
+
+export function generateSixCharCode(): string {
+  const bytes = crypto.randomBytes(6)
+  let code = ''
+  for (let i = 0; i < 6; i++) {
+    code += SIX_CHAR_ALPHABET[bytes[i] % SIX_CHAR_ALPHABET.length]
+  }
+  return code
+}
+
 export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex')
 }
